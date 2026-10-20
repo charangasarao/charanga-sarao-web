@@ -38,10 +38,9 @@ const NOMBRES_MESES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
-// Generar lista de meses desde Sep 2026 hasta Dic 2028
 const MESES_PERMITIDOS = [];
 for (let anio = 2026; anio <= 2028; anio++) {
-  const mesInicio = anio === 2026 ? 8 : 0; // Septiembre es índice 8
+  const mesInicio = anio === 2026 ? 8 : 0;
   const mesFin = 11;
   for (let mes = mesInicio; mes <= mesFin; mes++) {
     MESES_PERMITIDOS.push({ anio, mes, label: `${NOMBRES_MESES[mes]} ${anio}` });
@@ -61,8 +60,8 @@ export default function CharangaSaraoApp() {
   const [bolos, setBolos] = useState([
     {
       id: 1,
-      titulo: 'PASACALLES Y VERMÚ EN CUÉLLAR',
-      lugar: 'Plaza Mayor, Cuéllar',
+      titulo: 'Pasacalles y Vermú',
+      lugar: 'Cuéllar',
       fecha: '2027-08-15',
       horaInicio: '13:00h',
       horaFin: '17:00h',
@@ -81,14 +80,13 @@ export default function CharangaSaraoApp() {
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
 
-  // Navegación del Calendario (por defecto mes actual de la lista o Sep 2026)
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
 
   // Modales Bolos
   const [showModalBolo, setShowModalBolo] = useState(false);
   const [showModalEliminarBolos, setShowModalEliminarBolos] = useState(false);
-  const [nuevoTituloBolo, setNuevoTituloBolo] = useState('');
   const [nuevoLugarBolo, setNuevoLugarBolo] = useState('');
+  const [nuevoTituloBolo, setNuevoTituloBolo] = useState('');
   const [nuevaFechaBolo, setNuevaFechaBolo] = useState('');
   const [nuevaHoraInicioBolo, setNuevaHoraInicioBolo] = useState('');
   const [nuevaHoraFinBolo, setNuevaHoraFinBolo] = useState('');
@@ -127,8 +125,10 @@ export default function CharangaSaraoApp() {
       if (miembrosGuardados) setMiembros(JSON.parse(miembrosGuardados));
       if (bolosGuardados) setBolos(JSON.parse(bolosGuardados));
       if (boteGuardado) setMovimientosBote(JSON.parse(boteGuardado));
+      
       if (usuarioGuardado) {
-        setUsuarioActual(JSON.parse(usuarioGuardado));
+        const u = JSON.parse(usuarioGuardado);
+        setUsuarioActual(u);
         setAutenticado(true);
       }
     } catch (e) {
@@ -291,9 +291,9 @@ export default function CharangaSaraoApp() {
     setBolos(bolos.map(b => b.id === boloId ? { ...b, vestuario: nuevoVestuario } : b));
   };
 
-  const eliminarBolo = (boloId, boloTitulo) => {
+  const eliminarBolo = (boloId, boloLugar) => {
     if (!esAdmin) return;
-    if (confirm(`¿Eliminar el bolo "${boloTitulo}" definitivamente?`)) {
+    if (confirm(`¿Eliminar el bolo de "${boloLugar}" definitivamente?`)) {
       registrarSnapshot();
       setBolos(bolos.filter(b => b.id !== boloId));
       setMiembros(miembros.map(m => {
@@ -494,10 +494,9 @@ export default function CharangaSaraoApp() {
   const boloActual = bolos.find(b => b.id === boloSeleccionadoId);
   const bolosOrdenados = [...bolos].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-  // Cálculo de días para el mes visible en el calendario
   const mesSeleccionado = MESES_PERMITIDOS[mesIndexActivo] || MESES_PERMITIDOS[0];
   const totalDiasMes = new Date(mesSeleccionado.anio, mesSeleccionado.mes + 1, 0).getDate();
-  const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7; // Lunes=0, Domingo=6
+  const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7;
 
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
@@ -622,12 +621,15 @@ export default function CharangaSaraoApp() {
                             )}
                           </div>
 
-                          <h4 className="text-xl font-bold text-white tracking-wide mt-1 line-clamp-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                            {b.titulo}
+                          {/* LUGAR PRINCIPAL Y TÍTULO/TIPO SECUNDARIO */}
+                          <h4 className="text-2xl font-black text-white tracking-wide mt-1 line-clamp-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                            {b.lugar}
                           </h4>
-                          <p className="text-xs text-zinc-400 flex items-center gap-1 mt-1">
-                            <MapPin className="w-3.5 h-3.5 text-zinc-500 shrink-0"/> {b.lugar}
-                          </p>
+                          {b.titulo && (
+                            <p className="text-xs text-green-300 font-semibold mt-0.5">
+                              {b.titulo}
+                            </p>
+                          )}
 
                           <div className="mt-3 pt-3 border-t border-zinc-800/80 space-y-1.5 text-xs text-zinc-300">
                             <p className="flex items-center gap-1.5 text-zinc-400">
@@ -891,7 +893,7 @@ export default function CharangaSaraoApp() {
                 )}
               </div>
 
-              {/* SELECTOR Y NAVEGACIÓN DE MESES (Sep 2026 a Dic 2028) */}
+              {/* SELECTOR Y NAVEGACIÓN DE MESES */}
               <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 mb-6">
                 <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
@@ -933,12 +935,10 @@ export default function CharangaSaraoApp() {
                     <div key={d} className="font-bold text-zinc-500 py-1">{d}</div>
                   ))}
 
-                  {/* Espacios vacíos antes del primer día */}
                   {Array.from({ length: diaSemanaInicio }, (_, i) => (
                     <div key={`empty-${i}`} className="min-h-[80px] rounded-xl bg-zinc-950/20 border border-transparent"></div>
                   ))}
 
-                  {/* Días reales del mes */}
                   {Array.from({ length: totalDiasMes }, (_, i) => {
                     const diaNum = i + 1;
                     const mesFormateado = String(mesSeleccionado.mes + 1).padStart(2, '0');
@@ -957,9 +957,10 @@ export default function CharangaSaraoApp() {
                             <div
                               key={b.id}
                               onClick={() => setBoloSeleccionadoId(b.id)}
-                              className="text-[9px] leading-tight text-green-200 font-bold bg-green-500/40 p-1 rounded cursor-pointer hover:bg-green-500/60 truncate"
+                              className="text-[9px] leading-tight text-green-200 font-black bg-green-500/40 p-1 rounded cursor-pointer hover:bg-green-500/60 truncate"
+                              title={`${b.lugar}${b.titulo ? ` - ${b.titulo}` : ''}`}
                             >
-                              {b.lugar} ({b.horaInicio || 'Bolo'})
+                              📍 {b.lugar}
                             </div>
                           ))}
                         </div>
@@ -980,12 +981,20 @@ export default function CharangaSaraoApp() {
                         <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto">
                           <AlertCircle className="w-6 h-6"/>
                         </div>
-                        <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                          ¿Vas a asistir a {boloActual.titulo}?
-                        </h3>
-                        <p className="text-xs text-zinc-300">
-                          📍 {boloActual.lugar} • ⏰ Actuación: {boloActual.horaInicio || 'Pendiente'} a {boloActual.horaFin || 'Pendiente'}
-                        </p>
+                        <div>
+                          <p className="text-xs text-amber-400 font-bold uppercase tracking-wider">Confirmación de asistencia</p>
+                          <h3 className="text-3xl tracking-wide text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                            {boloActual.lugar}
+                          </h3>
+                          {boloActual.titulo && (
+                            <p className="text-xs text-green-300 font-bold mt-0.5">
+                              {boloActual.titulo}
+                            </p>
+                          )}
+                          <p className="text-xs text-zinc-400 mt-1">
+                            ⏰ Actuación: {boloActual.horaInicio || '13:00h'} a {boloActual.horaFin || '17:00h'}
+                          </p>
+                        </div>
                         
                         {usuarioActual.instrumentos?.length > 1 && (
                           <div className="max-w-xs mx-auto text-left">
@@ -1023,11 +1032,19 @@ export default function CharangaSaraoApp() {
                           <span className="text-xs font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-full uppercase">
                             Tu estado: <strong className="uppercase">{miDispo.estado.replace('_', ' ')}</strong> {miDispo.instrumento && `(${miDispo.instrumento})`}
                           </span>
-                          <h3 className="text-3xl tracking-wide text-white mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                            {boloActual.titulo}
+
+                          {/* TITULAR PRINCIPAL: LUGAR // SECUNDARIO: TIPO DE BOLO */}
+                          <h3 className="text-4xl tracking-wide text-white mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                            {boloActual.lugar}
                           </h3>
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 mt-1">
-                            <span>📍 {boloActual.lugar}</span>
+                          {boloActual.titulo && (
+                            <p className="text-sm font-black text-green-400 tracking-wide mt-0.5">
+                              {boloActual.titulo}
+                            </p>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 mt-2">
+                            <span>📅 <strong>{boloActual.fecha}</strong></span>
                             <span>🎺 Actuación: <strong>{boloActual.horaInicio || '13:00h'} - {boloActual.horaFin || '17:00h'}</strong></span>
                             {esAdmin && (
                               <span className="text-[11px] font-bold bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
@@ -1252,11 +1269,12 @@ export default function CharangaSaraoApp() {
                   bolos.map(b => (
                     <div key={b.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex justify-between items-center text-xs">
                       <div>
-                        <p className="font-bold text-white text-sm">{b.titulo}</p>
-                        <p className="text-zinc-400 text-[11px] mt-0.5">📅 {b.fecha} • 📍 {b.lugar}</p>
+                        <p className="font-black text-white text-base" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>📍 {b.lugar}</p>
+                        <p className="text-green-300 text-[11px]">{b.titulo}</p>
+                        <p className="text-zinc-500 text-[10px] mt-0.5">📅 {b.fecha}</p>
                       </div>
                       <button
-                        onClick={() => eliminarBolo(b.id, b.titulo)}
+                        onClick={() => eliminarBolo(b.id, b.lugar)}
                         className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black font-bold px-3 py-1.5 rounded-xl transition text-xs flex items-center gap-1"
                       >
                         <Trash2 className="w-3.5 h-3.5"/> Borrar
@@ -1400,19 +1418,19 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL AÑADIR BOLO (SIN HORA DE SALIDA) */}
+        {/* MODAL AÑADIR BOLO (LUGAR PRINCIPAL Y TIPO SECUNDARIO) */}
         {showModalBolo && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-green-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-black text-white mb-3">Añadir Nuevo Bolo</h3>
               <form onSubmit={(e) => {
                 e.preventDefault();
-                if (!nuevoTituloBolo || !nuevaFechaBolo) return;
+                if (!nuevoLugarBolo.trim() || !nuevaFechaBolo) return;
                 registrarSnapshot();
                 setBolos([...bolos, {
                   id: Date.now(),
-                  titulo: nuevoTituloBolo,
-                  lugar: nuevoLugarBolo,
+                  lugar: nuevoLugarBolo.trim(),
+                  titulo: nuevoTituloBolo.trim() || 'Actuación',
                   fecha: nuevaFechaBolo,
                   horaInicio: nuevaHoraInicioBolo,
                   horaFin: nuevaHoraFinBolo,
@@ -1421,20 +1439,20 @@ export default function CharangaSaraoApp() {
                   vestuario: 'Por definir',
                   cochesAsignados: []
                 }]);
-                setNuevoTituloBolo(''); setNuevoLugarBolo(''); setNuevaFechaBolo('');
+                setNuevoLugarBolo(''); setNuevoTituloBolo(''); setNuevaFechaBolo('');
                 setNuevaHoraInicioBolo(''); setNuevaHoraFinBolo('');
                 setNuevoPresupuestoBolo(''); setNuevoConFacturaBolo(false);
                 setShowModalBolo(false);
               }} className="space-y-3">
                 
                 <div>
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Título del Bolo:</label>
-                  <input type="text" placeholder="Ej: Fiestas Patronales / Pasacalles" value={nuevoTituloBolo} onChange={e => setNuevoTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" required />
+                  <label className="text-[11px] font-bold text-green-400 block mb-1">Lugar del Bolo (Titular principal):</label>
+                  <input type="text" placeholder="Ej: Cuéllar, Nava de la Asunción, Segovia..." value={nuevoLugarBolo} onChange={e => setNuevoLugarBolo(e.target.value)} className="w-full bg-black border border-green-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-green-400" required />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Lugar:</label>
-                  <input type="text" placeholder="Ej: Cuéllar / Plaza Mayor" value={nuevoLugarBolo} onChange={e => setNuevoLugarBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" required />
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo / Descripción (Secundario):</label>
+                  <input type="text" placeholder="Ej: Pasacalles y Vermú, Diana floreada, Fiesta de peñas..." value={nuevoTituloBolo} onChange={e => setNuevoTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
                 </div>
 
                 <div>
