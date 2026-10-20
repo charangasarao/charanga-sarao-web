@@ -61,7 +61,7 @@ export default function CharangaSaraoApp() {
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
 
-  // Modales y formularios
+  // Modales
   const [showModalBolo, setShowModalBolo] = useState(false);
   const [nuevoTituloBolo, setNuevoTituloBolo] = useState('');
   const [nuevoLugarBolo, setNuevoLugarBolo] = useState('');
@@ -83,11 +83,10 @@ export default function CharangaSaraoApp() {
 
   const [showModalGasolina, setShowModalGasolina] = useState(false);
   const [kmGasolina, setKmGasolina] = useState('');
-  const [consumoMedio, setConsumoMedio] = useState('6.5'); // 6.5 L/100km promedio
-  const [precioLitro, setPrecioLitro] = useState('1.45'); // 1.45 €/L
+  const [consumoMedio, setConsumoMedio] = useState('6.5');
+  const [precioLitro, setPrecioLitro] = useState('1.45');
   const [destinoGasolina, setDestinoGasolina] = useState('');
 
-  // Cargar LocalStorage
   useEffect(() => {
     try {
       const miembrosGuardados = localStorage.getItem('sarao_miembros');
@@ -113,7 +112,6 @@ export default function CharangaSaraoApp() {
     document.head.appendChild(link);
   }, []);
 
-  // Guardar en LocalStorage
   useEffect(() => {
     if (!cargado) return;
     localStorage.setItem('sarao_miembros', JSON.stringify(miembros));
@@ -153,10 +151,11 @@ export default function CharangaSaraoApp() {
     alert('Acción revertida correctamente.');
   };
 
+  // ROLES Y PERMISOS
   const esAdmin = usuarioActual?.roles?.includes('admin');
   const esConductor = usuarioActual?.roles?.includes('conductor') || esAdmin;
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
-  const puedeJefeCuerda = usuarioActual?.roles?.includes('jefe_cuerda') || esAdmin;
+  const esJefeCuerda = usuarioActual?.roles?.includes('jefe_cuerda');
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -238,13 +237,17 @@ export default function CharangaSaraoApp() {
     }));
   };
 
+  // ASIGNAR ROLES: EXCLUSIVO DEL ADMIN
   const toggleRolMiembro = (miembroId, rol) => {
-    if (!esAdmin) return;
+    if (!esAdmin) {
+      alert('Solo el Administrador tiene permiso para asignar o cambiar roles.');
+      return;
+    }
     registrarSnapshot();
     setMiembros(miembros.map(m => {
       if (m.id === miembroId) {
-        const tieneRol = m.roles.includes(rol);
-        const nuevosRoles = tieneRol ? m.roles.filter(r => r !== rol) : [...m.roles, rol];
+        const tieneRol = m.roles?.includes(rol);
+        const nuevosRoles = tieneRol ? m.roles.filter(r => r !== rol) : [...(m.roles || []), rol];
         const actualizado = { ...m, roles: nuevosRoles };
         if (usuarioActual.id === m.id) setUsuarioActual(actualizado);
         return actualizado;
@@ -253,20 +256,32 @@ export default function CharangaSaraoApp() {
     }));
   };
 
-  const eliminarDisponibilidadMiembro = (miembroId, cuerdaMiembro) => {
-    if (!esAdmin && usuarioActual.cuerda !== cuerdaMiembro) {
-      alert(`Solo puedes gestionar la asistencia de tu cuerda (${usuarioActual.cuerda}).`);
+  // ELIMINAR ASISTENCIA DE UN MÚSICO EN UN BOLO:
+  // Administrador: puede en cualquiera.
+  // Jefe de Cuerda: únicamente en la cuerda a la que pertenece.
+  const puedeEliminarAsistencia = (cuerdaMiembro) => {
+    if (esAdmin) return true;
+    if (esJefeCuerda && usuarioActual.cuerda === cuerdaMiembro) return true;
+    return false;
+  };
+
+  const eliminarDisponibilidadMiembro = (miembroId, cuerdaMiembro, nombreMiembro) => {
+    if (!puedeEliminarAsistencia(cuerdaMiembro)) {
+      alert(`Como jefe de cuerda, solo puedes descartar músicos de tu propia cuerda (${usuarioActual.cuerda}).`);
       return;
     }
-    registrarSnapshot();
-    setMiembros(miembros.map(m => {
-      if (m.id === miembroId) {
-        const nuevaDisp = { ...m.disponibilidadBolos };
-        delete nuevaDisp[boloSeleccionadoId];
-        return { ...m, disponibilidadBolos: nuevaDisp };
-      }
-      return m;
-    }));
+
+    if (confirm(`¿Descartar la plaza de ${nombreMiembro} para este bolo?`)) {
+      registrarSnapshot();
+      setMiembros(miembros.map(m => {
+        if (m.id === miembroId) {
+          const nuevaDisp = { ...m.disponibilidadBolos };
+          delete nuevaDisp[boloSeleccionadoId];
+          return { ...m, disponibilidadBolos: nuevaDisp };
+        }
+        return m;
+      }));
+    }
   };
 
   const eliminarMiembroPlantilla = (miembroId) => {
@@ -314,7 +329,6 @@ export default function CharangaSaraoApp() {
       return;
     }
 
-    // Fórmula: (km * consumoMedio / 100) * precioLitro
     const gastoCalculado = parseFloat(((km * cons / 100) * precio).toFixed(2));
     registrarSnapshot();
 
@@ -439,7 +453,7 @@ export default function CharangaSaraoApp() {
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
       
-      {/* BOTÓN DESHACER PARA ADMIN */}
+      {/* BOTÓN DESHACER (SOLO ADMIN) */}
       {esAdmin && historialEstados.length > 0 && (
         <div className="fixed top-20 right-4 z-50">
           <button
@@ -468,9 +482,14 @@ export default function CharangaSaraoApp() {
                     <Shield className="w-3 h-3" /> Admin
                   </span>
                 )}
+                {!esAdmin && esJefeCuerda && (
+                  <span className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">
+                    Jefe {usuarioActual.cuerda}
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-zinc-400 mt-0.5">
-                {usuarioActual.nombre} • <span className="text-green-300 font-bold">{usuarioActual.instrumentos?.join(', ')}</span>
+                {usuarioActual.nombre} • <span className="text-green-300 font-bold">{usuarioActual.instrumentos?.join(', ')}</span> ({usuarioActual.cuerda})
               </p>
             </div>
           </div>
@@ -500,7 +519,11 @@ export default function CharangaSaraoApp() {
                   Bienvenido a la app de gestión de Sarao
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
-                  {esAdmin ? 'Modo Administrador activado: gestión integral de bolos, estadísticas, roles y bote con opción de deshacer cambios.' : 'Calendario de bolos, confirmación de asistencia y bote.'}
+                  {esAdmin 
+                    ? 'Modo Administrador activado: control de bolos, estadísticas, roles y finanzas con opción de deshacer cambios.' 
+                    : esJefeCuerda
+                      ? `Jefe de cuerda de ${usuarioActual.cuerda}: puedes gestionar y filtrar los músicos sobrantes de tu cuerda en cada bolo.`
+                      : 'Calendario de bolos, confirmación de asistencia y bote.'}
                 </p>
               </div>
             </div>
@@ -519,7 +542,7 @@ export default function CharangaSaraoApp() {
                 <div>
                   <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Users className="w-6 h-6" /></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Plantilla</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Integrantes y roles.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Integrantes de Sarao.</p>
                 </div>
                 <span className="text-xs font-bold text-fuchsia-400 mt-4 block">&rarr; Ver plantilla ({miembros.length})</span>
               </div>
@@ -577,19 +600,23 @@ export default function CharangaSaraoApp() {
                             </span>
                             <p className="font-bold text-base text-zinc-100 mt-1">{m.nombre}</p>
                             <p className="text-xs text-zinc-400">Instrumentos: {m.instrumentos?.join(', ')}</p>
+                            <p className="text-[11px] text-zinc-500 mt-0.5">
+                              Roles: <strong className="text-zinc-300 uppercase">{m.roles?.join(', ')}</strong>
+                            </p>
                           </div>
 
                           {esAdmin && m.nombre.toLowerCase() !== 'edgar' && (
-                            <button onClick={() => eliminarMiembroPlantilla(m.id)} className="text-rose-400 hover:bg-rose-500/20 p-2 rounded-xl transition">
+                            <button onClick={() => eliminarMiembroPlantilla(m.id)} className="text-rose-400 hover:bg-rose-500/20 p-2 rounded-xl transition" title="Eliminar de la plantilla">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                         </div>
 
+                        {/* SECCIÓN ASIGNACIÓN DE ROLES: EXCLUSIVA DEL ADMIN */}
                         {esAdmin && (
                           <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
-                            <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1">
-                              <Key className="w-3 h-3 text-amber-400" /> Roles:
+                            <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
+                              <Key className="w-3 h-3 text-rose-400" /> Asignar rol (solo admin):
                             </span>
                             {[
                               { id: 'conductor', label: 'Conductor' },
@@ -623,7 +650,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* PANEL ADMIN */}
+        {/* PANEL ADMIN: EXCLUSIVO ADMIN */}
         {pestañaActiva === 'admin' && esAdmin && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
@@ -633,7 +660,7 @@ export default function CharangaSaraoApp() {
                   <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                     PANEL DE ADMINISTRACIÓN
                   </h2>
-                  <p className="text-xs text-zinc-400">Estadísticas acumuladas y control de deshacer errores.</p>
+                  <p className="text-xs text-zinc-400">Estadísticas acumuladas y control de deshacer acciones.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {historialEstados.length > 0 && (
@@ -856,22 +883,45 @@ export default function CharangaSaraoApp() {
                         </div>
                       </div>
 
-                      {/* Listas de Asistencia */}
+                      {/* Listas de Asistencia con filtro de Jefe de Cuerda y Admin */}
                       <div className="space-y-4">
                         <div>
-                          <h4 className="font-bold text-emerald-400 text-xs uppercase tracking-wider mb-2">🟢 Sí pueden ({dispoPuedo.length})</h4>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-bold text-emerald-400 text-xs uppercase tracking-wider">
+                              🟢 Confirmados ({dispoPuedo.length})
+                            </h4>
+                            {esJefeCuerda && !esAdmin && (
+                              <span className="text-[10px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-md">
+                                Puedes descartar sobrantes de tu cuerda: <strong className="text-emerald-400">{usuarioActual.cuerda}</strong>
+                              </span>
+                            )}
+                          </div>
+
                           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                             {dispoPuedo.map(m => {
                               const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
                               const dispM = m.disponibilidadBolos?.[boloActual.id];
+                              const puedeGestionarEste = puedeEliminarAsistencia(m.cuerda);
+
                               return (
                                 <div key={m.id} className={`p-3 rounded-2xl border flex items-center justify-between ${conf.bg} ${conf.border}`}>
                                   <div>
-                                    <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
+                                    <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
+                                      {m.cuerda}
+                                    </span>
+                                    <p className="font-bold text-sm text-zinc-100 mt-0.5">{m.nombre}</p>
                                     <p className="text-xs text-emerald-300 font-bold">Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
                                   </div>
-                                  {(esAdmin || (puedeJefeCuerda && usuarioActual.cuerda === m.cuerda)) && (
-                                    <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda)} className="text-rose-400 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  
+                                  {/* Botón de descarte: solo si eres Admin O si eres Jefe de Cuerda de ESTA cuerda */}
+                                  {puedeGestionarEste && (
+                                    <button 
+                                      onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} 
+                                      className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
+                                      title={`Descartar a ${m.nombre} de este bolo`}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
                                   )}
                                 </div>
                               );
@@ -883,14 +933,20 @@ export default function CharangaSaraoApp() {
                           <div>
                             <h4 className="font-bold text-amber-400 text-xs uppercase tracking-wider mb-2">🟡 Tal vez ({dispoTalVez.length})</h4>
                             <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                              {dispoTalVez.map(m => (
-                                <div key={m.id} className="p-3 rounded-2xl border bg-amber-500/10 border-amber-500/30 flex items-center justify-between">
-                                  <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
-                                  {(esAdmin || (puedeJefeCuerda && usuarioActual.cuerda === m.cuerda)) && (
-                                    <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda)} className="text-rose-400 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
-                                  )}
-                                </div>
-                              ))}
+                              {dispoTalVez.map(m => {
+                                const puedeGestionarEste = puedeEliminarAsistencia(m.cuerda);
+                                return (
+                                  <div key={m.id} className="p-3 rounded-2xl border bg-amber-500/10 border-amber-500/30 flex items-center justify-between">
+                                    <div>
+                                      <span className="text-[9px] font-black uppercase text-amber-300">{m.cuerda}</span>
+                                      <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
+                                    </div>
+                                    {puedeGestionarEste && (
+                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4" /></button>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -899,14 +955,20 @@ export default function CharangaSaraoApp() {
                           <div>
                             <h4 className="font-bold text-rose-400 text-xs uppercase tracking-wider mb-2">🔴 No pueden ({dispoNo.length})</h4>
                             <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                              {dispoNo.map(m => (
-                                <div key={m.id} className="p-3 rounded-2xl border bg-rose-500/10 border-rose-500/30 flex items-center justify-between">
-                                  <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
-                                  {(esAdmin || (puedeJefeCuerda && usuarioActual.cuerda === m.cuerda)) && (
-                                    <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda)} className="text-rose-400 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
-                                  )}
-                                </div>
-                              ))}
+                              {dispoNo.map(m => {
+                                const puedeGestionarEste = puedeEliminarAsistencia(m.cuerda);
+                                return (
+                                  <div key={m.id} className="p-3 rounded-2xl border bg-rose-500/10 border-rose-500/30 flex items-center justify-between">
+                                    <div>
+                                      <span className="text-[9px] font-black uppercase text-rose-300">{m.cuerda}</span>
+                                      <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
+                                    </div>
+                                    {puedeGestionarEste && (
+                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4" /></button>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -1014,7 +1076,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL CALCULADOR GASOLINA (CONDUCTORES Y ADMIN) */}
+        {/* MODAL CALCULADOR GASOLINA */}
         {showModalGasolina && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
@@ -1129,7 +1191,7 @@ export default function CharangaSaraoApp() {
                   <label className="text-xs text-zinc-400 block mb-1 font-bold">Concepto:</label>
                   <input
                     type="text"
-                    placeholder="Ej: Cobro Pasacalles Cuéllar o Compra Baquetas"
+                    placeholder="Ej: Cobro Pasacalles o Compra Repuestos"
                     value={conceptoBote}
                     onChange={e => setConceptoBote(e.target.value)}
                     className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
