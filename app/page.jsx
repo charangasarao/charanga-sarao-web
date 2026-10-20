@@ -5,7 +5,7 @@ import {
   Calendar as CalendarIcon, Car, Users, Wallet, Shield, MapPin, 
   Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, 
   UserPlus, Trash2, Shirt, ArrowRight, Home, Clock, AlertCircle, 
-  ChevronLeft, ChevronRight, BarChart3, Download, Undo2 
+  ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText, ChevronRightCircle
 } from 'lucide-react';
 
 const CONFIG_CUERDAS = {
@@ -27,8 +27,9 @@ const INSTRUMENTOS_DISPONIBLES = [
 ];
 
 const OPCIONES_VESTUARIO = [
+  { id: 'Por definir', label: 'Por definir', color: 'bg-zinc-900 text-zinc-400 border-zinc-800' },
   { id: 'Negro', label: 'Camiseta Negra', color: 'bg-zinc-800 text-zinc-100 border-zinc-700' },
-  { id: 'Blanco', label: 'Camiseta Blanca', color: 'bg-zinc-100 text-black border-white' },
+  { id: 'Blanco', label: 'Camiseta Blanca', color: 'bg-zinc-100 text-black border-white font-black' },
   { id: 'Full Print', label: 'Full Print Sarao', color: 'bg-gradient-to-r from-green-500 to-emerald-400 text-black font-black border-green-400' }
 ];
 
@@ -54,6 +55,7 @@ export default function CharangaSaraoApp() {
       horaFin: '17:00h',
       vestuario: 'Negro',
       presupuesto: 1200,
+      conFactura: true,
       cochesAsignados: []
     }
   ]);
@@ -77,7 +79,8 @@ export default function CharangaSaraoApp() {
   const [nuevaSalidaBolo, setNuevaSalidaBolo] = useState('');
   const [nuevaHoraInicioBolo, setNuevaHoraInicioBolo] = useState('');
   const [nuevaHoraFinBolo, setNuevaHoraFinBolo] = useState('');
-  const [nuevoVestuarioBolo, setNuevoVestuarioBolo] = useState('Negro');
+  const [nuevoPresupuestoBolo, setNuevoPresupuestoBolo] = useState('');
+  const [nuevoConFacturaBolo, setNuevoConFacturaBolo] = useState(false);
 
   // Modal Trayecto Conductor Avanzado
   const [showModalTrayectoBolo, setShowModalTrayectoBolo] = useState(false);
@@ -102,6 +105,7 @@ export default function CharangaSaraoApp() {
   const [precioLitro, setPrecioLitro] = useState('1.45');
   const [destinoGasolina, setDestinoGasolina] = useState('');
 
+  // 1. CARGA INICIAL: Mantiene la sesión iniciada automáticamente
   useEffect(() => {
     try {
       const miembrosGuardados = localStorage.getItem('sarao_miembros');
@@ -112,8 +116,11 @@ export default function CharangaSaraoApp() {
       if (miembrosGuardados) setMiembros(JSON.parse(miembrosGuardados));
       if (bolosGuardados) setBolos(JSON.parse(bolosGuardados));
       if (boteGuardado) setMovimientosBote(JSON.parse(boteGuardado));
+      
+      // Auto-login si ya existe el usuario guardado en el navegador
       if (usuarioGuardado) {
-        setUsuarioActual(JSON.parse(usuarioGuardado));
+        const u = JSON.parse(usuarioGuardado);
+        setUsuarioActual(u);
         setAutenticado(true);
       }
     } catch (e) {
@@ -127,6 +134,7 @@ export default function CharangaSaraoApp() {
     document.head.appendChild(link);
   }, []);
 
+  // 2. GUARDADO AUTOMÁTICO EN LOCALSTORAGE
   useEffect(() => {
     if (!cargado) return;
     localStorage.setItem('sarao_miembros', JSON.stringify(miembros));
@@ -161,11 +169,15 @@ export default function CharangaSaraoApp() {
 
     if (usuarioActual) {
       const uRev = anterior.miembros.find(m => m.id === usuarioActual.id);
-      if (uRev) setUsuarioActual(uRev);
+      if (uRev) {
+        setUsuarioActual(uRev);
+        localStorage.setItem('sarao_usuario_actual', JSON.stringify(uRev));
+      }
     }
     alert('Acción revertida correctamente.');
   };
 
+  // ROLES Y PERMISOS
   const esAdmin = usuarioActual?.roles?.includes('admin');
   const esConductor = usuarioActual?.roles?.includes('conductor') || esAdmin;
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
@@ -196,6 +208,7 @@ export default function CharangaSaraoApp() {
         roles: esAdminAcceso && !existente.roles.includes('admin') ? [...new Set([...existente.roles, 'admin', 'conductor', 'jefe_cuerda'])] : existente.roles
       };
       setUsuarioActual(miembroActualizado);
+      localStorage.setItem('sarao_usuario_actual', JSON.stringify(miembroActualizado));
       setAutenticado(true);
       return;
     }
@@ -213,6 +226,7 @@ export default function CharangaSaraoApp() {
     const nuevaLista = [...miembros, nuevoMiembro];
     setMiembros(nuevaLista);
     setUsuarioActual(nuevoMiembro);
+    localStorage.setItem('sarao_usuario_actual', JSON.stringify(nuevoMiembro));
     setAutenticado(true);
   };
 
@@ -251,7 +265,6 @@ export default function CharangaSaraoApp() {
     }));
   };
 
-  // ASIGNAR ROLES: EXCLUSIVO DEL ADMIN
   const toggleRolMiembro = (miembroId, rol) => {
     if (!esAdmin) return;
     registrarSnapshot();
@@ -267,14 +280,14 @@ export default function CharangaSaraoApp() {
     }));
   };
 
-  // CAMBIAR VESTUARIO: EXCLUSIVO DEL ADMIN
+  // CAMBIO DE VESTUARIO EXCLUSIVO ADMIN
   const cambiarVestuarioBolo = (boloId, nuevoVestuario) => {
     if (!esAdmin) return;
     registrarSnapshot();
     setBolos(bolos.map(b => b.id === boloId ? { ...b, vestuario: nuevoVestuario } : b));
   };
 
-  // ELIMINACIÓN DE BOLOS (ADMIN)
+  // ELIMINAR BOLO (ADMIN)
   const eliminarBolo = (boloId, boloTitulo) => {
     if (!esAdmin) return;
     if (confirm(`¿Eliminar el bolo "${boloTitulo}" definitivamente?`)) {
@@ -467,7 +480,7 @@ export default function CharangaSaraoApp() {
                 onChange={e => setPasswordInput(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
               />
-              <p className="text-[10px] text-zinc-500 mt-1">El nombre "Edgar" o la clave admin2027 otorgan acceso completo de Administrador.</p>
+              <p className="text-[10px] text-zinc-500 mt-1">Una vez entres, tu sesión quedará guardada permanentemente.</p>
             </div>
 
             <button type="submit" className="w-full bg-green-500 text-black font-black py-3.5 rounded-2xl text-sm shadow-lg cursor-pointer mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif", fontSize: '1.2rem' }}>
@@ -480,6 +493,7 @@ export default function CharangaSaraoApp() {
   }
 
   const boloActual = bolos.find(b => b.id === boloSeleccionadoId);
+  const bolosOrdenados = [...bolos].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
@@ -538,7 +552,7 @@ export default function CharangaSaraoApp() {
 
       <main className="max-w-5xl mx-auto p-4 sm:p-6">
 
-        {/* INICIO */}
+        {/* INICIO / LANDING PAGE */}
         {pestañaActiva === 'landing' && (
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl">
@@ -551,14 +565,97 @@ export default function CharangaSaraoApp() {
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
                   {esAdmin 
-                    ? 'Modo Administrador activado: gestión de bolos, vestuarios, estadísticas, roles y finanzas.' 
+                    ? 'Modo Administrador activado: gestión de bolos con presupuestos, facturas, vestuarios y finanzas.' 
                     : esJefeCuerda
-                      ? `Jefe de cuerda de ${usuarioActual.cuerda}: gestiona las plazas de tu sección en cada bolo.`
+                      ? `Jefe de cuerda de ${usuarioActual.cuerda}: revisa y gestiona la asistencia de tu sección.`
                       : 'Calendario de bolos, confirmación de asistencia, coches y bote.'}
                 </p>
               </div>
             </div>
 
+            {/* CARRUSEL DESLIZABLE HORIZONTAL: PRÓXIMOS BOLOS */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center px-1">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5 text-green-400" /> Próximos Bolos
+                </h3>
+                <span className="text-xs text-zinc-500">Desliza para ver más &rarr;</span>
+              </div>
+
+              {bolosOrdenados.length === 0 ? (
+                <div className="p-6 bg-zinc-900/50 rounded-3xl border border-zinc-800 text-center text-xs text-zinc-500">
+                  No hay bolos programados actualmente.
+                </div>
+              ) : (
+                <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-zinc-700">
+                  {bolosOrdenados.map(b => {
+                    const dispMiembro = usuarioActual.disponibilidadBolos?.[b.id]?.estado;
+                    const vest = OPCIONES_VESTUARIO.find(v => v.id === b.vestuario) || OPCIONES_VESTUARIO[0];
+                    const numConfirmados = miembros.filter(m => m.disponibilidadBolos?.[b.id]?.estado === 'puedo').length;
+
+                    return (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          setBoloSeleccionadoId(b.id);
+                          setPestañaActiva('bolos');
+                        }}
+                        className="snap-start shrink-0 w-[290px] sm:w-[320px] bg-zinc-900 border border-zinc-800 hover:border-green-500/70 rounded-3xl p-5 cursor-pointer transition shadow-xl hover:scale-[1.02] flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex justify-between items-start gap-2 mb-2">
+                            <span className="text-xs font-black bg-green-500/20 text-green-400 px-3 py-1 rounded-full border border-green-500/30">
+                              📅 {b.fecha}
+                            </span>
+                            {dispMiembro && (
+                              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                dispMiembro === 'puedo' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
+                                dispMiembro === 'tal_vez' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
+                                'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                              }`}>
+                                {dispMiembro === 'puedo' ? 'Confirmado' : dispMiembro === 'tal_vez' ? 'En duda' : 'No vas'}
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="text-xl font-bold text-white tracking-wide mt-1 line-clamp-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                            {b.titulo}
+                          </h4>
+                          <p className="text-xs text-zinc-400 flex items-center gap-1 mt-1">
+                            <MapPin className="w-3.5 h-3.5 text-zinc-500 shrink-0" /> {b.lugar}
+                          </p>
+
+                          <div className="mt-3 pt-3 border-t border-zinc-800/80 space-y-1.5 text-xs text-zinc-300">
+                            {b.horarioSalida && (
+                              <p className="flex items-center gap-1.5 text-zinc-400">
+                                <Car className="w-3.5 h-3.5 text-blue-400" /> Salida viaje: <strong className="text-white">{b.horarioSalida}</strong>
+                              </p>
+                            )}
+                            <p className="flex items-center gap-1.5 text-zinc-400">
+                              <Clock className="w-3.5 h-3.5 text-green-400" /> Tocar: <strong className="text-white">{b.horaInicio || '13:00h'} - {b.horaFin || '17:00h'}</strong>
+                            </p>
+                            <p className="flex items-center gap-1.5 text-zinc-400">
+                              <Shirt className="w-3.5 h-3.5 text-amber-400" /> Ropa: <strong className="text-zinc-200">{vest.label}</strong>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-zinc-800/80 flex justify-between items-center">
+                          <span className="text-[11px] font-bold text-zinc-400">
+                            👥 <strong className="text-emerald-400">{numConfirmados}</strong> confirmados
+                          </span>
+                          <span className="text-xs font-bold text-green-400 flex items-center gap-1">
+                            Ver detalles &rarr;
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ACCESOS DIRECTOS */}
             <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
               <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
@@ -643,6 +740,7 @@ export default function CharangaSaraoApp() {
                           )}
                         </div>
 
+                        {/* ASIGNACIÓN DE ROLES: EXCLUSIVA ADMIN */}
                         {esAdmin && (
                           <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
                             <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
@@ -775,7 +873,7 @@ export default function CharangaSaraoApp() {
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
               
-              {/* CABECERA: BOTÓN AÑADIR BOLO Y BOTÓN ELIMINAR BOLO JUNTOS */}
+              {/* CABECERA */}
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
                 <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                   CALENDARIO DE BOLOS
@@ -894,6 +992,13 @@ export default function CharangaSaraoApp() {
                             <span>📍 {boloActual.lugar}</span>
                             {boloActual.horarioSalida && <span>🚗 Salida: <strong>{boloActual.horarioSalida}</strong></span>}
                             <span>🎺 Actuación: <strong>{boloActual.horaInicio || '13:00h'} - {boloActual.horaFin || '17:00h'}</strong></span>
+                            
+                            {/* PRESUPUESTO Y FACTURA VISIBLE SOLO PARA ADMIN */}
+                            {esAdmin && (
+                              <span className="text-[11px] font-bold bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
+                                💰 {boloActual.presupuesto ? `${boloActual.presupuesto} €` : 'Sin presupuesto fijado'} • {boloActual.conFactura ? 'Factura Sí' : 'Sin factura'}
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -925,7 +1030,6 @@ export default function CharangaSaraoApp() {
                                     <span className="text-[10px] bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">{car.vehiculo}</span>
                                   </div>
                                   
-                                  {/* Itinerario con horas */}
                                   <div className="text-zinc-300 text-[11px] space-y-0.5 pt-1">
                                     <p>🚩 Origen: <strong className="text-white">{car.origen}</strong> {car.horaSalida && <span className="text-blue-300 font-semibold">({car.horaSalida})</span>}</p>
                                     {car.paradas && car.paradas.length > 0 && (
@@ -957,8 +1061,8 @@ export default function CharangaSaraoApp() {
                         </div>
                       </div>
 
-                      {/* VESTUARIO DEL BOLO: JUSTO ARRIBA DE LOS PARTICIPANTES */}
-                      <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      {/* VESTUARIO OFICIAL: JUSTO DESPUÉS DE CONFIRMACIÓN Y ENCIMA DE PARTICIPANTES */}
+                      <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
                         <div className="flex items-center gap-2.5">
                           <div className="p-2.5 bg-green-500/20 text-green-400 rounded-xl">
                             <Shirt className="w-5 h-5" />
@@ -969,12 +1073,12 @@ export default function CharangaSaraoApp() {
                           </div>
                         </div>
 
-                        {/* Opciones de vestuario: Interactivas solo para el Admin, solo lectura para los demás */}
+                        {/* Opciones de vestuario: Solo el Admin puede interactuar y cambiarlo */}
                         {esAdmin ? (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] text-zinc-500 font-bold uppercase mr-1">Cambiar vestuario:</span>
+                            <span className="text-[10px] text-zinc-500 font-bold uppercase mr-1">Elegir ropa (Admin):</span>
                             {OPCIONES_VESTUARIO.map(opt => {
-                              const seleccionado = (boloActual.vestuario || 'Negro') === opt.id;
+                              const seleccionado = (boloActual.vestuario || 'Por definir') === opt.id;
                               return (
                                 <button
                                   key={opt.id}
@@ -997,7 +1101,7 @@ export default function CharangaSaraoApp() {
                         )}
                       </div>
 
-                      {/* ASISTENCIAS */}
+                      {/* DESGLOSE DE PARTICIPANTES / ASISTENCIAS */}
                       <div className="space-y-4">
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -1106,7 +1210,7 @@ export default function CharangaSaraoApp() {
                 <Trash2 className="w-5 h-5 text-rose-400" />
                 <h3 className="text-lg font-black text-white">Eliminar Bolo</h3>
               </div>
-              <p className="text-xs text-zinc-400 mb-4">Selecciona el bolo que deseas retirar del calendario. Se eliminará sin necesidad de responder a la encuesta de asistencia.</p>
+              <p className="text-xs text-zinc-400 mb-4">Selecciona el bolo que deseas retirar del calendario.</p>
 
               <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
                 {bolos.length === 0 ? (
@@ -1168,7 +1272,6 @@ export default function CharangaSaraoApp() {
                 };
                 setBolos(bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: [...(b.cochesAsignados || []), nuevoCar] } : b));
                 
-                // Limpiar
                 setOrigenTrayecto(''); setHoraSalidaOrigen('');
                 setParadasIntermedias([{ lugar: '', hora: '' }]);
                 setDestinoTrayecto(''); setHoraLlegadaDestino(''); setVehiculoTrayecto('');
@@ -1180,7 +1283,6 @@ export default function CharangaSaraoApp() {
                   <input type="text" placeholder="Ej: Coche propio, Furgoneta..." value={vehiculoTrayecto} onChange={e => setVehiculoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
                 </div>
 
-                {/* Origen y Hora */}
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2">
                     <label className="text-[11px] font-bold text-zinc-400 block mb-1">Lugar de Salida (Origen):</label>
@@ -1192,7 +1294,6 @@ export default function CharangaSaraoApp() {
                   </div>
                 </div>
 
-                {/* Puntos Intermedios Dinámicos */}
                 <div className="space-y-2 pt-1 border-t border-zinc-800">
                   <div className="flex justify-between items-center">
                     <label className="text-[11px] font-bold text-amber-400">Puntos Intermedios de recogida:</label>
@@ -1242,7 +1343,6 @@ export default function CharangaSaraoApp() {
                   ))}
                 </div>
 
-                {/* Destino y Hora */}
                 <div className="grid grid-cols-3 gap-2 pt-1 border-t border-zinc-800">
                   <div className="col-span-2">
                     <label className="text-[11px] font-bold text-zinc-400 block mb-1">Destino final:</label>
@@ -1267,10 +1367,10 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL NUEVO BOLO CON HORAS DE INICIO Y FIN Y VESTUARIO */}
+        {/* MODAL NUEVO BOLO CON PRESUPUESTO, FACTURA Y HORARIOS (SIN VESTUARIO) */}
         {showModalBolo && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-zinc-900 border border-green-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+            <div className="bg-zinc-900 border border-green-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-black text-white mb-3">Añadir Nuevo Bolo</h3>
               <form onSubmit={(e) => {
                 e.preventDefault();
@@ -1284,12 +1384,14 @@ export default function CharangaSaraoApp() {
                   horarioSalida: nuevaSalidaBolo,
                   horaInicio: nuevaHoraInicioBolo,
                   horaFin: nuevaHoraFinBolo,
-                  vestuario: nuevoVestuarioBolo,
-                  presupuesto: 0,
+                  presupuesto: parseFloat(nuevoPresupuestoBolo) || 0,
+                  conFactura: nuevoConFacturaBolo,
+                  vestuario: 'Por definir', // El vestuario se elige posteriormente en la ficha
                   cochesAsignados: []
                 }]);
                 setNuevoTituloBolo(''); setNuevoLugarBolo(''); setNuevaFechaBolo('');
                 setNuevaSalidaBolo(''); setNuevaHoraInicioBolo(''); setNuevaHoraFinBolo('');
+                setNuevoPresupuestoBolo(''); setNuevoConFacturaBolo(false);
                 setShowModalBolo(false);
               }} className="space-y-3">
                 
@@ -1326,20 +1428,31 @@ export default function CharangaSaraoApp() {
                   </div>
                 </div>
 
-                {/* SELECTOR DE VESTUARIO */}
-                <div className="pt-1 border-t border-zinc-800">
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Vestuario inicial:</label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {OPCIONES_VESTUARIO.map(v => (
-                      <button
-                        type="button"
-                        key={v.id}
-                        onClick={() => setNuevoVestuarioBolo(v.id)}
-                        className={`py-2 rounded-xl text-xs font-bold border transition ${nuevoVestuarioBolo === v.id ? 'bg-green-500 text-black border-green-500' : 'bg-black text-zinc-400 border-zinc-800'}`}
-                      >
-                        {v.id}
-                      </button>
-                    ))}
+                {/* PRESUPUESTO Y FACTURA (SOLO ADMIN) */}
+                <div className="pt-2 border-t border-zinc-800 space-y-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto acordado (€):</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Ej: 1200"
+                      value={nuevoPresupuestoBolo}
+                      onChange={e => setNuevoPresupuestoBolo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="facturaCheck"
+                      checked={nuevoConFacturaBolo}
+                      onChange={e => setNuevoConFacturaBolo(e.target.checked)}
+                      className="w-4 h-4 accent-green-500 rounded cursor-pointer"
+                    />
+                    <label htmlFor="facturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-zinc-400" /> Se cobra con Factura oficial
+                    </label>
                   </div>
                 </div>
 
