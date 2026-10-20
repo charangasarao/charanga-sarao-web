@@ -61,8 +61,9 @@ export default function CharangaSaraoApp() {
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
 
-  // Modales
+  // Modales Bolos
   const [showModalBolo, setShowModalBolo] = useState(false);
+  const [showModalEliminarBolos, setShowModalEliminarBolos] = useState(false);
   const [nuevoTituloBolo, setNuevoTituloBolo] = useState('');
   const [nuevoLugarBolo, setNuevoLugarBolo] = useState('');
   const [nuevaFechaBolo, setNuevaFechaBolo] = useState('');
@@ -151,7 +152,6 @@ export default function CharangaSaraoApp() {
     alert('Acción revertida correctamente.');
   };
 
-  // ROLES Y PERMISOS DELIMITADOS
   const esAdmin = usuarioActual?.roles?.includes('admin');
   const esConductor = usuarioActual?.roles?.includes('conductor') || esAdmin;
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
@@ -237,10 +237,9 @@ export default function CharangaSaraoApp() {
     }));
   };
 
-  // ASIGNAR ROLES: EXCLUSIVO DEL ADMIN
   const toggleRolMiembro = (miembroId, rol) => {
     if (!esAdmin) {
-      alert('Solo el Administrador tiene permiso para asignar o cambiar roles.');
+      alert('Solo el Administrador tiene permiso para asignar roles.');
       return;
     }
     registrarSnapshot();
@@ -256,27 +255,23 @@ export default function CharangaSaraoApp() {
     }));
   };
 
-  // ELIMINAR BOLO: EXCLUSIVO DEL ADMIN
+  // ELIMINACIÓN DE BOLOS (ADMIN)
   const eliminarBolo = (boloId, boloTitulo) => {
-    if (!esAdmin) {
-      alert('Solo el Administrador puede eliminar bolos.');
-      return;
-    }
-    if (confirm(`¿Estás seguro de eliminar el bolo "${boloTitulo}"? Esta acción borrará el evento y las confirmaciones asociadas.`)) {
+    if (!esAdmin) return;
+    if (confirm(`¿Eliminar el bolo "${boloTitulo}" definitivamente?`)) {
       registrarSnapshot();
       setBolos(bolos.filter(b => b.id !== boloId));
-      // Limpiar disponibilidades de los miembros para este bolo
       setMiembros(miembros.map(m => {
         const disp = { ...m.disponibilidadBolos };
         delete disp[boloId];
         return { ...m, disponibilidadBolos: disp };
       }));
-      setBoloSeleccionadoId(null);
-      alert('Bolo eliminado correctamente.');
+      if (boloSeleccionadoId === boloId) {
+        setBoloSeleccionadoId(null);
+      }
     }
   };
 
-  // ELIMINAR ASISTENCIA DE UN MÚSICO EN UN BOLO:
   const puedeEliminarAsistencia = (cuerdaMiembro) => {
     if (esAdmin) return true;
     if (esJefeCuerda && usuarioActual.cuerda === cuerdaMiembro) return true;
@@ -289,7 +284,7 @@ export default function CharangaSaraoApp() {
       return;
     }
 
-    if (confirm(`¿Descartar la plaza de ${nombreMiembro} para este bolo?`)) {
+    if (confirm(`¿Descartar a ${nombreMiembro} de este bolo?`)) {
       registrarSnapshot();
       setMiembros(miembros.map(m => {
         if (m.id === miembroId) {
@@ -310,7 +305,6 @@ export default function CharangaSaraoApp() {
     }
   };
 
-  // Acciones de Bote
   const agregarMovimientoGeneralBote = (e) => {
     e.preventDefault();
     if (!esTesorero) return;
@@ -365,7 +359,7 @@ export default function CharangaSaraoApp() {
     setKmGasolina('');
     setDestinoGasolina('');
     setShowModalGasolina(false);
-    alert(`Se ha registrado el gasto de gasolina por ${gastoCalculado} € en el bote.`);
+    alert(`Se ha registrado el gasto de combustible por ${gastoCalculado} € en el bote.`);
   };
 
   const eliminarMovimientoBote = (movId) => {
@@ -454,7 +448,7 @@ export default function CharangaSaraoApp() {
                 onChange={e => setPasswordInput(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
               />
-              <p className="text-[10px] text-zinc-500 mt-1">Tu nombre "Edgar" o la clave admin2027 otorgan acceso completo de Administrador.</p>
+              <p className="text-[10px] text-zinc-500 mt-1">El nombre "Edgar" o la clave admin2027 otorgan acceso completo de Administrador.</p>
             </div>
 
             <button type="submit" className="w-full bg-green-500 text-black font-black py-3.5 rounded-2xl text-sm shadow-lg cursor-pointer mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif", fontSize: '1.2rem' }}>
@@ -538,9 +532,9 @@ export default function CharangaSaraoApp() {
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
                   {esAdmin 
-                    ? 'Modo Administrador activado: gestión integral de bolos (añadir/eliminar), estadísticas, asignación de roles y finanzas.' 
+                    ? 'Modo Administrador activado: gestión de bolos, estadísticas, roles y finanzas con opción de deshacer cambios.' 
                     : esJefeCuerda
-                      ? `Jefe de cuerda de ${usuarioActual.cuerda}: gestiona la plaza de los músicos de tu sección en cada bolo.`
+                      ? `Jefe de cuerda de ${usuarioActual.cuerda}: puedes gestionar las plazas de tu sección en cada bolo.`
                       : 'Calendario de bolos, confirmación de asistencia y bote.'}
                 </p>
               </div>
@@ -569,7 +563,7 @@ export default function CharangaSaraoApp() {
                 <div>
                   <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6" /></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bote</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Tesorería y combustible.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Tesorería y gasolinas.</p>
                 </div>
                 <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Saldo ({saldoTotal.toFixed(2)} €)</span>
               </div>
@@ -630,7 +624,7 @@ export default function CharangaSaraoApp() {
                           )}
                         </div>
 
-                        {/* ASIGNACIÓN DE ROLES: EXCLUSIVA DEL ADMIN */}
+                        {/* ASIGNACIÓN DE ROLES: EXCLUSIVA ADMIN */}
                         {esAdmin && (
                           <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
                             <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
@@ -763,18 +757,30 @@ export default function CharangaSaraoApp() {
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
               
+              {/* CABECERA: BOTÓN AÑADIR BOLO Y BOTÓN ELIMINAR BOLO JUNTOS */}
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
                 <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                   CALENDARIO DE BOLOS
                 </h2>
                 {esAdmin && (
-                  <button onClick={() => setShowModalBolo(true)} className="bg-green-500 hover:bg-green-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow">
-                    <Plus className="w-4 h-4" /> + Añadir Bolo
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setShowModalBolo(true)} 
+                      className="bg-green-500 hover:bg-green-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
+                    >
+                      <Plus className="w-4 h-4" /> + Añadir Bolo
+                    </button>
+                    <button 
+                      onClick={() => setShowModalEliminarBolos(true)} 
+                      className="bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow transition"
+                    >
+                      <Trash2 className="w-4 h-4" /> - Eliminar Bolo
+                    </button>
+                  </div>
                 )}
               </div>
 
-              {/* Calendario */}
+              {/* Calendario Mensual */}
               <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 mb-6">
                 <h3 className="text-lg font-bold text-white mb-4">Agosto 2027</h3>
                 <div className="grid grid-cols-7 gap-1 text-center text-xs">
@@ -852,7 +858,7 @@ export default function CharangaSaraoApp() {
                   return (
                     <div className="space-y-6 pt-4 border-t border-zinc-800">
                       
-                      {/* CABECERA DEL BOLO SELECCIONADO */}
+                      {/* INFORMACIÓN DEL BOLO SELECCIONADO */}
                       <div className="flex justify-between items-start flex-wrap gap-4">
                         <div>
                           <span className="text-xs font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-full uppercase">
@@ -864,22 +870,9 @@ export default function CharangaSaraoApp() {
                           <p className="text-zinc-300 text-xs mt-1">📍 {boloActual.lugar} • 🕚 Salida: {boloActual.horarioSalida}</p>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl transition">
-                            🔄 Cambiar asistencia
-                          </button>
-
-                          {/* BOTÓN ELIMINAR BOLO (SOLO ADMIN) */}
-                          {esAdmin && (
-                            <button
-                              onClick={() => eliminarBolo(boloActual.id, boloActual.titulo)}
-                              className="text-xs bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 px-3 py-2 rounded-xl flex items-center gap-1.5 transition font-bold"
-                              title="Eliminar bolo completo"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-400" /> Eliminar Bolo
-                            </button>
-                          )}
-                        </div>
+                        <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl transition">
+                          🔄 Cambiar asistencia
+                        </button>
                       </div>
 
                       {/* Trayectos y coches */}
@@ -919,7 +912,7 @@ export default function CharangaSaraoApp() {
                         </div>
                       </div>
 
-                      {/* Asistencias con gestión de sobrantes */}
+                      {/* Asistencias con filtro de descarte para Jefe de Cuerda y Admin */}
                       <div className="space-y-4">
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -1020,6 +1013,50 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
+        {/* MODAL PARA ELIMINAR CUALQUIER BOLO DIRECTAMENTE (SOLO ADMIN) */}
+        {showModalEliminarBolos && esAdmin && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border border-rose-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+              <div className="flex items-center gap-2 mb-3">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+                <h3 className="text-lg font-black text-white">Eliminar Bolo</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">Selecciona el bolo que deseas retirar del calendario. Se eliminará sin necesidad de responder a la encuesta de asistencia.</p>
+
+              <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
+                {bolos.length === 0 ? (
+                  <p className="text-xs text-zinc-500 text-center py-4">No hay bolos creados actualmente.</p>
+                ) : (
+                  bolos.map(b => (
+                    <div key={b.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex justify-between items-center text-xs">
+                      <div>
+                        <p className="font-bold text-white text-sm">{b.titulo}</p>
+                        <p className="text-zinc-400 text-[11px] mt-0.5">📅 {b.fecha} • 📍 {b.lugar}</p>
+                      </div>
+                      <button
+                        onClick={() => eliminarBolo(b.id, b.titulo)}
+                        className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black font-bold px-3 py-1.5 rounded-xl transition text-xs flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Borrar
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModalEliminarBolos(false)}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-2.5 rounded-xl text-sm"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* BOTE / TESORERÍA */}
         {pestañaActiva === 'bote' && (
           <div className="space-y-6">
@@ -1034,7 +1071,7 @@ export default function CharangaSaraoApp() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* CALCULADOR GASOLINA: VISIBLE ÚNICAMENTE A ADMIN Y CONDUCTORES */}
+                  {/* CALCULADOR GASOLINA: SOLO ADMIN Y CONDUCTORES */}
                   {esConductor && (
                     <button
                       onClick={() => setShowModalGasolina(true)}
@@ -1112,7 +1149,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL CALCULADOR GASOLINA (EXCLUSIVO CONDUCTORES Y ADMIN) */}
+        {/* MODAL CALCULADOR GASOLINA (CONDUCTORES Y ADMIN) */}
         {showModalGasolina && esConductor && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
