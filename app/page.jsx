@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, Car, Users, Wallet, Shield, MapPin, 
   Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, 
@@ -35,7 +35,7 @@ export default function CharangaSaraoApp() {
   const PASSWORD_CHARANGA = 'sarao2027';
   const PASSWORD_ADMIN = 'admin2027';
 
-  // Estados con persistencia
+  // Estados persistentes
   const [miembros, setMiembros] = useState([]);
   const [bolos, setBolos] = useState([
     {
@@ -51,17 +51,17 @@ export default function CharangaSaraoApp() {
     }
   ]);
   const [movimientosBote, setMovimientosBote] = useState([
-    { id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso' }
+    { id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso', autor: 'Admin' }
   ]);
 
-  // Historial para Deshacer (Undo) del Admin
+  // Historial para Deshacer
   const [historialEstados, setHistorialEstados] = useState([]);
 
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
 
-  // Modales
+  // Modales y formularios
   const [showModalBolo, setShowModalBolo] = useState(false);
   const [nuevoTituloBolo, setNuevoTituloBolo] = useState('');
   const [nuevoLugarBolo, setNuevoLugarBolo] = useState('');
@@ -75,7 +75,19 @@ export default function CharangaSaraoApp() {
   const [destinoTrayecto, setDestinoTrayecto] = useState('');
   const [instrumentoElegidoBolo, setInstrumentoElegidoBolo] = useState('');
 
-  // 1. Cargar datos guardados en LocalStorage al iniciar
+  // Modales Bote
+  const [showModalMovimientoBote, setShowModalMovimientoBote] = useState(false);
+  const [conceptoBote, setConceptoBote] = useState('');
+  const [importeBote, setImporteBote] = useState('');
+  const [tipoMovimientoBote, setTipoMovimientoBote] = useState('ingreso');
+
+  const [showModalGasolina, setShowModalGasolina] = useState(false);
+  const [kmGasolina, setKmGasolina] = useState('');
+  const [consumoMedio, setConsumoMedio] = useState('6.5'); // 6.5 L/100km promedio
+  const [precioLitro, setPrecioLitro] = useState('1.45'); // 1.45 €/L
+  const [destinoGasolina, setDestinoGasolina] = useState('');
+
+  // Cargar LocalStorage
   useEffect(() => {
     try {
       const miembrosGuardados = localStorage.getItem('sarao_miembros');
@@ -87,12 +99,11 @@ export default function CharangaSaraoApp() {
       if (bolosGuardados) setBolos(JSON.parse(bolosGuardados));
       if (boteGuardado) setMovimientosBote(JSON.parse(boteGuardado));
       if (usuarioGuardado) {
-        const u = JSON.parse(usuarioGuardado);
-        setUsuarioActual(u);
+        setUsuarioActual(JSON.parse(usuarioGuardado));
         setAutenticado(true);
       }
     } catch (e) {
-      console.error('Error al cargar datos:', e);
+      console.error(e);
     }
     setCargado(true);
 
@@ -102,7 +113,7 @@ export default function CharangaSaraoApp() {
     document.head.appendChild(link);
   }, []);
 
-  // 2. Guardar automáticamente cada cambio en LocalStorage
+  // Guardar en LocalStorage
   useEffect(() => {
     if (!cargado) return;
     localStorage.setItem('sarao_miembros', JSON.stringify(miembros));
@@ -113,10 +124,9 @@ export default function CharangaSaraoApp() {
     }
   }, [miembros, bolos, movimientosBote, usuarioActual, cargado]);
 
-  // Función para registrar un estado en el historial antes de modificar
   const registrarSnapshot = () => {
     setHistorialEstados(prev => [
-      ...prev.slice(-15), // Guardamos los últimos 15 cambios
+      ...prev.slice(-15),
       {
         miembros: JSON.parse(JSON.stringify(miembros)),
         bolos: JSON.parse(JSON.stringify(bolos)),
@@ -125,10 +135,9 @@ export default function CharangaSaraoApp() {
     ]);
   };
 
-  // Función Deshacer para el Admin
   const deshacerUltimoCambio = () => {
     if (historialEstados.length === 0) {
-      alert('No hay más acciones previas para deshacer.');
+      alert('No hay acciones previas para deshacer.');
       return;
     }
     const anterior = historialEstados[historialEstados.length - 1];
@@ -137,7 +146,6 @@ export default function CharangaSaraoApp() {
     setMovimientosBote(anterior.movimientosBote);
     setHistorialEstados(prev => prev.slice(0, -1));
 
-    // Si el usuario actual está en la lista revertida, actualizarlo
     if (usuarioActual) {
       const uRev = anterior.miembros.find(m => m.id === usuarioActual.id);
       if (uRev) setUsuarioActual(uRev);
@@ -147,6 +155,7 @@ export default function CharangaSaraoApp() {
 
   const esAdmin = usuarioActual?.roles?.includes('admin');
   const esConductor = usuarioActual?.roles?.includes('conductor') || esAdmin;
+  const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
   const puedeJefeCuerda = usuarioActual?.roles?.includes('jefe_cuerda') || esAdmin;
 
   const handleLogin = (e) => {
@@ -164,11 +173,8 @@ export default function CharangaSaraoApp() {
 
     const instPrincipal = instrumentosSeleccionados[0];
     const matchCuerda = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === instPrincipal)?.cuerda || 'Saxos';
-    
-    // Si te llamas Edgar o usas la clave admin2027 -> ADMIN DIRECTO
     const esAdminAcceso = pass === PASSWORD_ADMIN || nombreRegistro.trim().toLowerCase() === 'edgar';
 
-    // Comprobar si ya existe en la lista guardada
     const existente = miembros.find(m => m.nombre.trim().toLowerCase() === nombreRegistro.trim().toLowerCase());
     
     if (existente) {
@@ -181,7 +187,6 @@ export default function CharangaSaraoApp() {
       return;
     }
 
-    // Si es un miembro nuevo
     registrarSnapshot();
     const nuevoMiembro = {
       id: Date.now(),
@@ -272,7 +277,76 @@ export default function CharangaSaraoApp() {
     }
   };
 
-  const saldoTotal = movimientosBote.reduce((acc, m) => acc + m.cantidad, 0);
+  // Acciones de Bote
+  const agregarMovimientoGeneralBote = (e) => {
+    e.preventDefault();
+    if (!esTesorero) return;
+    const imp = parseFloat(importeBote);
+    if (isNaN(imp) || imp <= 0 || !conceptoBote.trim()) {
+      alert('Introduce un concepto y un importe válido.');
+      return;
+    }
+    registrarSnapshot();
+    const cantidadReal = tipoMovimientoBote === 'ingreso' ? imp : -imp;
+    const nuevoMov = {
+      id: Date.now(),
+      concepto: conceptoBote.trim(),
+      cantidad: cantidadReal,
+      fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+      tipo: tipoMovimientoBote,
+      autor: usuarioActual.nombre
+    };
+    setMovimientosBote([nuevoMov, ...movimientosBote]);
+    setConceptoBote('');
+    setImporteBote('');
+    setShowModalMovimientoBote(false);
+  };
+
+  const agregarGasolinaConductor = (e) => {
+    e.preventDefault();
+    if (!esConductor) return;
+    const km = parseFloat(kmGasolina);
+    const cons = parseFloat(consumoMedio);
+    const precio = parseFloat(precioLitro);
+
+    if (isNaN(km) || km <= 0 || isNaN(cons) || isNaN(precio)) {
+      alert('Por favor introduce valores numéricos válidos.');
+      return;
+    }
+
+    // Fórmula: (km * consumoMedio / 100) * precioLitro
+    const gastoCalculado = parseFloat(((km * cons / 100) * precio).toFixed(2));
+    registrarSnapshot();
+
+    const conceptoTexto = `Gasolina ${usuarioActual.nombre} (${km} km${destinoGasolina ? ` - ${destinoGasolina}` : ''})`;
+
+    const nuevoGasto = {
+      id: Date.now(),
+      concepto: conceptoTexto,
+      cantidad: -gastoCalculado,
+      fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+      tipo: 'gasto',
+      autor: usuarioActual.nombre
+    };
+
+    setMovimientosBote([nuevoGasto, ...movimientosBote]);
+    setKmGasolina('');
+    setDestinoGasolina('');
+    setShowModalGasolina(false);
+    alert(`Se ha registrado el gasto de gasolina por ${gastoCalculado} € en el bote.`);
+  };
+
+  const eliminarMovimientoBote = (movId) => {
+    if (!esTesorero) return;
+    if (confirm('¿Deseas eliminar este movimiento del bote?')) {
+      registrarSnapshot();
+      setMovimientosBote(movimientosBote.filter(m => m.id !== movId));
+    }
+  };
+
+  const totalIngresos = movimientosBote.filter(m => m.cantidad > 0).reduce((acc, m) => acc + m.cantidad, 0);
+  const totalGastos = movimientosBote.filter(m => m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
+  const saldoTotal = totalIngresos - totalGastos;
 
   const exportarEstadisticasExcel = () => {
     let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Bolos Confirmados;Total Bolos;Porcentaje (%)\n";
@@ -348,7 +422,7 @@ export default function CharangaSaraoApp() {
                 onChange={e => setPasswordInput(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
               />
-              <p className="text-[10px] text-zinc-500 mt-1">Tu nombre "Edgar" otorga acceso directo como Administrador.</p>
+              <p className="text-[10px] text-zinc-500 mt-1">Tu nombre "Edgar" o la clave admin2027 otorgan acceso completo de Administrador.</p>
             </div>
 
             <button type="submit" className="w-full bg-green-500 text-black font-black py-3.5 rounded-2xl text-sm shadow-lg cursor-pointer mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif", fontSize: '1.2rem' }}>
@@ -365,7 +439,7 @@ export default function CharangaSaraoApp() {
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
       
-      {/* BOTÓN DESHACER FLOTANTE PARA ADMIN */}
+      {/* BOTÓN DESHACER PARA ADMIN */}
       {esAdmin && historialEstados.length > 0 && (
         <div className="fixed top-20 right-4 z-50">
           <button
@@ -454,9 +528,9 @@ export default function CharangaSaraoApp() {
                 <div>
                   <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6" /></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bote</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Tesorería.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Tesorería y gasolinas.</p>
                 </div>
-                <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Ver saldo</span>
+                <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Saldo ({saldoTotal.toFixed(2)} €)</span>
               </div>
 
               {esAdmin && (
@@ -655,7 +729,7 @@ export default function CharangaSaraoApp() {
                 )}
               </div>
 
-              {/* Cuadrícula Mensual */}
+              {/* Calendario */}
               <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 mb-6">
                 <h3 className="text-lg font-bold text-white mb-4">Agosto 2027</h3>
                 <div className="grid grid-cols-7 gap-1 text-center text-xs">
@@ -849,6 +923,246 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
+        {/* BOTE / TESORERÍA */}
+        {pestañaActiva === 'bote' && (
+          <div className="space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+              
+              <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
+                <div>
+                  <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    BOTE Y FINANZAS SARAO
+                  </h2>
+                  <p className="text-xs text-zinc-400">Control de ingresos, gastos de eventos y combustible de los conductores.</p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {esConductor && (
+                    <button
+                      onClick={() => setShowModalGasolina(true)}
+                      className="bg-blue-500 hover:bg-blue-400 text-black font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
+                    >
+                      <Fuel className="w-4 h-4" /> Calculador Gasolina
+                    </button>
+                  )}
+
+                  {esTesorero && (
+                    <button
+                      onClick={() => setShowModalMovimientoBote(true)}
+                      className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
+                    >
+                      <Plus className="w-4 h-4" /> Añadir Movimiento
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* TARJETAS RESUMEN */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
+                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Saldo Actual Bote</span>
+                  <p className={`text-2xl font-black mt-1 ${saldoTotal >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
+                    {saldoTotal.toFixed(2)} €
+                  </p>
+                </div>
+                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
+                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Ingresos Totales</span>
+                  <p className="text-2xl font-black text-emerald-400 mt-1">
+                    +{totalIngresos.toFixed(2)} €
+                  </p>
+                </div>
+                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
+                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Gastos Totales</span>
+                  <p className="text-2xl font-black text-rose-400 mt-1">
+                    -{totalGastos.toFixed(2)} €
+                  </p>
+                </div>
+              </div>
+
+              {/* LISTA DE MOVIMIENTOS */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Historial de Movimientos</h3>
+                <div className="space-y-2 max-h-80 overflow-y-auto bg-black/60 p-3 rounded-2xl border border-zinc-800">
+                  {movimientosBote.length === 0 ? (
+                    <p className="text-xs text-zinc-500 text-center py-4">No hay movimientos registrados.</p>
+                  ) : (
+                    movimientosBote.map(m => (
+                      <div key={m.id} className="flex justify-between items-center text-xs p-2.5 bg-zinc-900/80 rounded-xl border border-zinc-800 hover:border-zinc-700">
+                        <div>
+                          <p className="font-bold text-white text-sm">{m.concepto}</p>
+                          <span className="text-[11px] text-zinc-400">
+                            {m.fecha} • Por: <strong className="text-zinc-300">{m.autor || 'Desconocido'}</strong>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`font-black text-sm ${m.cantidad >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {m.cantidad >= 0 ? `+${m.cantidad.toFixed(2)}` : m.cantidad.toFixed(2)} €
+                          </span>
+                          {esTesorero && (
+                            <button onClick={() => eliminarMovimientoBote(m.id)} className="text-rose-400 hover:text-rose-300 p-1">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* MODAL CALCULADOR GASOLINA (CONDUCTORES Y ADMIN) */}
+        {showModalGasolina && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+              <div className="flex items-center gap-2 mb-3">
+                <Fuel className="w-5 h-5 text-blue-400" />
+                <h3 className="text-lg font-black text-white">Calculador de Gasolina Conductor</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">Calcula el combustible según los kilómetros realizados y aplícalo directamente como gasto al bote.</p>
+
+              <form onSubmit={agregarGasolinaConductor} className="space-y-3">
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Kilómetros totales (Ida y Vuelta):</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Ej: 110"
+                    value={kmGasolina}
+                    onChange={e => setKmGasolina(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Destino / Bolo (Opcional):</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Cuéllar"
+                    value={destinoGasolina}
+                    onChange={e => setDestinoGasolina(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-zinc-400 block mb-1">Consumo (L/100km):</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={consumoMedio}
+                      onChange={e => setConsumoMedio(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-zinc-400 block mb-1">Precio Combustible (€/L):</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={precioLitro}
+                      onChange={e => setPrecioLitro(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {kmGasolina && !isNaN(parseFloat(kmGasolina)) && (
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-center">
+                    <span className="text-xs text-blue-300 font-bold">
+                      Gasto estimado a restar: {((parseFloat(kmGasolina) * parseFloat(consumoMedio) / 100) * parseFloat(precioLitro)).toFixed(2)} €
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <button type="submit" className="flex-1 bg-blue-500 hover:bg-blue-400 text-black font-black py-2.5 rounded-xl text-sm">
+                    Añadir gasto al Bote
+                  </button>
+                  <button type="button" onClick={() => setShowModalGasolina(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL INGRESOS Y GASTOS (TESORERO Y ADMIN) */}
+        {showModalMovimientoBote && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+              <div className="flex items-center gap-2 mb-3">
+                <Wallet className="w-5 h-5 text-amber-400" />
+                <h3 className="text-lg font-black text-white">Nuevo Movimiento en el Bote</h3>
+              </div>
+
+              <form onSubmit={agregarMovimientoGeneralBote} className="space-y-3">
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Tipo de Movimiento:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTipoMovimientoBote('ingreso')}
+                      className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'ingreso' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-black border-zinc-800 text-zinc-400'}`}
+                    >
+                      + Ingreso (Cobro)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTipoMovimientoBote('gasto')}
+                      className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'gasto' ? 'bg-rose-500/20 border-rose-500 text-rose-300' : 'bg-black border-zinc-800 text-zinc-400'}`}
+                    >
+                      - Gasto
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Concepto:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Cobro Pasacalles Cuéllar o Compra Baquetas"
+                    value={conceptoBote}
+                    onChange={e => setConceptoBote(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Importe en Euros (€):</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Ej: 1200"
+                    value={importeBote}
+                    onChange={e => setImporteBote(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-black py-2.5 rounded-xl text-sm">
+                    Guardar Movimiento
+                  </button>
+                  <button type="button" onClick={() => setShowModalMovimientoBote(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Modal Trayecto */}
         {showModalTrayectoBolo && boloActual && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -905,23 +1219,6 @@ export default function CharangaSaraoApp() {
                   <button type="button" onClick={() => setShowModalBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
-
-        {/* BOTE */}
-        {pestañaActiva === 'bote' && (
-          <div className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-              <h3 className="text-3xl tracking-wide text-white mb-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>SALDO BOTE: {saldoTotal.toFixed(2)} €</h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto bg-black/60 p-3 rounded-2xl border border-zinc-800 mt-4">
-                {movimientosBote.map(m => (
-                  <div key={m.id} className="flex justify-between items-center text-xs pb-2 border-b border-zinc-800">
-                    <span>{m.concepto}</span>
-                    <span className={m.cantidad >= 0 ? 'text-green-400' : 'text-rose-400'}>{m.cantidad.toFixed(2)} €</span>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         )}
