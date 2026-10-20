@@ -26,6 +26,12 @@ const INSTRUMENTOS_DISPONIBLES = [
   { nombre: 'Bombo', cuerda: 'Percusión' }
 ];
 
+const OPCIONES_VESTUARIO = [
+  { id: 'Negro', label: 'Camiseta Negra', color: 'bg-zinc-800 text-zinc-100 border-zinc-700' },
+  { id: 'Blanco', label: 'Camiseta Blanca', color: 'bg-zinc-100 text-black border-white' },
+  { id: 'Full Print', label: 'Full Print Sarao', color: 'bg-gradient-to-r from-green-500 to-emerald-400 text-black font-black border-green-400' }
+];
+
 export default function CharangaSaraoApp() {
   const [cargado, setCargado] = useState(false);
   const [autenticado, setAutenticado] = useState(false);
@@ -44,8 +50,9 @@ export default function CharangaSaraoApp() {
       lugar: 'Plaza Mayor, Cuéllar',
       fecha: '2027-08-15',
       horarioSalida: '11:30h',
-      horarioActuacion: '13:00h - 17:00h',
-      vestuario: 'Camiseta negra',
+      horaInicio: '13:00h',
+      horaFin: '17:00h',
+      vestuario: 'Negro',
       presupuesto: 1200,
       cochesAsignados: []
     }
@@ -68,12 +75,19 @@ export default function CharangaSaraoApp() {
   const [nuevoLugarBolo, setNuevoLugarBolo] = useState('');
   const [nuevaFechaBolo, setNuevaFechaBolo] = useState('');
   const [nuevaSalidaBolo, setNuevaSalidaBolo] = useState('');
+  const [nuevaHoraInicioBolo, setNuevaHoraInicioBolo] = useState('');
+  const [nuevaHoraFinBolo, setNuevaHoraFinBolo] = useState('');
+  const [nuevoVestuarioBolo, setNuevoVestuarioBolo] = useState('Negro');
 
+  // Modal Trayecto Conductor Avanzado
   const [showModalTrayectoBolo, setShowModalTrayectoBolo] = useState(false);
   const [vehiculoTrayecto, setVehiculoTrayecto] = useState('');
   const [origenTrayecto, setOrigenTrayecto] = useState('');
-  const [paradasTrayecto, setParadasTrayecto] = useState('');
+  const [horaSalidaOrigen, setHoraSalidaOrigen] = useState('');
+  const [paradasIntermedias, setParadasIntermedias] = useState([{ lugar: '', hora: '' }]);
   const [destinoTrayecto, setDestinoTrayecto] = useState('');
+  const [horaLlegadaDestino, setHoraLlegadaDestino] = useState('');
+
   const [instrumentoElegidoBolo, setInstrumentoElegidoBolo] = useState('');
 
   // Modales Bote
@@ -237,11 +251,9 @@ export default function CharangaSaraoApp() {
     }));
   };
 
+  // ASIGNAR ROLES: EXCLUSIVO DEL ADMIN
   const toggleRolMiembro = (miembroId, rol) => {
-    if (!esAdmin) {
-      alert('Solo el Administrador tiene permiso para asignar roles.');
-      return;
-    }
+    if (!esAdmin) return;
     registrarSnapshot();
     setMiembros(miembros.map(m => {
       if (m.id === miembroId) {
@@ -253,6 +265,13 @@ export default function CharangaSaraoApp() {
       }
       return m;
     }));
+  };
+
+  // CAMBIAR VESTUARIO: EXCLUSIVO DEL ADMIN
+  const cambiarVestuarioBolo = (boloId, nuevoVestuario) => {
+    if (!esAdmin) return;
+    registrarSnapshot();
+    setBolos(bolos.map(b => b.id === boloId ? { ...b, vestuario: nuevoVestuario } : b));
   };
 
   // ELIMINACIÓN DE BOLOS (ADMIN)
@@ -532,10 +551,10 @@ export default function CharangaSaraoApp() {
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
                   {esAdmin 
-                    ? 'Modo Administrador activado: gestión de bolos, estadísticas, roles y finanzas con opción de deshacer cambios.' 
+                    ? 'Modo Administrador activado: gestión de bolos, vestuarios, estadísticas, roles y finanzas.' 
                     : esJefeCuerda
-                      ? `Jefe de cuerda de ${usuarioActual.cuerda}: puedes gestionar las plazas de tu sección en cada bolo.`
-                      : 'Calendario de bolos, confirmación de asistencia y bote.'}
+                      ? `Jefe de cuerda de ${usuarioActual.cuerda}: gestiona las plazas de tu sección en cada bolo.`
+                      : 'Calendario de bolos, confirmación de asistencia, coches y bote.'}
                 </p>
               </div>
             </div>
@@ -545,7 +564,7 @@ export default function CharangaSaraoApp() {
                 <div>
                   <div className="p-3 bg-green-500/20 text-green-400 rounded-2xl w-fit mb-3"><CalendarIcon className="w-6 h-6" /></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bolos</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Fechas, rutas y asistencia.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Fechas, vestuario, rutas y asistencia.</p>
                 </div>
                 <span className="text-xs font-bold text-green-400 mt-4 block">&rarr; Ver calendario</span>
               </div>
@@ -624,7 +643,6 @@ export default function CharangaSaraoApp() {
                           )}
                         </div>
 
-                        {/* ASIGNACIÓN DE ROLES: EXCLUSIVA ADMIN */}
                         {esAdmin && (
                           <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
                             <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
@@ -803,7 +821,7 @@ export default function CharangaSaraoApp() {
                               onClick={() => setBoloSeleccionadoId(b.id)}
                               className="text-[9px] leading-tight text-green-200 font-bold bg-green-500/40 p-1 rounded cursor-pointer hover:bg-green-500/60 truncate"
                             >
-                              {b.lugar} ({b.horarioSalida})
+                              {b.lugar} ({b.horarioSalida || b.horaInicio})
                             </div>
                           ))}
                         </div>
@@ -826,6 +844,9 @@ export default function CharangaSaraoApp() {
                         <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                           ¿Vas a asistir a {boloActual.titulo}?
                         </h3>
+                        <p className="text-xs text-zinc-300">
+                          📍 {boloActual.lugar} • ⏰ Actuación: {boloActual.horaInicio || 'Pendiente'} a {boloActual.horaFin || 'Pendiente'}
+                        </p>
                         
                         {usuarioActual.instrumentos?.length > 1 && (
                           <div className="max-w-xs mx-auto text-left">
@@ -855,6 +876,8 @@ export default function CharangaSaraoApp() {
                   const dispoTalVez = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez');
                   const dispoNo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'no');
 
+                  const vestuarioActual = OPCIONES_VESTUARIO.find(v => v.id === boloActual.vestuario) || OPCIONES_VESTUARIO[0];
+
                   return (
                     <div className="space-y-6 pt-4 border-t border-zinc-800">
                       
@@ -867,7 +890,11 @@ export default function CharangaSaraoApp() {
                           <h3 className="text-3xl tracking-wide text-white mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                             {boloActual.titulo}
                           </h3>
-                          <p className="text-zinc-300 text-xs mt-1">📍 {boloActual.lugar} • 🕚 Salida: {boloActual.horarioSalida}</p>
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 mt-1">
+                            <span>📍 {boloActual.lugar}</span>
+                            {boloActual.horarioSalida && <span>🚗 Salida: <strong>{boloActual.horarioSalida}</strong></span>}
+                            <span>🎺 Actuación: <strong>{boloActual.horaInicio || '13:00h'} - {boloActual.horaFin || '17:00h'}</strong></span>
+                          </div>
                         </div>
 
                         <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl transition">
@@ -875,11 +902,11 @@ export default function CharangaSaraoApp() {
                         </button>
                       </div>
 
-                      {/* Trayectos y coches */}
+                      {/* TRAYECTOS Y COCHES CON HORARIOS Y PARADAS MÚLTIPLES */}
                       <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 space-y-3">
                         <div className="flex justify-between items-center">
                           <h4 className="font-bold text-zinc-200 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                            <Car className="w-4 h-4 text-blue-400" /> Caravana de Coches y Trayectos
+                            <Car className="w-4 h-4 text-blue-400" /> Caravana de Coches y Rutas
                           </h4>
                           {esConductor && (
                             <button onClick={() => setShowModalTrayectoBolo(true)} className="bg-blue-500 hover:bg-blue-400 text-black font-black text-[11px] px-3 py-1.5 rounded-xl">
@@ -891,16 +918,34 @@ export default function CharangaSaraoApp() {
                         <div className="space-y-2">
                           {boloActual.cochesAsignados && boloActual.cochesAsignados.length > 0 ? (
                             boloActual.cochesAsignados.map(car => (
-                              <div key={car.id} className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 flex justify-between items-center text-xs">
-                                <div>
-                                  <span className="font-bold text-blue-400">Conductor: {car.conductor} ({car.vehiculo})</span>
-                                  <p className="text-zinc-300 mt-0.5">🛞 {car.origen} {car.paradas && `➔ ${car.paradas} ➔`} {car.destino}</p>
+                              <div key={car.id} className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 flex justify-between items-start text-xs">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-blue-400">{car.conductor}</span>
+                                    <span className="text-[10px] bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">{car.vehiculo}</span>
+                                  </div>
+                                  
+                                  {/* Itinerario con horas */}
+                                  <div className="text-zinc-300 text-[11px] space-y-0.5 pt-1">
+                                    <p>🚩 Origen: <strong className="text-white">{car.origen}</strong> {car.horaSalida && <span className="text-blue-300 font-semibold">({car.horaSalida})</span>}</p>
+                                    {car.paradas && car.paradas.length > 0 && (
+                                      <div className="pl-3 border-l border-zinc-700 space-y-0.5 my-1">
+                                        {car.paradas.map((p, pIdx) => (
+                                          <p key={pIdx} className="text-zinc-400">
+                                            ↳ Punto intermedio: <strong className="text-zinc-200">{p.lugar}</strong> {p.hora && <span className="text-amber-300 font-semibold">({p.hora})</span>}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+                                    <p>🏁 Destino: <strong className="text-white">{car.destino}</strong> {car.horaLlegada && <span className="text-emerald-300 font-semibold">({car.horaLlegada})</span>}</p>
+                                  </div>
                                 </div>
+
                                 {(esAdmin || car.conductor === usuarioActual.nombre) && (
                                   <button onClick={() => {
                                     registrarSnapshot();
                                     setBolos(bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b));
-                                  }} className="text-rose-400">
+                                  }} className="text-rose-400 hover:text-rose-300 p-1">
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                 )}
@@ -912,7 +957,47 @@ export default function CharangaSaraoApp() {
                         </div>
                       </div>
 
-                      {/* Asistencias con filtro de descarte para Jefe de Cuerda y Admin */}
+                      {/* VESTUARIO DEL BOLO: JUSTO ARRIBA DE LOS PARTICIPANTES */}
+                      <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2.5 bg-green-500/20 text-green-400 rounded-xl">
+                            <Shirt className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Vestuario Oficial</span>
+                            <span className="text-sm font-black text-white">{vestuarioActual.label}</span>
+                          </div>
+                        </div>
+
+                        {/* Opciones de vestuario: Interactivas solo para el Admin, solo lectura para los demás */}
+                        {esAdmin ? (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-zinc-500 font-bold uppercase mr-1">Cambiar vestuario:</span>
+                            {OPCIONES_VESTUARIO.map(opt => {
+                              const seleccionado = (boloActual.vestuario || 'Negro') === opt.id;
+                              return (
+                                <button
+                                  key={opt.id}
+                                  onClick={() => cambiarVestuarioBolo(boloActual.id, opt.id)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+                                    seleccionado 
+                                      ? opt.color + ' ring-2 ring-green-500' 
+                                      : 'bg-black/60 text-zinc-400 border-zinc-800 hover:text-white'
+                                  }`}
+                                >
+                                  {opt.label} {seleccionado && '✓'}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className={`px-3 py-1.5 rounded-xl text-xs font-bold border ${vestuarioActual.color}`}>
+                            {vestuarioActual.label}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ASISTENCIAS */}
                       <div className="space-y-4">
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -1006,7 +1091,7 @@ export default function CharangaSaraoApp() {
                   );
                 })()
               ) : (
-                <p className="text-xs text-zinc-500 text-center py-6">Haz clic en un día con bolo para ver los detalles y apuntarte.</p>
+                <p className="text-xs text-zinc-500 text-center py-6">Haz clic en un día con bolo para ver los detalles, vestuario y confirmaciones.</p>
               )}
 
             </div>
@@ -1057,6 +1142,216 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
+        {/* MODAL TRAYECTO AVANZADO CON PARADAS MÚLTIPLES Y HORAS */}
+        {showModalTrayectoBolo && boloActual && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-2 mb-2">
+                <Car className="w-5 h-5 text-blue-400" />
+                <h3 className="text-lg font-black text-white">Publicar Trayecto en Caravana</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">Indica tu hora de salida, paradas intermedias con hora de llegada y destino final.</p>
+
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (!origenTrayecto || !destinoTrayecto) return;
+                registrarSnapshot();
+                const nuevoCar = {
+                  id: Date.now(),
+                  conductor: usuarioActual.nombre,
+                  vehiculo: vehiculoTrayecto || 'Coche',
+                  origen: origenTrayecto,
+                  horaSalida: horaSalidaOrigen,
+                  paradas: paradasIntermedias.filter(p => p.lugar.trim() !== ''),
+                  destino: destinoTrayecto,
+                  horaLlegada: horaLlegadaDestino
+                };
+                setBolos(bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: [...(b.cochesAsignados || []), nuevoCar] } : b));
+                
+                // Limpiar
+                setOrigenTrayecto(''); setHoraSalidaOrigen('');
+                setParadasIntermedias([{ lugar: '', hora: '' }]);
+                setDestinoTrayecto(''); setHoraLlegadaDestino(''); setVehiculoTrayecto('');
+                setShowModalTrayectoBolo(false);
+              }} className="space-y-3">
+                
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Vehículo:</label>
+                  <input type="text" placeholder="Ej: Coche propio, Furgoneta..." value={vehiculoTrayecto} onChange={e => setVehiculoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                </div>
+
+                {/* Origen y Hora */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Lugar de Salida (Origen):</label>
+                    <input type="text" placeholder="Ej: Segovia" value={origenTrayecto} onChange={e => setOrigenTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Hora Salida:</label>
+                    <input type="text" placeholder="Ej: 11:30h" value={horaSalidaOrigen} onChange={e => setHoraSalidaOrigen(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                  </div>
+                </div>
+
+                {/* Puntos Intermedios Dinámicos */}
+                <div className="space-y-2 pt-1 border-t border-zinc-800">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[11px] font-bold text-amber-400">Puntos Intermedios de recogida:</label>
+                    <button
+                      type="button"
+                      onClick={() => setParadasIntermedias([...paradasIntermedias, { lugar: '', hora: '' }])}
+                      className="text-[10px] text-blue-400 hover:text-blue-300 font-bold"
+                    >
+                      + Añadir parada
+                    </button>
+                  </div>
+
+                  {paradasIntermedias.map((parada, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder={`Punto intermedio #${idx + 1}`}
+                        value={parada.lugar}
+                        onChange={e => {
+                          const nuevas = [...paradasIntermedias];
+                          nuevas[idx].lugar = e.target.value;
+                          setParadasIntermedias(nuevas);
+                        }}
+                        className="flex-1 bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Hora llegada"
+                        value={parada.hora}
+                        onChange={e => {
+                          const nuevas = [...paradasIntermedias];
+                          nuevas[idx].hora = e.target.value;
+                          setParadasIntermedias(nuevas);
+                        }}
+                        className="w-24 bg-black border border-zinc-800 rounded-xl px-2 py-2 text-xs text-white"
+                      />
+                      {paradasIntermedias.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setParadasIntermedias(paradasIntermedias.filter((_, i) => i !== idx))}
+                          className="text-rose-400 p-1"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Destino y Hora */}
+                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-zinc-800">
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Destino final:</label>
+                    <input type="text" placeholder="Ej: Cuéllar" value={destinoTrayecto} onChange={e => setDestinoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Hora Llegada:</label>
+                    <input type="text" placeholder="Ej: 12:30h" value={horaLlegadaDestino} onChange={e => setHoraLlegadaDestino(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-3">
+                  <button type="submit" className="flex-1 bg-blue-500 hover:bg-blue-400 text-black font-black py-2.5 rounded-xl text-sm">
+                    Guardar Trayecto
+                  </button>
+                  <button type="button" onClick={() => setShowModalTrayectoBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL NUEVO BOLO CON HORAS DE INICIO Y FIN Y VESTUARIO */}
+        {showModalBolo && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border border-green-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+              <h3 className="text-lg font-black text-white mb-3">Añadir Nuevo Bolo</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (!nuevoTituloBolo || !nuevaFechaBolo) return;
+                registrarSnapshot();
+                setBolos([...bolos, {
+                  id: Date.now(),
+                  titulo: nuevoTituloBolo,
+                  lugar: nuevoLugarBolo,
+                  fecha: nuevaFechaBolo,
+                  horarioSalida: nuevaSalidaBolo,
+                  horaInicio: nuevaHoraInicioBolo,
+                  horaFin: nuevaHoraFinBolo,
+                  vestuario: nuevoVestuarioBolo,
+                  presupuesto: 0,
+                  cochesAsignados: []
+                }]);
+                setNuevoTituloBolo(''); setNuevoLugarBolo(''); setNuevaFechaBolo('');
+                setNuevaSalidaBolo(''); setNuevaHoraInicioBolo(''); setNuevaHoraFinBolo('');
+                setShowModalBolo(false);
+              }} className="space-y-3">
+                
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Título del Bolo:</label>
+                  <input type="text" placeholder="Ej: Fiestas Patronales / Pasacalles" value={nuevoTituloBolo} onChange={e => setNuevoTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" required />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Lugar:</label>
+                  <input type="text" placeholder="Ej: Cuéllar / Nava de la Asunción" value={nuevoLugarBolo} onChange={e => setNuevoLugarBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" required />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha:</label>
+                    <input type="date" value={nuevaFechaBolo} onChange={e => setNuevaFechaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Hora salida de viaje:</label>
+                    <input type="text" placeholder="Ej: 11:30h" value={nuevaSalidaBolo} onChange={e => setNuevaSalidaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                  </div>
+                </div>
+
+                {/* HORARIOS DE ACTUACIÓN */}
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
+                  <div>
+                    <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Inicio Actuación:</label>
+                    <input type="text" placeholder="Ej: 13:00h" value={nuevaHoraInicioBolo} onChange={e => setNuevaHoraInicioBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Fin Actuación:</label>
+                    <input type="text" placeholder="Ej: 17:00h" value={nuevaHoraFinBolo} onChange={e => setNuevaHoraFinBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                  </div>
+                </div>
+
+                {/* SELECTOR DE VESTUARIO */}
+                <div className="pt-1 border-t border-zinc-800">
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Vestuario inicial:</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {OPCIONES_VESTUARIO.map(v => (
+                      <button
+                        type="button"
+                        key={v.id}
+                        onClick={() => setNuevoVestuarioBolo(v.id)}
+                        className={`py-2 rounded-xl text-xs font-bold border transition ${nuevoVestuarioBolo === v.id ? 'bg-green-500 text-black border-green-500' : 'bg-black text-zinc-400 border-zinc-800'}`}
+                      >
+                        {v.id}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-3">
+                  <button type="submit" className="flex-1 bg-green-500 text-black font-black py-2.5 rounded-xl text-sm">Guardar Bolo</button>
+                  <button type="button" onClick={() => setShowModalBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* BOTE / TESORERÍA */}
         {pestañaActiva === 'bote' && (
           <div className="space-y-6">
@@ -1071,7 +1366,6 @@ export default function CharangaSaraoApp() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* CALCULADOR GASOLINA: SOLO ADMIN Y CONDUCTORES */}
                   {esConductor && (
                     <button
                       onClick={() => setShowModalGasolina(true)}
@@ -1149,7 +1443,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL CALCULADOR GASOLINA (CONDUCTORES Y ADMIN) */}
+        {/* MODAL CALCULADOR GASOLINA */}
         {showModalGasolina && esConductor && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
@@ -1292,66 +1586,6 @@ export default function CharangaSaraoApp() {
                   <button type="button" onClick={() => setShowModalMovimientoBote(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
                     Cancelar
                   </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modal Trayecto */}
-        {showModalTrayectoBolo && boloActual && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-3">Añadir Trayecto para este Bolo</h3>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (!origenTrayecto || !destinoTrayecto) return;
-                registrarSnapshot();
-                const nuevoCar = {
-                  id: Date.now(),
-                  conductor: usuarioActual.nombre,
-                  vehiculo: vehiculoTrayecto || 'Coche',
-                  origen: origenTrayecto,
-                  paradas: paradasTrayecto,
-                  destino: destinoTrayecto
-                };
-                setBolos(bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: [...(b.cochesAsignados || []), nuevoCar] } : b));
-                setOrigenTrayecto(''); setParadasTrayecto(''); setDestinoTrayecto(''); setVehiculoTrayecto('');
-                setShowModalTrayectoBolo(false);
-              }} className="space-y-3">
-                <input type="text" placeholder="Vehículo (ej: Furgoneta / Coche)" value={vehiculoTrayecto} onChange={e => setVehiculoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
-                <input type="text" placeholder="Origen (ej: Segovia)" value={origenTrayecto} onChange={e => setOrigenTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
-                <input type="text" placeholder="Punto intermedio / paradas" value={paradasTrayecto} onChange={e => setParadasTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
-                <input type="text" placeholder="Destino (ej: Cuéllar)" value={destinoTrayecto} onChange={e => setDestinoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
-                <div className="flex gap-2 pt-2">
-                  <button type="submit" className="flex-1 bg-blue-500 text-black font-black py-2.5 rounded-xl text-sm">Guardar Trayecto</button>
-                  <button type="button" onClick={() => setShowModalTrayectoBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modal Bolo */}
-        {showModalBolo && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-zinc-900 border border-green-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-3">Añadir Nuevo Bolo</h3>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (!nuevoTituloBolo || !nuevaFechaBolo) return;
-                registrarSnapshot();
-                setBolos([...bolos, { id: Date.now(), titulo: nuevoTituloBolo, lugar: nuevoLugarBolo, fecha: nuevaFechaBolo, horarioSalida: nuevaSalidaBolo, horarioActuacion: '', vestuario: 'Camiseta negra', presupuesto: 0, cochesAsignados: [] }]);
-                setNuevoTituloBolo(''); setNuevaFechaBolo('');
-                setShowModalBolo(false);
-              }} className="space-y-3">
-                <input type="text" placeholder="Título" value={nuevoTituloBolo} onChange={e => setNuevoTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
-                <input type="text" placeholder="Lugar" value={nuevoLugarBolo} onChange={e => setNuevoLugarBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
-                <input type="date" value={nuevaFechaBolo} onChange={e => setNuevaFechaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
-                <input type="text" placeholder="Hora salida" value={nuevaSalidaBolo} onChange={e => setNuevaSalidaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
-                <div className="flex gap-2 pt-2">
-                  <button type="submit" className="flex-1 bg-green-500 text-black font-black py-2.5 rounded-xl text-sm">Guardar</button>
-                  <button type="button" onClick={() => setShowModalBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
                 </div>
               </form>
             </div>
