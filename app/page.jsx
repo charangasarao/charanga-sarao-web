@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Calendar as CalendarIcon, Car, Users, Wallet, Shield, MapPin, 
   Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, 
   UserPlus, Trash2, Shirt, ArrowRight, Home, Clock, AlertCircle, 
-  ChevronLeft, ChevronRight, BarChart3, Download 
+  ChevronLeft, ChevronRight, BarChart3, Download, Undo2 
 } from 'lucide-react';
 
 const CONFIG_CUERDAS = {
@@ -18,30 +18,25 @@ const CONFIG_CUERDAS = {
 
 const INSTRUMENTOS_DISPONIBLES = [
   { nombre: 'Saxo alto', cuerda: 'Saxos' },
+  { nombre: 'Saxo tenor', cuerda: 'Saxos' },
   { nombre: 'Trompeta', cuerda: 'Trompetas' },
   { nombre: 'Trombón', cuerda: 'Trombones' },
+  { nombre: 'Sousafón / Tuba', cuerda: 'Tuba' },
   { nombre: 'Caja', cuerda: 'Percusión' },
-  { nombre: 'Bombo', cuerda: 'Percusión' },
-  { nombre: 'Tuba', cuerda: 'Tuba' }
+  { nombre: 'Bombo', cuerda: 'Percusión' }
 ];
 
 export default function CharangaSaraoApp() {
+  const [cargado, setCargado] = useState(false);
   const [autenticado, setAutenticado] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [nombreRegistro, setNombreRegistro] = useState('');
-  const [instrumentosSeleccionados, setInstrumentosSeleccionados] = useState(['Saxo alto']);
+  const [instrumentosSeleccionados, setInstrumentosSeleccionados] = useState(['Sousafón / Tuba']);
   const PASSWORD_CHARANGA = 'sarao2027';
+  const PASSWORD_ADMIN = 'admin2027';
 
-  const [miembros, setMiembros] = useState([
-    { id: 1, nombre: 'Edgar', instrumentos: ['Tuba'], cuerda: 'Tuba', roles: ['admin', 'conductor'], disponibilidadBolos: {} },
-    { id: 2, nombre: 'Carlos', instrumentos: ['Saxo alto', 'Trompeta'], cuerda: 'Saxos', roles: ['jefe_cuerda', 'conductor'], disponibilidadBolos: {} },
-    { id: 3, nombre: 'Lucía', instrumentos: ['Trompeta'], cuerda: 'Trompetas', roles: ['tesorero', 'musico'], disponibilidadBolos: {} },
-  ]);
-
-  const [usuarioActual, setUsuarioActual] = useState(null);
-  const [pestañaActiva, setPestañaActiva] = useState('landing');
-
-  // Listado de Bolos
+  // Estados con persistencia
+  const [miembros, setMiembros] = useState([]);
   const [bolos, setBolos] = useState([
     {
       id: 1,
@@ -52,12 +47,18 @@ export default function CharangaSaraoApp() {
       horarioActuacion: '13:00h - 17:00h',
       vestuario: 'Camiseta negra',
       presupuesto: 1200,
-      conFactura: true,
-      cochesAsignados: [
-        { id: 101, conductor: 'Edgar', vehiculo: 'Furgoneta', origen: 'Segovia', paradas: 'Nava de la Asunción', destino: 'Cuéllar' }
-      ]
+      cochesAsignados: []
     }
   ]);
+  const [movimientosBote, setMovimientosBote] = useState([
+    { id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso' }
+  ]);
+
+  // Historial para Deshacer (Undo) del Admin
+  const [historialEstados, setHistorialEstados] = useState([]);
+
+  const [usuarioActual, setUsuarioActual] = useState(null);
+  const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
 
   // Modales
@@ -72,18 +73,87 @@ export default function CharangaSaraoApp() {
   const [origenTrayecto, setOrigenTrayecto] = useState('');
   const [paradasTrayecto, setParadasTrayecto] = useState('');
   const [destinoTrayecto, setDestinoTrayecto] = useState('');
-
   const [instrumentoElegidoBolo, setInstrumentoElegidoBolo] = useState('');
 
-  // Bote
-  const [movimientosBote, setMovimientosBote] = useState([
-    { id: 1, concepto: 'Cobro Fiestas Patronales 2027', cantidad: 1500, fecha: '15 Ago', tipo: 'ingreso' },
-    { id: 2, concepto: 'Gasolina Edgar (110 km - Cuéllar)', cantidad: -13.59, fecha: '16 Ago', tipo: 'gasto' },
-  ]);
+  // 1. Cargar datos guardados en LocalStorage al iniciar
+  useEffect(() => {
+    try {
+      const miembrosGuardados = localStorage.getItem('sarao_miembros');
+      const bolosGuardados = localStorage.getItem('sarao_bolos');
+      const boteGuardado = localStorage.getItem('sarao_bote');
+      const usuarioGuardado = localStorage.getItem('sarao_usuario_actual');
+
+      if (miembrosGuardados) setMiembros(JSON.parse(miembrosGuardados));
+      if (bolosGuardados) setBolos(JSON.parse(bolosGuardados));
+      if (boteGuardado) setMovimientosBote(JSON.parse(boteGuardado));
+      if (usuarioGuardado) {
+        const u = JSON.parse(usuarioGuardado);
+        setUsuarioActual(u);
+        setAutenticado(true);
+      }
+    } catch (e) {
+      console.error('Error al cargar datos:', e);
+    }
+    setCargado(true);
+
+    const link = document.createElement('link');
+    link.href = 'https://fonts.googleapis.com/css2?family=Bangers&display=swap';
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+  }, []);
+
+  // 2. Guardar automáticamente cada cambio en LocalStorage
+  useEffect(() => {
+    if (!cargado) return;
+    localStorage.setItem('sarao_miembros', JSON.stringify(miembros));
+    localStorage.setItem('sarao_bolos', JSON.stringify(bolos));
+    localStorage.setItem('sarao_bote', JSON.stringify(movimientosBote));
+    if (usuarioActual) {
+      localStorage.setItem('sarao_usuario_actual', JSON.stringify(usuarioActual));
+    }
+  }, [miembros, bolos, movimientosBote, usuarioActual, cargado]);
+
+  // Función para registrar un estado en el historial antes de modificar
+  const registrarSnapshot = () => {
+    setHistorialEstados(prev => [
+      ...prev.slice(-15), // Guardamos los últimos 15 cambios
+      {
+        miembros: JSON.parse(JSON.stringify(miembros)),
+        bolos: JSON.parse(JSON.stringify(bolos)),
+        movimientosBote: JSON.parse(JSON.stringify(movimientosBote))
+      }
+    ]);
+  };
+
+  // Función Deshacer para el Admin
+  const deshacerUltimoCambio = () => {
+    if (historialEstados.length === 0) {
+      alert('No hay más acciones previas para deshacer.');
+      return;
+    }
+    const anterior = historialEstados[historialEstados.length - 1];
+    setMiembros(anterior.miembros);
+    setBolos(anterior.bolos);
+    setMovimientosBote(anterior.movimientosBote);
+    setHistorialEstados(prev => prev.slice(0, -1));
+
+    // Si el usuario actual está en la lista revertida, actualizarlo
+    if (usuarioActual) {
+      const uRev = anterior.miembros.find(m => m.id === usuarioActual.id);
+      if (uRev) setUsuarioActual(uRev);
+    }
+    alert('Acción revertida correctamente.');
+  };
+
+  const esAdmin = usuarioActual?.roles?.includes('admin');
+  const esConductor = usuarioActual?.roles?.includes('conductor') || esAdmin;
+  const puedeJefeCuerda = usuarioActual?.roles?.includes('jefe_cuerda') || esAdmin;
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (passwordInput.trim() !== PASSWORD_CHARANGA) {
+    const pass = passwordInput.trim();
+
+    if (pass !== PASSWORD_CHARANGA && pass !== PASSWORD_ADMIN) {
       alert('Contraseña incorrecta.');
       return;
     }
@@ -94,20 +164,46 @@ export default function CharangaSaraoApp() {
 
     const instPrincipal = instrumentosSeleccionados[0];
     const matchCuerda = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === instPrincipal)?.cuerda || 'Saxos';
-    const esAdminNombre = nombreRegistro.trim().toLowerCase() === 'edgar';
+    
+    // Si te llamas Edgar o usas la clave admin2027 -> ADMIN DIRECTO
+    const esAdminAcceso = pass === PASSWORD_ADMIN || nombreRegistro.trim().toLowerCase() === 'edgar';
 
+    // Comprobar si ya existe en la lista guardada
+    const existente = miembros.find(m => m.nombre.trim().toLowerCase() === nombreRegistro.trim().toLowerCase());
+    
+    if (existente) {
+      const miembroActualizado = {
+        ...existente,
+        roles: esAdminAcceso && !existente.roles.includes('admin') ? [...new Set([...existente.roles, 'admin', 'conductor', 'jefe_cuerda'])] : existente.roles
+      };
+      setUsuarioActual(miembroActualizado);
+      setAutenticado(true);
+      return;
+    }
+
+    // Si es un miembro nuevo
+    registrarSnapshot();
     const nuevoMiembro = {
       id: Date.now(),
       nombre: nombreRegistro.trim(),
       instrumentos: instrumentosSeleccionados,
       cuerda: matchCuerda,
-      roles: esAdminNombre ? ['admin', 'conductor', 'jefe_cuerda'] : ['musico'],
+      roles: esAdminAcceso ? ['admin', 'conductor', 'jefe_cuerda'] : ['musico'],
       disponibilidadBolos: {}
     };
 
-    setMiembros([...miembros, nuevoMiembro]);
+    const nuevaLista = [...miembros, nuevoMiembro];
+    setMiembros(nuevaLista);
     setUsuarioActual(nuevoMiembro);
     setAutenticado(true);
+  };
+
+  const cerrarSesion = () => {
+    localStorage.removeItem('sarao_usuario_actual');
+    setUsuarioActual(null);
+    setAutenticado(false);
+    setPasswordInput('');
+    setPestañaActiva('landing');
   };
 
   const toggleInstrumentoRegistro = (nombreInst) => {
@@ -121,12 +217,31 @@ export default function CharangaSaraoApp() {
   };
 
   const setDisponibilidadBolo = (boloId, estado, instrumentoElegido = null) => {
+    registrarSnapshot();
     setMiembros(miembros.map(m => {
       if (m.id === usuarioActual.id) {
-        const datosDisp = estado === 'puedo' ? { estado, instrumento: instrumentoElegido || m.instrumentos[0] } : { estado };
-        const nuevaDisp = { ...m.disponibilidadBolos, [boloId]: datosDisp };
+        const datosDisp = estado === 'puedo' ? { estado, instrumento: instrumentoElegido || m.instrumentos[0] } : (estado ? { estado } : null);
+        const nuevaDisp = { ...m.disponibilidadBolos };
+        if (datosDisp) nuevaDisp[boloId] = datosDisp;
+        else delete nuevaDisp[boloId];
+        
         const actualizado = { ...m, disponibilidadBolos: nuevaDisp };
         setUsuarioActual(actualizado);
+        return actualizado;
+      }
+      return m;
+    }));
+  };
+
+  const toggleRolMiembro = (miembroId, rol) => {
+    if (!esAdmin) return;
+    registrarSnapshot();
+    setMiembros(miembros.map(m => {
+      if (m.id === miembroId) {
+        const tieneRol = m.roles.includes(rol);
+        const nuevosRoles = tieneRol ? m.roles.filter(r => r !== rol) : [...m.roles, rol];
+        const actualizado = { ...m, roles: nuevosRoles };
+        if (usuarioActual.id === m.id) setUsuarioActual(actualizado);
         return actualizado;
       }
       return m;
@@ -138,7 +253,7 @@ export default function CharangaSaraoApp() {
       alert(`Solo puedes gestionar la asistencia de tu cuerda (${usuarioActual.cuerda}).`);
       return;
     }
-
+    registrarSnapshot();
     setMiembros(miembros.map(m => {
       if (m.id === miembroId) {
         const nuevaDisp = { ...m.disponibilidadBolos };
@@ -152,21 +267,31 @@ export default function CharangaSaraoApp() {
   const eliminarMiembroPlantilla = (miembroId) => {
     if (!esAdmin) return;
     if (confirm('¿Seguro que deseas eliminar a este músico de la plantilla?')) {
+      registrarSnapshot();
       setMiembros(miembros.filter(m => m.id !== miembroId));
     }
   };
 
   const saldoTotal = movimientosBote.reduce((acc, m) => acc + m.cantidad, 0);
-  const esAdmin = usuarioActual?.roles.includes('admin');
-  const esConductor = usuarioActual?.roles.includes('conductor') || esAdmin;
-  const puedeJefeCuerda = usuarioActual?.roles.includes('jefe_cuerda') || esAdmin;
 
-  useEffect(() => {
-    const link = document.createElement('link');
-    link.href = 'https://fonts.googleapis.com/css2?family=Bangers&display=swap';
-    link.rel = 'stylesheet';
-    document.head.appendChild(link);
-  }, []);
+  const exportarEstadisticasExcel = () => {
+    let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Bolos Confirmados;Total Bolos;Porcentaje (%)\n";
+    miembros.forEach(m => {
+      const totalBolos = bolos.length;
+      const dispoCount = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'puedo').length;
+      const porcentaje = totalBolos > 0 ? Math.round((dispoCount / totalBolos) * 100) : 0;
+      csvContent += `${m.nombre};${m.instrumentos.join(', ')};${m.cuerda};${dispoCount};${totalBolos};${porcentaje}%\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "estadisticas_sarao_2027.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (!cargado) return null;
 
   if (!autenticado) {
     return (
@@ -187,7 +312,7 @@ export default function CharangaSaraoApp() {
               <label className="text-xs font-bold text-zinc-400 block mb-1">Tu Nombre:</label>
               <input
                 type="text"
-                placeholder="Ej: Edgar, Carlos..."
+                placeholder="Ej: Edgar"
                 value={nombreRegistro}
                 onChange={e => setNombreRegistro(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
@@ -206,7 +331,7 @@ export default function CharangaSaraoApp() {
                       onClick={() => toggleInstrumentoRegistro(inst.nombre)}
                       className={`p-2 rounded-xl text-xs font-bold text-left border flex items-center justify-between ${sel ? 'bg-green-500/20 border-green-500 text-green-300' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}
                     >
-                      <span>{inst.nombre}</span>
+                      <span className="truncate pr-1">{inst.nombre}</span>
                       {sel && <Check className="w-3.5 h-3.5 text-green-400 shrink-0" />}
                     </button>
                   );
@@ -215,14 +340,15 @@ export default function CharangaSaraoApp() {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-zinc-400 block mb-1">Contraseña (sarao2027):</label>
+              <label className="text-xs font-bold text-zinc-400 block mb-1">Contraseña:</label>
               <input
                 type="password"
-                placeholder="Contraseña"
+                placeholder="sarao2027 o clave admin"
                 value={passwordInput}
                 onChange={e => setPasswordInput(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
               />
+              <p className="text-[10px] text-zinc-500 mt-1">Tu nombre "Edgar" otorga acceso directo como Administrador.</p>
             </div>
 
             <button type="submit" className="w-full bg-green-500 text-black font-black py-3.5 rounded-2xl text-sm shadow-lg cursor-pointer mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif", fontSize: '1.2rem' }}>
@@ -237,8 +363,21 @@ export default function CharangaSaraoApp() {
   const boloActual = bolos.find(b => b.id === boloSeleccionadoId);
 
   return (
-    <div className="min-h-screen bg-black text-slate-100 font-sans pb-28 selection:bg-green-500 selection:text-black">
+    <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
       
+      {/* BOTÓN DESHACER FLOTANTE PARA ADMIN */}
+      {esAdmin && historialEstados.length > 0 && (
+        <div className="fixed top-20 right-4 z-50">
+          <button
+            onClick={deshacerUltimoCambio}
+            className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-black px-3 py-2 rounded-2xl shadow-2xl text-xs border border-black/40 transition active:scale-95 animate-bounce"
+            title="Deshacer el último cambio realizado"
+          >
+            <Undo2 className="w-4 h-4" /> Deshacer acción ({historialEstados.length})
+          </button>
+        </div>
+      )}
+
       <header className="bg-gradient-to-b from-zinc-900 to-black border-b border-green-500/20 px-6 py-5 sticky top-0 z-30 backdrop-blur-md bg-opacity-90">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -246,24 +385,36 @@ export default function CharangaSaraoApp() {
               <img src="PEGATINAS.jpg" alt="Logo" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h1 className="text-3xl tracking-wider text-green-400 leading-none" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                CHARANGA SARAO
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl tracking-wider text-green-400 leading-none" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                  CHARANGA SARAO
+                </h1>
+                {esAdmin && (
+                  <span className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Shield className="w-3 h-3" /> Admin
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-zinc-400 mt-0.5">
-                {usuarioActual.nombre} • <span className="text-green-300 font-bold">{usuarioActual.instrumentos.join(', ')}</span>
+                {usuarioActual.nombre} • <span className="text-green-300 font-bold">{usuarioActual.instrumentos?.join(', ')}</span>
               </p>
             </div>
           </div>
 
-          <button onClick={() => { setPestañaActiva('landing'); setBoloSeleccionadoId(null); }} className={`p-2.5 rounded-xl border transition ${pestañaActiva === 'landing' ? 'bg-green-500 text-black border-green-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800'}`}>
-            <Home className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setPestañaActiva('landing'); setBoloSeleccionadoId(null); }} className={`p-2.5 rounded-xl border transition ${pestañaActiva === 'landing' ? 'bg-green-500 text-black border-green-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800'}`}>
+              <Home className="w-4 h-4" />
+            </button>
+            <button onClick={cerrarSesion} className="p-2.5 rounded-xl border border-zinc-800 text-zinc-400 hover:text-rose-400 bg-zinc-900 text-xs font-bold" title="Cerrar sesión">
+              Salir
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto p-4 sm:p-6">
 
-        {/* LANDING */}
+        {/* INICIO */}
         {pestañaActiva === 'landing' && (
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl">
@@ -275,16 +426,16 @@ export default function CharangaSaraoApp() {
                   Bienvenido a la app de gestión de Sarao
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
-                  Calendario de bolos, plantilla de músicos y bote.
+                  {esAdmin ? 'Modo Administrador activado: gestión integral de bolos, estadísticas, roles y bote con opción de deshacer cambios.' : 'Calendario de bolos, confirmación de asistencia y bote.'}
                 </p>
               </div>
             </div>
 
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
               <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="p-3 bg-green-500/20 text-green-400 rounded-2xl w-fit mb-3"><CalendarIcon className="w-6 h-6" /></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Calendario Bolos</h3>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bolos</h3>
                   <p className="text-xs text-zinc-400 mt-1">Fechas, rutas y asistencia.</p>
                 </div>
                 <span className="text-xs font-bold text-green-400 mt-4 block">&rarr; Ver calendario</span>
@@ -294,7 +445,7 @@ export default function CharangaSaraoApp() {
                 <div>
                   <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Users className="w-6 h-6" /></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Plantilla</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Integrantes de la charanga.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Integrantes y roles.</p>
                 </div>
                 <span className="text-xs font-bold text-fuchsia-400 mt-4 block">&rarr; Ver plantilla ({miembros.length})</span>
               </div>
@@ -307,6 +458,17 @@ export default function CharangaSaraoApp() {
                 </div>
                 <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Ver saldo</span>
               </div>
+
+              {esAdmin && (
+                <div onClick={() => setPestañaActiva('admin')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-rose-500/40 hover:border-rose-500 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
+                  <div>
+                    <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl w-fit mb-3"><Shield className="w-6 h-6" /></div>
+                    <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Panel Admin</h3>
+                    <p className="text-xs text-zinc-400 mt-1">Estadísticas y roles.</p>
+                  </div>
+                  <span className="text-xs font-bold text-rose-400 mt-4 block">&rarr; Gestionar</span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -315,32 +477,164 @@ export default function CharangaSaraoApp() {
         {pestañaActiva === 'miembros' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-              <h2 className="text-3xl tracking-wide text-white mb-4" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                PLANTILLA DE MÚSICOS 2027
-              </h2>
-
-              <div className="space-y-3">
-                {miembros.map(m => {
-                  const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
-                  return (
-                    <div key={m.id} className={`p-4 rounded-2xl border flex items-center justify-between ${conf.bg} ${conf.border}`}>
-                      <div>
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
-                          {m.cuerda}
-                        </span>
-                        <p className="font-bold text-sm text-zinc-100 mt-1">{m.nombre}</p>
-                        <p className="text-xs text-zinc-400">Instrumentos: {m.instrumentos.join(', ')}</p>
-                      </div>
-
-                      {esAdmin && m.nombre.toLowerCase() !== 'edgar' && (
-                        <button onClick={() => eliminarMiembroPlantilla(m.id)} className="text-rose-400 hover:bg-rose-500/20 p-2 rounded-xl transition">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                  PLANTILLA DE MÚSICOS 2027 ({miembros.length})
+                </h2>
+                {esAdmin && (
+                  <button onClick={() => setPestañaActiva('admin')} className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                    <BarChart3 className="w-4 h-4" /> Estadísticas y Roles
+                  </button>
+                )}
               </div>
+
+              {miembros.length === 0 ? (
+                <p className="text-xs text-zinc-500 text-center py-6">Aún no hay ningún músico registrado en la plantilla.</p>
+              ) : (
+                <div className="space-y-3">
+                  {miembros.map(m => {
+                    const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
+                    return (
+                      <div key={m.id} className={`p-4 rounded-2xl border ${conf.bg} ${conf.border} space-y-3`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
+                              {m.cuerda}
+                            </span>
+                            <p className="font-bold text-base text-zinc-100 mt-1">{m.nombre}</p>
+                            <p className="text-xs text-zinc-400">Instrumentos: {m.instrumentos?.join(', ')}</p>
+                          </div>
+
+                          {esAdmin && m.nombre.toLowerCase() !== 'edgar' && (
+                            <button onClick={() => eliminarMiembroPlantilla(m.id)} className="text-rose-400 hover:bg-rose-500/20 p-2 rounded-xl transition">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        {esAdmin && (
+                          <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1">
+                              <Key className="w-3 h-3 text-amber-400" /> Roles:
+                            </span>
+                            {[
+                              { id: 'conductor', label: 'Conductor' },
+                              { id: 'jefe_cuerda', label: 'Jefe Cuerda' },
+                              { id: 'tesorero', label: 'Tesorero' },
+                              { id: 'admin', label: 'Admin' }
+                            ].map(r => {
+                              const tiene = m.roles?.includes(r.id);
+                              return (
+                                <button
+                                  key={r.id}
+                                  onClick={() => toggleRolMiembro(m.id, r.id)}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border transition ${
+                                    tiene 
+                                      ? 'bg-zinc-100 text-black border-white shadow-sm' 
+                                      : 'bg-black/40 text-zinc-500 border-zinc-800 hover:text-zinc-300'
+                                  }`}
+                                >
+                                  {r.label} {tiene ? '✓' : '+'}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* PANEL ADMIN */}
+        {pestañaActiva === 'admin' && esAdmin && (
+          <div className="space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
+              
+              <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
+                <div>
+                  <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    PANEL DE ADMINISTRACIÓN
+                  </h2>
+                  <p className="text-xs text-zinc-400">Estadísticas acumuladas y control de deshacer errores.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {historialEstados.length > 0 && (
+                    <button
+                      onClick={deshacerUltimoCambio}
+                      className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow"
+                    >
+                      <Undo2 className="w-4 h-4" /> Deshacer ({historialEstados.length})
+                    </button>
+                  )}
+                  <button
+                    onClick={exportarEstadisticasExcel}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow"
+                  >
+                    <Download className="w-4 h-4" /> Exportar CSV
+                  </button>
+                </div>
+              </div>
+
+              {/* TABLA DE ASISTENCIA */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-green-400" /> Asistencia acumulada de la plantilla
+                </h3>
+                
+                {miembros.length === 0 ? (
+                  <p className="text-xs text-zinc-500 py-3">No hay miembros para calcular estadísticas.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-zinc-300">
+                      <thead className="text-[10px] uppercase text-zinc-400 bg-black/60 border-b border-zinc-800">
+                        <tr>
+                          <th className="p-3">Músico</th>
+                          <th className="p-3">Cuerda</th>
+                          <th className="p-3">Roles</th>
+                          <th className="p-3">Asistencia</th>
+                          <th className="p-3">% Confirmado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
+                        {miembros.map(m => {
+                          const totalBolos = bolos.length;
+                          const siVan = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'puedo').length;
+                          const talVez = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'tal_vez').length;
+                          const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
+
+                          return (
+                            <tr key={m.id} className="hover:bg-zinc-800/30">
+                              <td className="p-3 font-bold text-white">{m.nombre}</td>
+                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
+                              <td className="p-3">
+                                <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                                  {m.roles?.join(', ')}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> / {totalBolos}
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-20 bg-zinc-800 h-2 rounded-full overflow-hidden">
+                                    <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                                  </div>
+                                  <span className="font-black text-xs text-green-400">{pct}%</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
             </div>
           </div>
         )}
@@ -361,7 +655,7 @@ export default function CharangaSaraoApp() {
                 )}
               </div>
 
-              {/* Vista Mensual de Días */}
+              {/* Cuadrícula Mensual */}
               <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 mb-6">
                 <h3 className="text-lg font-bold text-white mb-4">Agosto 2027</h3>
                 <div className="grid grid-cols-7 gap-1 text-center text-xs">
@@ -396,7 +690,7 @@ export default function CharangaSaraoApp() {
 
               {boloActual ? (
                 (() => {
-                  const miDispo = usuarioActual.disponibilidadBolos[boloActual.id];
+                  const miDispo = usuarioActual.disponibilidadBolos?.[boloActual.id];
 
                   if (!miDispo) {
                     return (
@@ -408,7 +702,7 @@ export default function CharangaSaraoApp() {
                           ¿Vas a asistir a {boloActual.titulo}?
                         </h3>
                         
-                        {usuarioActual.instrumentos.length > 1 && (
+                        {usuarioActual.instrumentos?.length > 1 && (
                           <div className="max-w-xs mx-auto text-left">
                             <label className="text-xs text-zinc-400 block mb-1 font-bold">¿Con qué instrumento tocarás?</label>
                             <select
@@ -424,17 +718,17 @@ export default function CharangaSaraoApp() {
                         )}
 
                         <div className="flex justify-center gap-3 pt-2">
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'puedo', instrumentoElegidoBolo || usuarioActual.instrumentos[0])} className="px-5 py-2.5 bg-emerald-500 text-black font-black rounded-xl text-xs">🟢 Puedo</button>
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'tal_vez')} className="px-5 py-2.5 bg-amber-500 text-black font-black rounded-xl text-xs">🟡 Tal vez</button>
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'no')} className="px-5 py-2.5 bg-rose-500 text-white font-black rounded-xl text-xs">🔴 No puedo</button>
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'puedo', instrumentoElegidoBolo || usuarioActual.instrumentos[0])} className="px-5 py-2.5 bg-emerald-500 text-black font-black rounded-xl text-xs cursor-pointer">🟢 Puedo</button>
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'tal_vez')} className="px-5 py-2.5 bg-amber-500 text-black font-black rounded-xl text-xs cursor-pointer">🟡 Tal vez</button>
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'no')} className="px-5 py-2.5 bg-rose-500 text-white font-black rounded-xl text-xs cursor-pointer">🔴 No puedo</button>
                         </div>
                       </div>
                     );
                   }
 
-                  const dispoPuedo = miembros.filter(m => m.disponibilidadBolos[boloActual.id]?.estado === 'puedo');
-                  const dispoTalVez = miembros.filter(m => m.disponibilidadBolos[boloActual.id]?.estado === 'tal_vez');
-                  const dispoNo = miembros.filter(m => m.disponibilidadBolos[boloActual.id]?.estado === 'no');
+                  const dispoPuedo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo');
+                  const dispoTalVez = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez');
+                  const dispoNo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'no');
 
                   return (
                     <div className="space-y-6 pt-4 border-t border-zinc-800">
@@ -448,7 +742,7 @@ export default function CharangaSaraoApp() {
                           </h3>
                           <p className="text-zinc-300 text-xs mt-1">📍 {boloActual.lugar} • 🕚 Salida: {boloActual.horarioSalida}</p>
                         </div>
-                        <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 text-zinc-300 px-3 py-1.5 rounded-xl">🔄 Cambiar</button>
+                        <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 text-zinc-300 px-3 py-1.5 rounded-xl">🔄 Cambiar asistencia</button>
                       </div>
 
                       {/* Trayectos y coches */}
@@ -474,6 +768,7 @@ export default function CharangaSaraoApp() {
                                 </div>
                                 {(esAdmin || car.conductor === usuarioActual.nombre) && (
                                   <button onClick={() => {
+                                    registrarSnapshot();
                                     setBolos(bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b));
                                   }} className="text-rose-400">
                                     <Trash2 className="w-4 h-4" />
@@ -487,19 +782,19 @@ export default function CharangaSaraoApp() {
                         </div>
                       </div>
 
-                      {/* Lista Asistencia */}
+                      {/* Listas de Asistencia */}
                       <div className="space-y-4">
                         <div>
                           <h4 className="font-bold text-emerald-400 text-xs uppercase tracking-wider mb-2">🟢 Sí pueden ({dispoPuedo.length})</h4>
                           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                             {dispoPuedo.map(m => {
                               const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
-                              const dispM = m.disponibilidadBolos[boloActual.id];
+                              const dispM = m.disponibilidadBolos?.[boloActual.id];
                               return (
                                 <div key={m.id} className={`p-3 rounded-2xl border flex items-center justify-between ${conf.bg} ${conf.border}`}>
                                   <div>
                                     <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
-                                    <p className="text-xs text-emerald-300 font-bold">Toca: {dispM.instrumento || m.instrumentos[0]}</p>
+                                    <p className="text-xs text-emerald-300 font-bold">Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
                                   </div>
                                   {(esAdmin || (puedeJefeCuerda && usuarioActual.cuerda === m.cuerda)) && (
                                     <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda)} className="text-rose-400 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -547,7 +842,7 @@ export default function CharangaSaraoApp() {
                   );
                 })()
               ) : (
-                <p className="text-xs text-zinc-500 text-center py-6">Haz clic en un día del calendario con bolo para ver sus detalles.</p>
+                <p className="text-xs text-zinc-500 text-center py-6">Haz clic en un día con bolo para ver los detalles y apuntarte.</p>
               )}
 
             </div>
@@ -562,6 +857,7 @@ export default function CharangaSaraoApp() {
               <form onSubmit={(e) => {
                 e.preventDefault();
                 if (!origenTrayecto || !destinoTrayecto) return;
+                registrarSnapshot();
                 const nuevoCar = {
                   id: Date.now(),
                   conductor: usuarioActual.nombre,
@@ -574,7 +870,7 @@ export default function CharangaSaraoApp() {
                 setOrigenTrayecto(''); setParadasTrayecto(''); setDestinoTrayecto(''); setVehiculoTrayecto('');
                 setShowModalTrayectoBolo(false);
               }} className="space-y-3">
-                <input type="text" placeholder="Vehículo (ej: Furgoneta)" value={vehiculoTrayecto} onChange={e => setVehiculoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
+                <input type="text" placeholder="Vehículo (ej: Furgoneta / Coche)" value={vehiculoTrayecto} onChange={e => setVehiculoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
                 <input type="text" placeholder="Origen (ej: Segovia)" value={origenTrayecto} onChange={e => setOrigenTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
                 <input type="text" placeholder="Punto intermedio / paradas" value={paradasTrayecto} onChange={e => setParadasTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
                 <input type="text" placeholder="Destino (ej: Cuéllar)" value={destinoTrayecto} onChange={e => setDestinoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
@@ -595,6 +891,7 @@ export default function CharangaSaraoApp() {
               <form onSubmit={(e) => {
                 e.preventDefault();
                 if (!nuevoTituloBolo || !nuevaFechaBolo) return;
+                registrarSnapshot();
                 setBolos([...bolos, { id: Date.now(), titulo: nuevoTituloBolo, lugar: nuevoLugarBolo, fecha: nuevaFechaBolo, horarioSalida: nuevaSalidaBolo, horarioActuacion: '', vestuario: 'Camiseta negra', presupuesto: 0, cochesAsignados: [] }]);
                 setNuevoTituloBolo(''); setNuevaFechaBolo('');
                 setShowModalBolo(false);
@@ -616,7 +913,7 @@ export default function CharangaSaraoApp() {
         {pestañaActiva === 'bote' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-              <h3 className="text-3xl tracking-wide text-white mb-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>SALDO: {saldoTotal.toFixed(2)} €</h3>
+              <h3 className="text-3xl tracking-wide text-white mb-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>SALDO BOTE: {saldoTotal.toFixed(2)} €</h3>
               <div className="space-y-2 max-h-48 overflow-y-auto bg-black/60 p-3 rounded-2xl border border-zinc-800 mt-4">
                 {movimientosBote.map(m => (
                   <div key={m.id} className="flex justify-between items-center text-xs pb-2 border-b border-zinc-800">
@@ -631,12 +928,14 @@ export default function CharangaSaraoApp() {
 
       </main>
 
+      {/* BARRA INFERIOR */}
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-3 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1.5 z-40">
         {[
           { id: 'landing', label: 'Inicio', icon: Home },
           { id: 'bolos', label: 'Bolos', icon: CalendarIcon },
           { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
+          ...(esAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : [])
         ].map(tab => {
           const Icon = tab.icon;
           const activa = pestañaActiva === tab.id;
