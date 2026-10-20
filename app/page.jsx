@@ -5,7 +5,7 @@ import {
   Calendar as CalendarIcon, Car, Users, Wallet, Shield, MapPin, 
   Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, 
   UserPlus, Trash2, Shirt, ArrowRight, Home, Clock, AlertCircle, 
-  ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText, ChevronRightCircle
+  ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText 
 } from 'lucide-react';
 
 const CONFIG_CUERDAS = {
@@ -33,6 +33,21 @@ const OPCIONES_VESTUARIO = [
   { id: 'Full Print', label: 'Full Print Sarao', color: 'bg-gradient-to-r from-green-500 to-emerald-400 text-black font-black border-green-400' }
 ];
 
+const NOMBRES_MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+// Generar lista de meses desde Sep 2026 hasta Dic 2028
+const MESES_PERMITIDOS = [];
+for (let anio = 2026; anio <= 2028; anio++) {
+  const mesInicio = anio === 2026 ? 8 : 0; // Septiembre es índice 8
+  const mesFin = 11;
+  for (let mes = mesInicio; mes <= mesFin; mes++) {
+    MESES_PERMITIDOS.push({ anio, mes, label: `${NOMBRES_MESES[mes]} ${anio}` });
+  }
+}
+
 export default function CharangaSaraoApp() {
   const [cargado, setCargado] = useState(false);
   const [autenticado, setAutenticado] = useState(false);
@@ -42,7 +57,6 @@ export default function CharangaSaraoApp() {
   const PASSWORD_CHARANGA = 'sarao2027';
   const PASSWORD_ADMIN = 'admin2027';
 
-  // Estados persistentes
   const [miembros, setMiembros] = useState([]);
   const [bolos, setBolos] = useState([
     {
@@ -50,7 +64,6 @@ export default function CharangaSaraoApp() {
       titulo: 'PASACALLES Y VERMÚ EN CUÉLLAR',
       lugar: 'Plaza Mayor, Cuéllar',
       fecha: '2027-08-15',
-      horarioSalida: '11:30h',
       horaInicio: '13:00h',
       horaFin: '17:00h',
       vestuario: 'Negro',
@@ -63,12 +76,13 @@ export default function CharangaSaraoApp() {
     { id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso', autor: 'Admin' }
   ]);
 
-  // Historial para Deshacer
   const [historialEstados, setHistorialEstados] = useState([]);
-
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
+
+  // Navegación del Calendario (por defecto mes actual de la lista o Sep 2026)
+  const [mesIndexActivo, setMesIndexActivo] = useState(0);
 
   // Modales Bolos
   const [showModalBolo, setShowModalBolo] = useState(false);
@@ -76,13 +90,12 @@ export default function CharangaSaraoApp() {
   const [nuevoTituloBolo, setNuevoTituloBolo] = useState('');
   const [nuevoLugarBolo, setNuevoLugarBolo] = useState('');
   const [nuevaFechaBolo, setNuevaFechaBolo] = useState('');
-  const [nuevaSalidaBolo, setNuevaSalidaBolo] = useState('');
   const [nuevaHoraInicioBolo, setNuevaHoraInicioBolo] = useState('');
   const [nuevaHoraFinBolo, setNuevaHoraFinBolo] = useState('');
   const [nuevoPresupuestoBolo, setNuevoPresupuestoBolo] = useState('');
   const [nuevoConFacturaBolo, setNuevoConFacturaBolo] = useState(false);
 
-  // Modal Trayecto Conductor Avanzado
+  // Trayectos
   const [showModalTrayectoBolo, setShowModalTrayectoBolo] = useState(false);
   const [vehiculoTrayecto, setVehiculoTrayecto] = useState('');
   const [origenTrayecto, setOrigenTrayecto] = useState('');
@@ -90,10 +103,9 @@ export default function CharangaSaraoApp() {
   const [paradasIntermedias, setParadasIntermedias] = useState([{ lugar: '', hora: '' }]);
   const [destinoTrayecto, setDestinoTrayecto] = useState('');
   const [horaLlegadaDestino, setHoraLlegadaDestino] = useState('');
-
   const [instrumentoElegidoBolo, setInstrumentoElegidoBolo] = useState('');
 
-  // Modales Bote
+  // Bote
   const [showModalMovimientoBote, setShowModalMovimientoBote] = useState(false);
   const [conceptoBote, setConceptoBote] = useState('');
   const [importeBote, setImporteBote] = useState('');
@@ -105,7 +117,6 @@ export default function CharangaSaraoApp() {
   const [precioLitro, setPrecioLitro] = useState('1.45');
   const [destinoGasolina, setDestinoGasolina] = useState('');
 
-  // 1. CARGA INICIAL: Mantiene la sesión iniciada automáticamente
   useEffect(() => {
     try {
       const miembrosGuardados = localStorage.getItem('sarao_miembros');
@@ -116,11 +127,8 @@ export default function CharangaSaraoApp() {
       if (miembrosGuardados) setMiembros(JSON.parse(miembrosGuardados));
       if (bolosGuardados) setBolos(JSON.parse(bolosGuardados));
       if (boteGuardado) setMovimientosBote(JSON.parse(boteGuardado));
-      
-      // Auto-login si ya existe el usuario guardado en el navegador
       if (usuarioGuardado) {
-        const u = JSON.parse(usuarioGuardado);
-        setUsuarioActual(u);
+        setUsuarioActual(JSON.parse(usuarioGuardado));
         setAutenticado(true);
       }
     } catch (e) {
@@ -134,7 +142,6 @@ export default function CharangaSaraoApp() {
     document.head.appendChild(link);
   }, []);
 
-  // 2. GUARDADO AUTOMÁTICO EN LOCALSTORAGE
   useEffect(() => {
     if (!cargado) return;
     localStorage.setItem('sarao_miembros', JSON.stringify(miembros));
@@ -177,7 +184,6 @@ export default function CharangaSaraoApp() {
     alert('Acción revertida correctamente.');
   };
 
-  // ROLES Y PERMISOS
   const esAdmin = usuarioActual?.roles?.includes('admin');
   const esConductor = usuarioActual?.roles?.includes('conductor') || esAdmin;
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
@@ -201,7 +207,6 @@ export default function CharangaSaraoApp() {
     const esAdminAcceso = pass === PASSWORD_ADMIN || nombreRegistro.trim().toLowerCase() === 'edgar';
 
     const existente = miembros.find(m => m.nombre.trim().toLowerCase() === nombreRegistro.trim().toLowerCase());
-    
     if (existente) {
       const miembroActualizado = {
         ...existente,
@@ -280,14 +285,12 @@ export default function CharangaSaraoApp() {
     }));
   };
 
-  // CAMBIO DE VESTUARIO EXCLUSIVO ADMIN
   const cambiarVestuarioBolo = (boloId, nuevoVestuario) => {
     if (!esAdmin) return;
     registrarSnapshot();
     setBolos(bolos.map(b => b.id === boloId ? { ...b, vestuario: nuevoVestuario } : b));
   };
 
-  // ELIMINAR BOLO (ADMIN)
   const eliminarBolo = (boloId, boloTitulo) => {
     if (!esAdmin) return;
     if (confirm(`¿Eliminar el bolo "${boloTitulo}" definitivamente?`)) {
@@ -298,9 +301,7 @@ export default function CharangaSaraoApp() {
         delete disp[boloId];
         return { ...m, disponibilidadBolos: disp };
       }));
-      if (boloSeleccionadoId === boloId) {
-        setBoloSeleccionadoId(null);
-      }
+      if (boloSeleccionadoId === boloId) setBoloSeleccionadoId(null);
     }
   };
 
@@ -312,10 +313,9 @@ export default function CharangaSaraoApp() {
 
   const eliminarDisponibilidadMiembro = (miembroId, cuerdaMiembro, nombreMiembro) => {
     if (!puedeEliminarAsistencia(cuerdaMiembro)) {
-      alert(`Como jefe de cuerda, solo puedes descartar músicos de tu propia cuerda (${usuarioActual.cuerda}).`);
+      alert(`Como jefe de cuerda, solo puedes descartar músicos de tu cuerda (${usuarioActual.cuerda}).`);
       return;
     }
-
     if (confirm(`¿Descartar a ${nombreMiembro} de este bolo?`)) {
       registrarSnapshot();
       setMiembros(miembros.map(m => {
@@ -342,7 +342,7 @@ export default function CharangaSaraoApp() {
     if (!esTesorero) return;
     const imp = parseFloat(importeBote);
     if (isNaN(imp) || imp <= 0 || !conceptoBote.trim()) {
-      alert('Introduce un concepto y un importe válido.');
+      alert('Introduce un concepto e importe válidos.');
       return;
     }
     registrarSnapshot();
@@ -369,7 +369,7 @@ export default function CharangaSaraoApp() {
     const precio = parseFloat(precioLitro);
 
     if (isNaN(km) || km <= 0 || isNaN(cons) || isNaN(precio)) {
-      alert('Por favor introduce valores numéricos válidos.');
+      alert('Valores numéricos incorrectos.');
       return;
     }
 
@@ -377,7 +377,6 @@ export default function CharangaSaraoApp() {
     registrarSnapshot();
 
     const conceptoTexto = `Gasolina ${usuarioActual.nombre} (${km} km${destinoGasolina ? ` - ${destinoGasolina}` : ''})`;
-
     const nuevoGasto = {
       id: Date.now(),
       concepto: conceptoTexto,
@@ -391,7 +390,7 @@ export default function CharangaSaraoApp() {
     setKmGasolina('');
     setDestinoGasolina('');
     setShowModalGasolina(false);
-    alert(`Se ha registrado el gasto de combustible por ${gastoCalculado} € en el bote.`);
+    alert(`Se ha registrado el gasto de gasolina (${gastoCalculado} €) en el bote.`);
   };
 
   const eliminarMovimientoBote = (movId) => {
@@ -417,7 +416,7 @@ export default function CharangaSaraoApp() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "estadisticas_sarao_2027.csv");
+    link.setAttribute("download", "estadisticas_sarao.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -436,7 +435,7 @@ export default function CharangaSaraoApp() {
             <h1 className="text-4xl tracking-wider text-green-400" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
               CHARANGA SARAO
             </h1>
-            <p className="text-xs text-zinc-400">Temporada 2027 • Acceso Músicos</p>
+            <p className="text-xs text-zinc-400">Acceso Músicos</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -464,7 +463,7 @@ export default function CharangaSaraoApp() {
                       className={`p-2 rounded-xl text-xs font-bold text-left border flex items-center justify-between ${sel ? 'bg-green-500/20 border-green-500 text-green-300' : 'bg-zinc-900 border-zinc-800 text-zinc-400'}`}
                     >
                       <span className="truncate pr-1">{inst.nombre}</span>
-                      {sel && <Check className="w-3.5 h-3.5 text-green-400 shrink-0" />}
+                      {sel && <Check className="w-3.5 h-3.5 text-green-400 shrink-0"/>}
                     </button>
                   );
                 })}
@@ -480,7 +479,7 @@ export default function CharangaSaraoApp() {
                 onChange={e => setPasswordInput(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
               />
-              <p className="text-[10px] text-zinc-500 mt-1">Una vez entres, tu sesión quedará guardada permanentemente.</p>
+              <p className="text-[10px] text-zinc-500 mt-1">Tu sesión se mantendrá guardada para no volver a iniciar sesión.</p>
             </div>
 
             <button type="submit" className="w-full bg-green-500 text-black font-black py-3.5 rounded-2xl text-sm shadow-lg cursor-pointer mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif", fontSize: '1.2rem' }}>
@@ -495,6 +494,11 @@ export default function CharangaSaraoApp() {
   const boloActual = bolos.find(b => b.id === boloSeleccionadoId);
   const bolosOrdenados = [...bolos].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
+  // Cálculo de días para el mes visible en el calendario
+  const mesSeleccionado = MESES_PERMITIDOS[mesIndexActivo] || MESES_PERMITIDOS[0];
+  const totalDiasMes = new Date(mesSeleccionado.anio, mesSeleccionado.mes + 1, 0).getDate();
+  const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7; // Lunes=0, Domingo=6
+
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
       
@@ -506,7 +510,7 @@ export default function CharangaSaraoApp() {
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-black px-3 py-2 rounded-2xl shadow-2xl text-xs border border-black/40 transition active:scale-95 animate-bounce"
             title="Deshacer el último cambio realizado"
           >
-            <Undo2 className="w-4 h-4" /> Deshacer acción ({historialEstados.length})
+            <Undo2 className="w-4 h-4"/> Deshacer acción ({historialEstados.length})
           </button>
         </div>
       )}
@@ -524,7 +528,7 @@ export default function CharangaSaraoApp() {
                 </h1>
                 {esAdmin && (
                   <span className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Shield className="w-3 h-3" /> Admin
+                    <Shield className="w-3 h-3"/> Admin
                   </span>
                 )}
                 {!esAdmin && esJefeCuerda && (
@@ -541,7 +545,7 @@ export default function CharangaSaraoApp() {
 
           <div className="flex items-center gap-2">
             <button onClick={() => { setPestañaActiva('landing'); setBoloSeleccionadoId(null); }} className={`p-2.5 rounded-xl border transition ${pestañaActiva === 'landing' ? 'bg-green-500 text-black border-green-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800'}`}>
-              <Home className="w-4 h-4" />
+              <Home className="w-4 h-4"/>
             </button>
             <button onClick={cerrarSesion} className="p-2.5 rounded-xl border border-zinc-800 text-zinc-400 hover:text-rose-400 bg-zinc-900 text-xs font-bold" title="Cerrar sesión">
               Salir
@@ -558,14 +562,14 @@ export default function CharangaSaraoApp() {
             <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl">
               <div className="relative z-10">
                 <span className="bg-green-500/20 text-green-400 text-xs font-black px-3 py-1 rounded-full uppercase border border-green-500/30">
-                  Temporada 2027
+                  2026 - 2028
                 </span>
                 <h2 className="text-3xl sm:text-4xl tracking-wide text-white mt-3" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                   Bienvenido a la app de gestión de Sarao
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
                   {esAdmin 
-                    ? 'Modo Administrador activado: gestión de bolos con presupuestos, facturas, vestuarios y finanzas.' 
+                    ? 'Modo Administrador: gestión de bolos, calendario hasta 2028, vestuarios y bote.' 
                     : esJefeCuerda
                       ? `Jefe de cuerda de ${usuarioActual.cuerda}: revisa y gestiona la asistencia de tu sección.`
                       : 'Calendario de bolos, confirmación de asistencia, coches y bote.'}
@@ -577,7 +581,7 @@ export default function CharangaSaraoApp() {
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5 text-green-400" /> Próximos Bolos
+                  <CalendarIcon className="w-5 h-5 text-green-400"/> Próximos Bolos
                 </h3>
                 <span className="text-xs text-zinc-500">Desliza para ver más &rarr;</span>
               </div>
@@ -622,20 +626,15 @@ export default function CharangaSaraoApp() {
                             {b.titulo}
                           </h4>
                           <p className="text-xs text-zinc-400 flex items-center gap-1 mt-1">
-                            <MapPin className="w-3.5 h-3.5 text-zinc-500 shrink-0" /> {b.lugar}
+                            <MapPin className="w-3.5 h-3.5 text-zinc-500 shrink-0"/> {b.lugar}
                           </p>
 
                           <div className="mt-3 pt-3 border-t border-zinc-800/80 space-y-1.5 text-xs text-zinc-300">
-                            {b.horarioSalida && (
-                              <p className="flex items-center gap-1.5 text-zinc-400">
-                                <Car className="w-3.5 h-3.5 text-blue-400" /> Salida viaje: <strong className="text-white">{b.horarioSalida}</strong>
-                              </p>
-                            )}
                             <p className="flex items-center gap-1.5 text-zinc-400">
-                              <Clock className="w-3.5 h-3.5 text-green-400" /> Tocar: <strong className="text-white">{b.horaInicio || '13:00h'} - {b.horaFin || '17:00h'}</strong>
+                              <Clock className="w-3.5 h-3.5 text-green-400"/> Tocar: <strong className="text-white">{b.horaInicio || '13:00h'} - {b.horaFin || '17:00h'}</strong>
                             </p>
                             <p className="flex items-center gap-1.5 text-zinc-400">
-                              <Shirt className="w-3.5 h-3.5 text-amber-400" /> Ropa: <strong className="text-zinc-200">{vest.label}</strong>
+                              <Shirt className="w-3.5 h-3.5 text-amber-400"/> Ropa: <strong className="text-zinc-200">{vest.label}</strong>
                             </p>
                           </div>
                         </div>
@@ -659,7 +658,7 @@ export default function CharangaSaraoApp() {
             <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
               <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
-                  <div className="p-3 bg-green-500/20 text-green-400 rounded-2xl w-fit mb-3"><CalendarIcon className="w-6 h-6" /></div>
+                  <div className="p-3 bg-green-500/20 text-green-400 rounded-2xl w-fit mb-3"><CalendarIcon className="w-6 h-6"/></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bolos</h3>
                   <p className="text-xs text-zinc-400 mt-1">Fechas, vestuario, rutas y asistencia.</p>
                 </div>
@@ -668,7 +667,7 @@ export default function CharangaSaraoApp() {
 
               <div onClick={() => setPestañaActiva('miembros')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
-                  <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Users className="w-6 h-6" /></div>
+                  <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Users className="w-6 h-6"/></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Plantilla</h3>
                   <p className="text-xs text-zinc-400 mt-1">Integrantes de Sarao.</p>
                 </div>
@@ -677,9 +676,9 @@ export default function CharangaSaraoApp() {
 
               <div onClick={() => setPestañaActiva('bote')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
-                  <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6" /></div>
+                  <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6"/></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bote</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Tesorería y gasolinas.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Tesorería y combustible.</p>
                 </div>
                 <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Saldo ({saldoTotal.toFixed(2)} €)</span>
               </div>
@@ -687,7 +686,7 @@ export default function CharangaSaraoApp() {
               {esAdmin && (
                 <div onClick={() => setPestañaActiva('admin')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-rose-500/40 hover:border-rose-500 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                   <div>
-                    <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl w-fit mb-3"><Shield className="w-6 h-6" /></div>
+                    <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl w-fit mb-3"><Shield className="w-6 h-6"/></div>
                     <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Panel Admin</h3>
                     <p className="text-xs text-zinc-400 mt-1">Estadísticas y roles.</p>
                   </div>
@@ -704,11 +703,11 @@ export default function CharangaSaraoApp() {
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                  PLANTILLA DE MÚSICOS 2027 ({miembros.length})
+                  PLANTILLA DE MÚSICOS ({miembros.length})
                 </h2>
                 {esAdmin && (
                   <button onClick={() => setPestañaActiva('admin')} className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                    <BarChart3 className="w-4 h-4" /> Estadísticas y Roles
+                    <BarChart3 className="w-4 h-4"/> Estadísticas y Roles
                   </button>
                 )}
               </div>
@@ -735,16 +734,15 @@ export default function CharangaSaraoApp() {
 
                           {esAdmin && m.nombre.toLowerCase() !== 'edgar' && (
                             <button onClick={() => eliminarMiembroPlantilla(m.id)} className="text-rose-400 hover:bg-rose-500/20 p-2 rounded-xl transition" title="Eliminar de la plantilla">
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4"/>
                             </button>
                           )}
                         </div>
 
-                        {/* ASIGNACIÓN DE ROLES: EXCLUSIVA ADMIN */}
                         {esAdmin && (
                           <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
                             <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
-                              <Key className="w-3 h-3 text-rose-400" /> Asignar rol (solo admin):
+                              <Key className="w-3 h-3 text-rose-400"/> Asignar rol (solo admin):
                             </span>
                             {[
                               { id: 'conductor', label: 'Conductor' },
@@ -778,11 +776,10 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* PANEL ADMIN: EXCLUSIVO ADMIN */}
+        {/* PANEL ADMIN */}
         {pestañaActiva === 'admin' && esAdmin && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
-              
               <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
                 <div>
                   <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
@@ -796,22 +793,21 @@ export default function CharangaSaraoApp() {
                       onClick={deshacerUltimoCambio}
                       className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow"
                     >
-                      <Undo2 className="w-4 h-4" /> Deshacer ({historialEstados.length})
+                      <Undo2 className="w-4 h-4"/> Deshacer ({historialEstados.length})
                     </button>
                   )}
                   <button
                     onClick={exportarEstadisticasExcel}
                     className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow"
                   >
-                    <Download className="w-4 h-4" /> Exportar CSV
+                    <Download className="w-4 h-4"/> Exportar CSV
                   </button>
                 </div>
               </div>
 
-              {/* TABLA DE ASISTENCIA */}
               <div className="space-y-3">
                 <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-green-400" /> Asistencia acumulada de la plantilla
+                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia acumulada de la plantilla
                 </h3>
                 
                 {miembros.length === 0 ? (
@@ -863,7 +859,6 @@ export default function CharangaSaraoApp() {
                   </div>
                 )}
               </div>
-
             </div>
           </div>
         )}
@@ -884,26 +879,71 @@ export default function CharangaSaraoApp() {
                       onClick={() => setShowModalBolo(true)} 
                       className="bg-green-500 hover:bg-green-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
                     >
-                      <Plus className="w-4 h-4" /> + Añadir Bolo
+                      <Plus className="w-4 h-4"/> + Añadir Bolo
                     </button>
                     <button 
                       onClick={() => setShowModalEliminarBolos(true)} 
                       className="bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow transition"
                     >
-                      <Trash2 className="w-4 h-4" /> - Eliminar Bolo
+                      <Trash2 className="w-4 h-4"/> - Eliminar Bolo
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Calendario Mensual */}
+              {/* SELECTOR Y NAVEGACIÓN DE MESES (Sep 2026 a Dic 2028) */}
               <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 mb-6">
-                <h3 className="text-lg font-bold text-white mb-4">Agosto 2027</h3>
+                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setMesIndexActivo(prev => Math.max(0, prev - 1))}
+                      disabled={mesIndexActivo === 0}
+                      className="p-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-white"
+                      title="Mes anterior"
+                    >
+                      <ChevronLeft className="w-4 h-4"/>
+                    </button>
+                    <button
+                      onClick={() => setMesIndexActivo(prev => Math.min(MESES_PERMITIDOS.length - 1, prev + 1))}
+                      disabled={mesIndexActivo === MESES_PERMITIDOS.length - 1}
+                      className="p-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-white"
+                      title="Mes siguiente"
+                    >
+                      <ChevronRight className="w-4 h-4"/>
+                    </button>
+                    <h3 className="text-lg font-bold text-white ml-1">
+                      {mesSeleccionado.label}
+                    </h3>
+                  </div>
+
+                  <select
+                    value={mesIndexActivo}
+                    onChange={e => setMesIndexActivo(parseInt(e.target.value))}
+                    className="bg-zinc-900 border border-zinc-700 text-xs text-green-300 font-bold rounded-xl px-3 py-1.5 outline-none focus:border-green-500"
+                  >
+                    {MESES_PERMITIDOS.map((m, idx) => (
+                      <option key={idx} value={idx}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Cuadrícula de días */}
                 <div className="grid grid-cols-7 gap-1 text-center text-xs">
-                  {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => <div key={d} className="font-bold text-zinc-500 py-1">{d}</div>)}
-                  {Array.from({ length: 31 }, (_, i) => {
+                  {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
+                    <div key={d} className="font-bold text-zinc-500 py-1">{d}</div>
+                  ))}
+
+                  {/* Espacios vacíos antes del primer día */}
+                  {Array.from({ length: diaSemanaInicio }, (_, i) => (
+                    <div key={`empty-${i}`} className="min-h-[80px] rounded-xl bg-zinc-950/20 border border-transparent"></div>
+                  ))}
+
+                  {/* Días reales del mes */}
+                  {Array.from({ length: totalDiasMes }, (_, i) => {
                     const diaNum = i + 1;
-                    const fechaStr = `2027-08-${diaNum < 10 ? '0' + diaNum : diaNum}`;
+                    const mesFormateado = String(mesSeleccionado.mes + 1).padStart(2, '0');
+                    const diaFormateado = String(diaNum).padStart(2, '0');
+                    const fechaStr = `${mesSeleccionado.anio}-${mesFormateado}-${diaFormateado}`;
                     const bolosDelDia = bolos.filter(b => b.fecha === fechaStr);
 
                     return (
@@ -919,7 +959,7 @@ export default function CharangaSaraoApp() {
                               onClick={() => setBoloSeleccionadoId(b.id)}
                               className="text-[9px] leading-tight text-green-200 font-bold bg-green-500/40 p-1 rounded cursor-pointer hover:bg-green-500/60 truncate"
                             >
-                              {b.lugar} ({b.horarioSalida || b.horaInicio})
+                              {b.lugar} ({b.horaInicio || 'Bolo'})
                             </div>
                           ))}
                         </div>
@@ -929,6 +969,7 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
+              {/* DETALLES DEL BOLO SELECCIONADO */}
               {boloActual ? (
                 (() => {
                   const miDispo = usuarioActual.disponibilidadBolos?.[boloActual.id];
@@ -937,7 +978,7 @@ export default function CharangaSaraoApp() {
                     return (
                       <div className="bg-black/90 border border-amber-500/50 rounded-2xl p-6 text-center space-y-4">
                         <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto">
-                          <AlertCircle className="w-6 h-6" />
+                          <AlertCircle className="w-6 h-6"/>
                         </div>
                         <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                           ¿Vas a asistir a {boloActual.titulo}?
@@ -973,13 +1014,10 @@ export default function CharangaSaraoApp() {
                   const dispoPuedo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo');
                   const dispoTalVez = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez');
                   const dispoNo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'no');
-
                   const vestuarioActual = OPCIONES_VESTUARIO.find(v => v.id === boloActual.vestuario) || OPCIONES_VESTUARIO[0];
 
                   return (
                     <div className="space-y-6 pt-4 border-t border-zinc-800">
-                      
-                      {/* INFORMACIÓN DEL BOLO SELECCIONADO */}
                       <div className="flex justify-between items-start flex-wrap gap-4">
                         <div>
                           <span className="text-xs font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-full uppercase">
@@ -990,13 +1028,10 @@ export default function CharangaSaraoApp() {
                           </h3>
                           <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 mt-1">
                             <span>📍 {boloActual.lugar}</span>
-                            {boloActual.horarioSalida && <span>🚗 Salida: <strong>{boloActual.horarioSalida}</strong></span>}
                             <span>🎺 Actuación: <strong>{boloActual.horaInicio || '13:00h'} - {boloActual.horaFin || '17:00h'}</strong></span>
-                            
-                            {/* PRESUPUESTO Y FACTURA VISIBLE SOLO PARA ADMIN */}
                             {esAdmin && (
                               <span className="text-[11px] font-bold bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
-                                💰 {boloActual.presupuesto ? `${boloActual.presupuesto} €` : 'Sin presupuesto fijado'} • {boloActual.conFactura ? 'Factura Sí' : 'Sin factura'}
+                                💰 {boloActual.presupuesto ? `${boloActual.presupuesto} €` : 'Sin presupuesto'} • {boloActual.conFactura ? 'Factura Sí' : 'Sin factura'}
                               </span>
                             )}
                           </div>
@@ -1007,11 +1042,11 @@ export default function CharangaSaraoApp() {
                         </button>
                       </div>
 
-                      {/* TRAYECTOS Y COCHES CON HORARIOS Y PARADAS MÚLTIPLES */}
+                      {/* Rutas y Caravanas */}
                       <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 space-y-3">
                         <div className="flex justify-between items-center">
                           <h4 className="font-bold text-zinc-200 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                            <Car className="w-4 h-4 text-blue-400" /> Caravana de Coches y Rutas
+                            <Car className="w-4 h-4 text-blue-400"/> Caravana de Coches y Rutas
                           </h4>
                           {esConductor && (
                             <button onClick={() => setShowModalTrayectoBolo(true)} className="bg-blue-500 hover:bg-blue-400 text-black font-black text-[11px] px-3 py-1.5 rounded-xl">
@@ -1029,14 +1064,13 @@ export default function CharangaSaraoApp() {
                                     <span className="font-bold text-blue-400">{car.conductor}</span>
                                     <span className="text-[10px] bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">{car.vehiculo}</span>
                                   </div>
-                                  
                                   <div className="text-zinc-300 text-[11px] space-y-0.5 pt-1">
                                     <p>🚩 Origen: <strong className="text-white">{car.origen}</strong> {car.horaSalida && <span className="text-blue-300 font-semibold">({car.horaSalida})</span>}</p>
                                     {car.paradas && car.paradas.length > 0 && (
                                       <div className="pl-3 border-l border-zinc-700 space-y-0.5 my-1">
                                         {car.paradas.map((p, pIdx) => (
                                           <p key={pIdx} className="text-zinc-400">
-                                            ↳ Punto intermedio: <strong className="text-zinc-200">{p.lugar}</strong> {p.hora && <span className="text-amber-300 font-semibold">({p.hora})</span>}
+                                            ↳ Parada: <strong className="text-zinc-200">{p.lugar}</strong> {p.hora && <span className="text-amber-300 font-semibold">({p.hora})</span>}
                                           </p>
                                         ))}
                                       </div>
@@ -1050,7 +1084,7 @@ export default function CharangaSaraoApp() {
                                     registrarSnapshot();
                                     setBolos(bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b));
                                   }} className="text-rose-400 hover:text-rose-300 p-1">
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-4 h-4"/>
                                   </button>
                                 )}
                               </div>
@@ -1061,11 +1095,11 @@ export default function CharangaSaraoApp() {
                         </div>
                       </div>
 
-                      {/* VESTUARIO OFICIAL: JUSTO DESPUÉS DE CONFIRMACIÓN Y ENCIMA DE PARTICIPANTES */}
+                      {/* VESTUARIO OFICIAL */}
                       <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
                         <div className="flex items-center gap-2.5">
                           <div className="p-2.5 bg-green-500/20 text-green-400 rounded-xl">
-                            <Shirt className="w-5 h-5" />
+                            <Shirt className="w-5 h-5"/>
                           </div>
                           <div>
                             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Vestuario Oficial</span>
@@ -1073,7 +1107,6 @@ export default function CharangaSaraoApp() {
                           </div>
                         </div>
 
-                        {/* Opciones de vestuario: Solo el Admin puede interactuar y cambiarlo */}
                         {esAdmin ? (
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] text-zinc-500 font-bold uppercase mr-1">Elegir ropa (Admin):</span>
@@ -1101,7 +1134,7 @@ export default function CharangaSaraoApp() {
                         )}
                       </div>
 
-                      {/* DESGLOSE DE PARTICIPANTES / ASISTENCIAS */}
+                      {/* PARTICIPANTES */}
                       <div className="space-y-4">
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -1137,7 +1170,7 @@ export default function CharangaSaraoApp() {
                                       className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
                                       title={`Descartar a ${m.nombre} de este bolo`}
                                     >
-                                      <Trash2 className="w-4 h-4" />
+                                      <Trash2 className="w-4 h-4"/>
                                     </button>
                                   )}
                                 </div>
@@ -1159,7 +1192,7 @@ export default function CharangaSaraoApp() {
                                       <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
                                     </div>
                                     {puedeGestionarEste && (
-                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4" /></button>
+                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4"/></button>
                                     )}
                                   </div>
                                 );
@@ -1181,7 +1214,7 @@ export default function CharangaSaraoApp() {
                                       <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
                                     </div>
                                     {puedeGestionarEste && (
-                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4" /></button>
+                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4"/></button>
                                     )}
                                   </div>
                                 );
@@ -1202,12 +1235,12 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL PARA ELIMINAR CUALQUIER BOLO DIRECTAMENTE (SOLO ADMIN) */}
+        {/* MODAL ELIMINAR BOLOS (ADMIN) */}
         {showModalEliminarBolos && esAdmin && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-rose-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
               <div className="flex items-center gap-2 mb-3">
-                <Trash2 className="w-5 h-5 text-rose-400" />
+                <Trash2 className="w-5 h-5 text-rose-400"/>
                 <h3 className="text-lg font-black text-white">Eliminar Bolo</h3>
               </div>
               <p className="text-xs text-zinc-400 mb-4">Selecciona el bolo que deseas retirar del calendario.</p>
@@ -1226,7 +1259,7 @@ export default function CharangaSaraoApp() {
                         onClick={() => eliminarBolo(b.id, b.titulo)}
                         className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black font-bold px-3 py-1.5 rounded-xl transition text-xs flex items-center gap-1"
                       >
-                        <Trash2 className="w-3.5 h-3.5" /> Borrar
+                        <Trash2 className="w-3.5 h-3.5"/> Borrar
                       </button>
                     </div>
                   ))
@@ -1246,15 +1279,15 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL TRAYECTO AVANZADO CON PARADAS MÚLTIPLES Y HORAS */}
+        {/* MODAL TRAYECTO CONDUCTOR */}
         {showModalTrayectoBolo && boloActual && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center gap-2 mb-2">
-                <Car className="w-5 h-5 text-blue-400" />
+                <Car className="w-5 h-5 text-blue-400"/>
                 <h3 className="text-lg font-black text-white">Publicar Trayecto en Caravana</h3>
               </div>
-              <p className="text-xs text-zinc-400 mb-4">Indica tu hora de salida, paradas intermedias con hora de llegada y destino final.</p>
+              <p className="text-xs text-zinc-400 mb-4">Indica la salida, paradas intermedias con hora y llegada.</p>
 
               <form onSubmit={(e) => {
                 e.preventDefault();
@@ -1280,12 +1313,12 @@ export default function CharangaSaraoApp() {
                 
                 <div>
                   <label className="text-[11px] font-bold text-zinc-400 block mb-1">Vehículo:</label>
-                  <input type="text" placeholder="Ej: Coche propio, Furgoneta..." value={vehiculoTrayecto} onChange={e => setVehiculoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                  <input type="text" placeholder="Ej: Furgoneta o Coche" value={vehiculoTrayecto} onChange={e => setVehiculoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2">
-                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Lugar de Salida (Origen):</label>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Lugar de Salida:</label>
                     <input type="text" placeholder="Ej: Segovia" value={origenTrayecto} onChange={e => setOrigenTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
                   </div>
                   <div>
@@ -1310,7 +1343,7 @@ export default function CharangaSaraoApp() {
                     <div key={idx} className="flex gap-2 items-center">
                       <input
                         type="text"
-                        placeholder={`Punto intermedio #${idx + 1}`}
+                        placeholder={`Parada #${idx + 1}`}
                         value={parada.lugar}
                         onChange={e => {
                           const nuevas = [...paradasIntermedias];
@@ -1321,14 +1354,14 @@ export default function CharangaSaraoApp() {
                       />
                       <input
                         type="text"
-                        placeholder="Hora llegada"
+                        placeholder="Hora"
                         value={parada.hora}
                         onChange={e => {
                           const nuevas = [...paradasIntermedias];
                           nuevas[idx].hora = e.target.value;
                           setParadasIntermedias(nuevas);
                         }}
-                        className="w-24 bg-black border border-zinc-800 rounded-xl px-2 py-2 text-xs text-white"
+                        className="w-20 bg-black border border-zinc-800 rounded-xl px-2 py-2 text-xs text-white"
                       />
                       {paradasIntermedias.length > 1 && (
                         <button
@@ -1367,7 +1400,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL NUEVO BOLO CON PRESUPUESTO, FACTURA Y HORARIOS (SIN VESTUARIO) */}
+        {/* MODAL AÑADIR BOLO (SIN HORA DE SALIDA) */}
         {showModalBolo && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-green-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -1381,16 +1414,15 @@ export default function CharangaSaraoApp() {
                   titulo: nuevoTituloBolo,
                   lugar: nuevoLugarBolo,
                   fecha: nuevaFechaBolo,
-                  horarioSalida: nuevaSalidaBolo,
                   horaInicio: nuevaHoraInicioBolo,
                   horaFin: nuevaHoraFinBolo,
                   presupuesto: parseFloat(nuevoPresupuestoBolo) || 0,
                   conFactura: nuevoConFacturaBolo,
-                  vestuario: 'Por definir', // El vestuario se elige posteriormente en la ficha
+                  vestuario: 'Por definir',
                   cochesAsignados: []
                 }]);
                 setNuevoTituloBolo(''); setNuevoLugarBolo(''); setNuevaFechaBolo('');
-                setNuevaSalidaBolo(''); setNuevaHoraInicioBolo(''); setNuevaHoraFinBolo('');
+                setNuevaHoraInicioBolo(''); setNuevaHoraFinBolo('');
                 setNuevoPresupuestoBolo(''); setNuevoConFacturaBolo(false);
                 setShowModalBolo(false);
               }} className="space-y-3">
@@ -1402,18 +1434,12 @@ export default function CharangaSaraoApp() {
 
                 <div>
                   <label className="text-[11px] font-bold text-zinc-400 block mb-1">Lugar:</label>
-                  <input type="text" placeholder="Ej: Cuéllar / Nava de la Asunción" value={nuevoLugarBolo} onChange={e => setNuevoLugarBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" required />
+                  <input type="text" placeholder="Ej: Cuéllar / Plaza Mayor" value={nuevoLugarBolo} onChange={e => setNuevoLugarBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" required />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha:</label>
-                    <input type="date" value={nuevaFechaBolo} onChange={e => setNuevaFechaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Hora salida de viaje:</label>
-                    <input type="text" placeholder="Ej: 11:30h" value={nuevaSalidaBolo} onChange={e => setNuevaSalidaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
-                  </div>
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha del bolo:</label>
+                  <input type="date" value={nuevaFechaBolo} onChange={e => setNuevaFechaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
                 </div>
 
                 {/* HORARIOS DE ACTUACIÓN */}
@@ -1451,7 +1477,7 @@ export default function CharangaSaraoApp() {
                       className="w-4 h-4 accent-green-500 rounded cursor-pointer"
                     />
                     <label htmlFor="facturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-zinc-400" /> Se cobra con Factura oficial
+                      <FileText className="w-3.5 h-3.5 text-zinc-400"/> Se cobra con Factura oficial
                     </label>
                   </div>
                 </div>
@@ -1484,7 +1510,7 @@ export default function CharangaSaraoApp() {
                       onClick={() => setShowModalGasolina(true)}
                       className="bg-blue-500 hover:bg-blue-400 text-black font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
                     >
-                      <Fuel className="w-4 h-4" /> Calculador Gasolina
+                      <Fuel className="w-4 h-4"/> Calculador Gasolina
                     </button>
                   )}
 
@@ -1493,13 +1519,12 @@ export default function CharangaSaraoApp() {
                       onClick={() => setShowModalMovimientoBote(true)}
                       className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
                     >
-                      <Plus className="w-4 h-4" /> Añadir Movimiento
+                      <Plus className="w-4 h-4"/> Añadir Movimiento
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* TARJETAS RESUMEN */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
                 <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
                   <span className="text-[11px] font-bold text-zinc-400 uppercase">Saldo Actual Bote</span>
@@ -1521,7 +1546,6 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
-              {/* HISTORIAL */}
               <div className="space-y-3">
                 <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Historial de Movimientos</h3>
                 <div className="space-y-2 max-h-80 overflow-y-auto bg-black/60 p-3 rounded-2xl border border-zinc-800">
@@ -1542,7 +1566,7 @@ export default function CharangaSaraoApp() {
                           </span>
                           {esTesorero && (
                             <button onClick={() => eliminarMovimientoBote(m.id)} className="text-rose-400 hover:text-rose-300 p-1">
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3.5 h-3.5"/>
                             </button>
                           )}
                         </div>
@@ -1561,7 +1585,7 @@ export default function CharangaSaraoApp() {
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
               <div className="flex items-center gap-2 mb-3">
-                <Fuel className="w-5 h-5 text-blue-400" />
+                <Fuel className="w-5 h-5 text-blue-400"/>
                 <h3 className="text-lg font-black text-white">Calculador de Gasolina Conductor</h3>
               </div>
               <p className="text-xs text-zinc-400 mb-4">Calcula el combustible según los kilómetros realizados y aplícalo directamente como gasto al bote.</p>
@@ -1642,7 +1666,7 @@ export default function CharangaSaraoApp() {
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
               <div className="flex items-center gap-2 mb-3">
-                <Wallet className="w-5 h-5 text-amber-400" />
+                <Wallet className="w-5 h-5 text-amber-400"/>
                 <h3 className="text-lg font-black text-white">Nuevo Movimiento en el Bote</h3>
               </div>
 
@@ -1720,7 +1744,7 @@ export default function CharangaSaraoApp() {
           const activa = pestañaActiva === tab.id;
           return (
             <button key={tab.id} onClick={() => { setPestañaActiva(tab.id); if (tab.id !== 'bolos') setBoloSeleccionadoId(null); }} className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-black transition ${activa ? 'bg-green-500 text-black shadow-lg scale-105' : 'text-zinc-400 hover:text-white'}`}>
-              <Icon className="w-4 h-4" />
+              <Icon className="w-4 h-4"/>
               <span className="hidden sm:inline">{tab.label}</span>
             </button>
           );
