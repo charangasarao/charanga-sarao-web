@@ -59,15 +59,11 @@ export default function CharangaSaraoApp() {
   const PASSWORD_CHARANGA = 'sarao2027';
   const PASSWORD_ADMIN = 'admin2027';
 
-  // Datos globales sincronizados con Firebase
   const [miembros, setMiembros] = useState([]);
   const [bolos, setBolos] = useState([]);
   const [movimientosBote, setMovimientosBote] = useState([]);
 
-  // Historial para Deshacer
   const [historialEstados, setHistorialEstados] = useState([]);
-
-  // Usuario local en este dispositivo
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
@@ -83,6 +79,12 @@ export default function CharangaSaraoApp() {
   const [nuevaHoraFinBolo, setNuevaHoraFinBolo] = useState('');
   const [nuevoPresupuestoBolo, setNuevoPresupuestoBolo] = useState('');
   const [nuevoConFacturaBolo, setNuevoConFacturaBolo] = useState(false);
+
+  // Modal Músico Extra (Refuerzo)
+  const [showModalExtra, setShowModalExtra] = useState(false);
+  const [nombreExtra, setNombreExtra] = useState('');
+  const [charangaExtra, setCharangaExtra] = useState('');
+  const [instrumentoExtra, setInstrumentoExtra] = useState('');
 
   // Trayectos
   const [showModalTrayectoBolo, setShowModalTrayectoBolo] = useState(false);
@@ -108,7 +110,6 @@ export default function CharangaSaraoApp() {
 
   // 1. SINCRONIZACIÓN EN TIEMPO REAL CON FIREBASE
   useEffect(() => {
-    // Escuchar documento global de la charanga
     const docRef = doc(db, 'charanga', 'datos_generales');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -117,7 +118,6 @@ export default function CharangaSaraoApp() {
         if (data.bolos) setBolos(data.bolos);
         if (data.movimientosBote) setMovimientosBote(data.movimientosBote);
       } else {
-        // Inicializar documento base si aún no existe
         setDoc(docRef, {
           miembros: [],
           bolos: [{
@@ -130,7 +130,8 @@ export default function CharangaSaraoApp() {
             vestuario: 'Negro',
             presupuesto: 1200,
             conFactura: true,
-            cochesAsignados: []
+            cochesAsignados: [],
+            musicosExtras: []
           }],
           movimientosBote: [{ id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso', autor: 'Admin' }]
         });
@@ -141,7 +142,6 @@ export default function CharangaSaraoApp() {
       setCargado(true);
     });
 
-    // Mantener sesión del dispositivo local
     try {
       const uGuardado = localStorage.getItem('sarao_usuario_actual');
       if (uGuardado) {
@@ -160,7 +160,6 @@ export default function CharangaSaraoApp() {
     return () => unsubscribe();
   }, []);
 
-  // Mantener actualizado el usuario local cuando cambian sus datos en Firestore (ej. sus roles)
   useEffect(() => {
     if (usuarioActual && miembros.length > 0) {
       const actualEnBD = miembros.find(m => m.id === usuarioActual.id);
@@ -171,7 +170,6 @@ export default function CharangaSaraoApp() {
     }
   }, [miembros]);
 
-  // FUNCIÓN PARA GUARDAR EN LA NUBE PARA TODOS LOS DISPOSITIVOS
   const guardarEnNube = async (nuevosMiembros, nuevosBolos, nuevoBote) => {
     try {
       await setDoc(doc(db, 'charanga', 'datos_generales'), {
@@ -181,7 +179,7 @@ export default function CharangaSaraoApp() {
       }, { merge: true });
     } catch (e) {
       console.error("Error guardando en la nube:", e);
-      alert("Error al sincronizar con la nube. Revisa tu conexión a internet.");
+      alert("Error al sincronizar con la nube.");
     }
   };
 
@@ -211,6 +209,7 @@ export default function CharangaSaraoApp() {
   const esConductor = usuarioActual?.roles?.includes('conductor') || esAdmin;
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
   const esJefeCuerda = usuarioActual?.roles?.includes('jefe_cuerda');
+  const puedeGestionarExtras = esAdmin || esJefeCuerda;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -353,6 +352,71 @@ export default function CharangaSaraoApp() {
         return m;
       });
       await guardarEnNube(nuevaLista, null, null);
+    }
+  };
+
+  // AGREGAR MÚSICO EXTRA
+  const agregarMusicoExtra = async (e) => {
+    e.preventDefault();
+    if (!nombreExtra.trim() || !instrumentoExtra) {
+      alert('Introduce el nombre del músico y su instrumento.');
+      return;
+    }
+
+    const instObj = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === instrumentoExtra);
+    const cuerdaExtra = instObj?.cuerda || 'Saxos';
+
+    if (!esAdmin && usuarioActual.cuerda !== cuerdaExtra) {
+      alert(`Como jefe de cuerda, solo puedes añadir refuerzos para tu cuerda (${usuarioActual.cuerda}).`);
+      return;
+    }
+
+    registrarSnapshot();
+    const nuevoExtra = {
+      id: Date.now(),
+      nombre: nombreExtra.trim(),
+      charanga: charangaExtra.trim() || 'Independiente',
+      instrumento: instrumentoExtra,
+      cuerda: cuerdaExtra,
+      agregadoPor: usuarioActual.nombre
+    };
+
+    const nuevosBolos = bolos.map(b => {
+      if (b.id === boloSeleccionadoId) {
+        return {
+          ...b,
+          musicosExtras: [...(b.musicosExtras || []), nuevoExtra]
+        };
+      }
+      return b;
+    });
+
+    setNombreExtra('');
+    setCharangaExtra('');
+    setInstrumentoExtra('');
+    setShowModalExtra(false);
+    await guardarEnNube(null, nuevosBolos, null);
+  };
+
+  // ELIMINAR MÚSICO EXTRA
+  const eliminarMusicoExtra = async (extraId, cuerdaExtra, nombreExtra) => {
+    if (!puedeEliminarAsistencia(cuerdaExtra)) {
+      alert(`Solo puedes retirar refuerzos de tu cuerda (${usuarioActual.cuerda}).`);
+      return;
+    }
+
+    if (confirm(`¿Retirar al refuerzo ${nombreExtra} de este bolo?`)) {
+      registrarSnapshot();
+      const nuevosBolos = bolos.map(b => {
+        if (b.id === boloSeleccionadoId) {
+          return {
+            ...b,
+            musicosExtras: (b.musicosExtras || []).filter(ex => ex.id !== extraId)
+          };
+        }
+        return b;
+      });
+      await guardarEnNube(null, nuevosBolos, null);
     }
   };
 
@@ -541,6 +605,11 @@ export default function CharangaSaraoApp() {
   const totalDiasMes = new Date(mesSeleccionado.anio, mesSeleccionado.mes + 1, 0).getDate();
   const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7;
 
+  // Filtrado de instrumentos disponibles según si eres Admin o Jefe de Cuerda
+  const instrumentosParaExtra = esAdmin 
+    ? INSTRUMENTOS_DISPONIBLES 
+    : INSTRUMENTOS_DISPONIBLES.filter(i => i.cuerda === usuarioActual.cuerda);
+
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
       
@@ -613,13 +682,13 @@ export default function CharangaSaraoApp() {
                   {esAdmin 
                     ? 'Modo Administrador: sincronizado en tiempo real entre ordenadores y teléfonos.' 
                     : esJefeCuerda
-                      ? `Jefe de cuerda de ${usuarioActual.cuerda}: revisa y gestiona la asistencia de tu sección.`
+                      ? `Jefe de cuerda de ${usuarioActual.cuerda}: gestiona asistencias y añade refuerzos externos.`
                       : 'Calendario de bolos, confirmación de asistencia, coches y bote.'}
                 </p>
               </div>
             </div>
 
-            {/* CARRUSEL DESLIZABLE HORIZONTAL: PRÓXIMOS BOLOS */}
+            {/* CARRUSEL DESLIZABLE HORIZONTAL */}
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -637,7 +706,7 @@ export default function CharangaSaraoApp() {
                   {bolosOrdenados.map(b => {
                     const dispMiembro = usuarioActual.disponibilidadBolos?.[b.id]?.estado;
                     const vest = OPCIONES_VESTUARIO.find(v => v.id === b.vestuario) || OPCIONES_VESTUARIO[0];
-                    const numConfirmados = miembros.filter(m => m.disponibilidadBolos?.[b.id]?.estado === 'puedo').length;
+                    const numConfirmados = miembros.filter(m => m.disponibilidadBolos?.[b.id]?.estado === 'puedo').length + (b.musicosExtras?.length || 0);
 
                     return (
                       <div
@@ -685,7 +754,7 @@ export default function CharangaSaraoApp() {
 
                         <div className="mt-4 pt-3 border-t border-zinc-800/80 flex justify-between items-center">
                           <span className="text-[11px] font-bold text-zinc-400">
-                            👥 <strong className="text-emerald-400">{numConfirmados}</strong> confirmados
+                            👥 <strong className="text-emerald-400">{numConfirmados}</strong> en plantilla
                           </span>
                           <span className="text-xs font-bold text-green-400 flex items-center gap-1">
                             Ver detalles &rarr;
@@ -1092,10 +1161,13 @@ export default function CharangaSaraoApp() {
                   const dispoPuedo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo');
                   const dispoTalVez = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez');
                   const dispoNo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'no');
+                  const musicosExtras = boloActual.musicosExtras || [];
                   const vestuarioActual = OPCIONES_VESTUARIO.find(v => v.id === boloActual.vestuario) || OPCIONES_VESTUARIO[0];
 
                   return (
                     <div className="space-y-6 pt-4 border-t border-zinc-800">
+                      
+                      {/* CABECERA DEL BOLO */}
                       <div className="flex justify-between items-start flex-wrap gap-4">
                         <div>
                           <span className="text-xs font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-full uppercase">
@@ -1122,10 +1194,37 @@ export default function CharangaSaraoApp() {
                           </div>
                         </div>
 
-                        <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl transition">
-                          🔄 Cambiar asistencia
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl transition">
+                            🔄 Cambiar asistencia
+                          </button>
+                        </div>
                       </div>
+
+                      {/* NUEVA FUNCIÓN: AÑADIR MÚSICO EXTRA TRAS CONFIRMAR ASISTENCIA */}
+                      {puedeGestionarExtras && (
+                        <div className="bg-gradient-to-r from-amber-500/10 to-zinc-900 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+                          <div>
+                            <h4 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <UserPlus className="w-4 h-4"/> Refuerzos y Músicos Extras
+                            </h4>
+                            <p className="text-xs text-zinc-400 mt-0.5">
+                              {esAdmin 
+                                ? 'Puedes añadir músicos extras de cualquier instrumento para reforzar este bolo.' 
+                                : `Puedes añadir músicos extras de refuerzo para tu cuerda (${usuarioActual.cuerda}).`}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setInstrumentoExtra(instrumentosParaExtra[0]?.nombre || 'Saxo alto');
+                              setShowModalExtra(true);
+                            }}
+                            className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 transition"
+                          >
+                            <Plus className="w-4 h-4"/> + Añadir Músico Extra
+                          </button>
+                        </div>
+                      )}
 
                       {/* Rutas y Caravanas */}
                       <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 space-y-3">
@@ -1220,21 +1319,22 @@ export default function CharangaSaraoApp() {
                         )}
                       </div>
 
-                      {/* PARTICIPANTES */}
+                      {/* PARTICIPANTES: CONFIRMADOS (MIEMBROS + EXTRAS) */}
                       <div className="space-y-4">
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-bold text-emerald-400 text-xs uppercase tracking-wider">
-                              🟢 Confirmados ({dispoPuedo.length})
+                              🟢 Confirmados ({dispoPuedo.length + musicosExtras.length})
                             </h4>
                             {esJefeCuerda && !esAdmin && (
                               <span className="text-[10px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-md">
-                                Puedes descartar sobrantes de tu cuerda: <strong className="text-emerald-400">{usuarioActual.cuerda}</strong>
+                                Puedes gestionar la cuerda de: <strong className="text-emerald-400">{usuarioActual.cuerda}</strong>
                               </span>
                             )}
                           </div>
 
                           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                            {/* Músicos de la plantilla */}
                             {dispoPuedo.map(m => {
                               const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
                               const dispM = m.disponibilidadBolos?.[boloActual.id];
@@ -1255,6 +1355,40 @@ export default function CharangaSaraoApp() {
                                       onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} 
                                       className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
                                       title={`Descartar a ${m.nombre} de este bolo`}
+                                    >
+                                      <Trash2 className="w-4 h-4"/>
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* Músicos Extras de Refuerzo */}
+                            {musicosExtras.map(ex => {
+                              const conf = CONFIG_CUERDAS[ex.cuerda] || CONFIG_CUERDAS['Saxos'];
+                              const puedeGestionarEste = puedeEliminarAsistencia(ex.cuerda);
+
+                              return (
+                                <div key={ex.id} className={`p-3 rounded-2xl border flex items-center justify-between ${conf.bg} border-amber-500/50 shadow-sm relative overflow-hidden`}>
+                                  <div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
+                                        {ex.cuerda}
+                                      </span>
+                                      <span className="text-[9px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded">
+                                        Refuerzo
+                                      </span>
+                                    </div>
+                                    <p className="font-bold text-sm text-zinc-100 mt-0.5">{ex.nombre}</p>
+                                    <p className="text-xs text-emerald-300 font-bold">Toca: {ex.instrumento}</p>
+                                    <p className="text-[10px] text-zinc-400 font-medium">De: {ex.charanga}</p>
+                                  </div>
+
+                                  {puedeGestionarEste && (
+                                    <button 
+                                      onClick={() => eliminarMusicoExtra(ex.id, ex.cuerda, ex.nombre)} 
+                                      className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
+                                      title={`Retirar a ${ex.nombre} (${ex.charanga})`}
                                     >
                                       <Trash2 className="w-4 h-4"/>
                                     </button>
@@ -1317,6 +1451,72 @@ export default function CharangaSaraoApp() {
                 <p className="text-xs text-zinc-500 text-center py-6">Haz clic en un día con bolo para ver los detalles, vestuario y confirmaciones.</p>
               )}
 
+            </div>
+          </div>
+        )}
+
+        {/* MODAL PARA AÑADIR MÚSICO EXTRA */}
+        {showModalExtra && boloActual && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+              <div className="flex items-center gap-2 mb-2">
+                <UserPlus className="w-5 h-5 text-amber-400"/>
+                <h3 className="text-lg font-black text-white">Añadir Músico Extra (Refuerzo)</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">
+                Introduce los datos del músico de refuerzo para el bolo en <strong>{boloActual.lugar}</strong>.
+              </p>
+
+              <form onSubmit={agregarMusicoExtra} className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Nombre del Músico:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Marcos, David..."
+                    value={nombreExtra}
+                    onChange={e => setNombreExtra(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-amber-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Charanga / Banda de procedencia:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Charanga El Cubata, Banda Municipal..."
+                    value={charangaExtra}
+                    onChange={e => setCharangaExtra(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Instrumento:</label>
+                  <select
+                    value={instrumentoExtra}
+                    onChange={e => setInstrumentoExtra(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 text-white rounded-xl p-2.5 text-xs font-bold outline-none focus:border-amber-400"
+                    required
+                  >
+                    {instrumentosParaExtra.map(inst => (
+                      <option key={inst.nombre} value={inst.nombre}>
+                        {inst.nombre} ({inst.cuerda})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-2 pt-3">
+                  <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-black py-2.5 rounded-xl text-sm transition">
+                    Guardar Músico Extra
+                  </button>
+                  <button type="button" onClick={() => setShowModalExtra(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                    Cancelar
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -1507,7 +1707,8 @@ export default function CharangaSaraoApp() {
                   presupuesto: parseFloat(nuevoPresupuestoBolo) || 0,
                   conFactura: nuevoConFacturaBolo,
                   vestuario: 'Por definir',
-                  cochesAsignados: []
+                  cochesAsignados: [],
+                  musicosExtras: []
                 };
                 const nuevosBolos = [...bolos, nuevoBolo];
                 setNuevoLugarBolo(''); setNuevoTituloBolo(''); setNuevaFechaBolo('');
