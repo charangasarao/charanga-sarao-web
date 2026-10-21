@@ -5,7 +5,8 @@ import {
   Calendar as CalendarIcon, Car, Users, Wallet, Shield, MapPin, 
   Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, 
   UserPlus, Trash2, Shirt, ArrowRight, Home, Clock, AlertCircle, 
-  ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText, Edit3 
+  ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText, 
+  Edit3, Upload, Mail, Eye, CheckCircle2, Loader2
 } from 'lucide-react';
 
 import { db } from './firebase';
@@ -60,16 +61,18 @@ export default function CharangaSaraoApp() {
   const PASSWORD_CHARANGA = 'sarao2027';
   const PASSWORD_ADMIN = 'admin2027';
 
+  // Estados globales sincronizados con Firebase
   const [miembros, setMiembros] = useState([]);
   const [bolos, setBolos] = useState([]);
   const [movimientosBote, setMovimientosBote] = useState([]);
+  const [facturas, setFacturas] = useState([]);
+  const [correoFacturacion, setCorreoFacturacion] = useState('');
+  const [inputCorreoAdmin, setInputCorreoAdmin] = useState('');
 
   const [historialEstados, setHistorialEstados] = useState([]);
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
-
-  // Inicializar en el mes actual del sistema
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
 
   // Modales Bolos (Añadir, Editar, Eliminar)
@@ -86,7 +89,7 @@ export default function CharangaSaraoApp() {
   const [nuevoPresupuestoBolo, setNuevoPresupuestoBolo] = useState('');
   const [nuevoConFacturaBolo, setNuevoConFacturaBolo] = useState(false);
 
-  // Estados del formulario de Edición de Bolo
+  // Estados de Edición de Bolo
   const [editLugarBolo, setEditLugarBolo] = useState('');
   const [editTituloBolo, setEditTituloBolo] = useState('');
   const [editFechaBolo, setEditFechaBolo] = useState('');
@@ -95,7 +98,7 @@ export default function CharangaSaraoApp() {
   const [editPresupuestoBolo, setEditPresupuestoBolo] = useState('');
   const [editConFacturaBolo, setEditConFacturaBolo] = useState(false);
 
-  // Modal Músico Extra (Refuerzo)
+  // Modal Músico Extra
   const [showModalExtra, setShowModalExtra] = useState(false);
   const [nombreExtra, setNombreExtra] = useState('');
   const [charangaExtra, setCharangaExtra] = useState('');
@@ -111,7 +114,7 @@ export default function CharangaSaraoApp() {
   const [horaLlegadaDestino, setHoraLlegadaDestino] = useState('');
   const [instrumentoElegidoBolo, setInstrumentoElegidoBolo] = useState('');
 
-  // Bote y Gasolina (0,20 €/km con verificación)
+  // Bote y Gasolina
   const [showModalMovimientoBote, setShowModalMovimientoBote] = useState(false);
   const [conceptoBote, setConceptoBote] = useState('');
   const [importeBote, setImporteBote] = useState('');
@@ -122,6 +125,17 @@ export default function CharangaSaraoApp() {
   const [destinoGasolina, setDestinoGasolina] = useState('');
   const [conductorGasolinaNombre, setConductorGasolinaNombre] = useState('');
   const TARIFA_KM = 0.2;
+
+  // Estados de Facturas (Subida, análisis OCR/PDF y envío por correo)
+  const [showModalSubirFactura, setShowModalSubirFactura] = useState(false);
+  const [archivoFactura, setArchivoFactura] = useState(null);
+  const [previewArchivoUrl, setPreviewArchivoUrl] = useState('');
+  const [nombreArchivoFactura, setNombreArchivoFactura] = useState('');
+  const [conceptoFactura, setConceptoFactura] = useState('');
+  const [importeFacturaDetectado, setImporteFacturaDetectado] = useState('');
+  const [analizandoFactura, setAnalizandoFactura] = useState(false);
+  const [enviandoFactura, setEnviandoFactura] = useState(false);
+  const [mensajeAnalisis, setMensajeAnalisis] = useState('');
 
   // Sincronización Firebase y cálculo del mes actual
   useEffect(() => {
@@ -149,11 +163,14 @@ export default function CharangaSaraoApp() {
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const listaMiembrosRemota = data.miembros || [];
-        
-        setMiembros(listaMiembrosRemota);
+        setMiembros(data.miembros || []);
         if (data.bolos) setBolos(data.bolos);
         if (data.movimientosBote) setMovimientosBote(data.movimientosBote);
+        if (data.facturas) setFacturas(data.facturas);
+        if (data.correoFacturacion !== undefined) {
+          setCorreoFacturacion(data.correoFacturacion);
+          setInputCorreoAdmin(data.correoFacturacion);
+        }
       } else {
         setDoc(docRef, {
           miembros: usuarioLocal ? [usuarioLocal] : [],
@@ -170,7 +187,9 @@ export default function CharangaSaraoApp() {
             cochesAsignados: [],
             musicosExtras: []
           }],
-          movimientosBote: [{ id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso', autor: 'Admin', verificado: true }]
+          movimientosBote: [{ id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso', autor: 'Admin', verificado: true }],
+          facturas: [],
+          correoFacturacion: ''
         });
       }
       setCargado(true);
@@ -199,16 +218,18 @@ export default function CharangaSaraoApp() {
     }
   }, [miembros]);
 
-  const guardarEnNube = async (nuevosMiembros, nuevosBolos, nuevoBote) => {
+  const guardarEnNube = async (nuevosMiembros, nuevosBolos, nuevoBote, nuevasFacturas = null, nuevoCorreo = null) => {
     try {
       await setDoc(doc(db, 'charanga', 'datos_generales'), {
         miembros: nuevosMiembros ?? miembros,
         bolos: nuevosBolos ?? bolos,
-        movimientosBote: nuevoBote ?? movimientosBote
+        movimientosBote: nuevoBote ?? movimientosBote,
+        facturas: nuevasFacturas ?? facturas,
+        correoFacturacion: nuevoCorreo !== null ? nuevoCorreo : correoFacturacion
       }, { merge: true });
     } catch (e) {
       console.error("Error guardando en la nube:", e);
-      alert("No se pudo sincronizar con Firebase. Asegúrate de haber activado Firestore en 'Modo de prueba' en la consola de Firebase.");
+      alert("No se pudo sincronizar con Firebase. Revisa el tamaño del archivo o tu conexión.");
     }
   };
 
@@ -218,7 +239,8 @@ export default function CharangaSaraoApp() {
       {
         miembros: JSON.parse(JSON.stringify(miembros)),
         bolos: JSON.parse(JSON.stringify(bolos)),
-        movimientosBote: JSON.parse(JSON.stringify(movimientosBote))
+        movimientosBote: JSON.parse(JSON.stringify(movimientosBote)),
+        facturas: JSON.parse(JSON.stringify(facturas))
       }
     ]);
   };
@@ -230,7 +252,7 @@ export default function CharangaSaraoApp() {
     }
     const anterior = historialEstados[historialEstados.length - 1];
     setHistorialEstados(prev => prev.slice(0, -1));
-    await guardarEnNube(anterior.miembros, anterior.bolos, anterior.movimientosBote);
+    await guardarEnNube(anterior.miembros, anterior.bolos, anterior.movimientosBote, anterior.facturas);
     alert('Acción revertida correctamente en todos los dispositivos.');
   };
 
@@ -239,6 +261,7 @@ export default function CharangaSaraoApp() {
   const tieneRolConductor = usuarioActual?.roles?.includes('conductor');
   const esConductor = tieneRolConductor || esAdmin;
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
+  const esFacturador = usuarioActual?.roles?.includes('facturador') || esAdmin;
   const esJefeCuerda = usuarioActual?.roles?.includes('jefe_cuerda');
   const puedeGestionarExtras = esAdmin || esJefeCuerda;
 
@@ -553,7 +576,7 @@ export default function CharangaSaraoApp() {
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
       tipo: tipoMovimientoBote,
       autor: usuarioActual.nombre,
-      verificado: true // Los ingresos/gastos manuales del tesorero entran ya verificados
+      verificado: true
     };
     const nuevoBote = [nuevoMov, ...movimientosBote];
     setMovimientosBote(nuevoBote);
@@ -563,7 +586,6 @@ export default function CharangaSaraoApp() {
     await guardarEnNube(null, null, nuevoBote);
   };
 
-  // APUNTAR GASOLINA: QUEDA PENDIENTE DE VERIFICAR PAGO (verificado: false)
   const agregarGasolinaConductor = async (e) => {
     e.preventDefault();
     if (!esConductor) return;
@@ -574,7 +596,6 @@ export default function CharangaSaraoApp() {
       return;
     }
 
-    // Si es Admin y no tiene rol de conductor (o escribió un nombre específico), usamos ese nombre
     const requiereNombreManual = esAdmin && !tieneRolConductor;
     const personaGasto = requiereNombreManual 
       ? conductorGasolinaNombre.trim() 
@@ -598,7 +619,7 @@ export default function CharangaSaraoApp() {
       esGasolina: true,
       conductorGasto: personaGasto,
       autor: usuarioActual.nombre,
-      verificado: false // No se suma al bote hasta que se clique el tick de verificar
+      verificado: false
     };
 
     const nuevoBote = [nuevoGasto, ...movimientosBote];
@@ -611,7 +632,6 @@ export default function CharangaSaraoApp() {
     alert(`Gasto de gasolina de ${personaGasto} (${gastoCalculado.toFixed(2)} €) apuntado. Se restará del bote cuando se verifique el pago con el tick ✓.`);
   };
 
-  // VERIFICAR / DESMARCAR PAGO DE GASOLINA EN EL BOTE
   const toggleVerificarMovimientoBote = async (movId) => {
     if (!esTesorero) {
       alert('Solo el Tesorero o el Administrador pueden verificar pagos del bote.');
@@ -639,26 +659,271 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  // =========================================================================
+  // FUNCIONES DE FACTURACIÓN (ANÁLISIS DE PDF/IMAGEN + ENVÍO CORREO + BORRADO)
+  // =========================================================================
+
+  // Extraer importe numérico del texto analizado
+  const extraerImporteDeTexto = (texto) => {
+    if (!texto) return null;
+    const lineas = texto.replace(/\r/g, '\n').split('\n');
+    let candidatos = [];
+
+    // 1. Buscar líneas con palabras clave como TOTAL, IMPORTE, PAGAR, EUR, €
+    const regexClave = /(?:total|importe|pagar|base|cuota|neto|factura|eur|€)[^0-9]*([0-9]{1,5}(?:[.,][0-9]{1,2})?)/gi;
+    let match;
+    while ((match = regexClave.exec(texto)) !== null) {
+      const val = parseFloat(match[1].replace(',', '.'));
+      if (!isNaN(val) && val > 0 && val < 50000) candidatos.push(val);
+    }
+
+    // 2. Si no hubo match con palabra clave, buscar cifras con formato decimal de moneda (XX,XX o XX.XX)
+    if (candidatos.length === 0) {
+      const regexMoneda = /\b([0-9]{1,4}[.,][0-9]{2})\b/g;
+      while ((match = regexMoneda.exec(texto)) !== null) {
+        const val = parseFloat(match[1].replace(',', '.'));
+        // Evitar años como 20.26 o 20.27
+        if (!isNaN(val) && val > 0.5 && val < 25000 && val !== 20.26 && val !== 20.27) {
+          candidatos.push(val);
+        }
+      }
+    }
+
+    if (candidatos.length > 0) {
+      // Normalmente el Total de una factura es el importe más alto de los importes desglosados
+      return Math.max(...candidatos).toFixed(2);
+    }
+    return null;
+  };
+
+  // Procesar archivo subido (PDF o Imagen)
+  const manejarSeleccionArchivoFactura = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setArchivoFactura(file);
+    setNombreArchivoFactura(file.name);
+    if (!conceptoFactura) {
+      setConceptoFactura(file.name.replace(/\.[^/.]+$/, ""));
+    }
+    setAnalizandoFactura(true);
+    setMensajeAnalisis('Analizando documento para detectar el importe...');
+
+    // Crear vista previa comprimida o DataURL para guardar y enviar
+    const readerDataUrl = new FileReader();
+    readerDataUrl.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === 'string') {
+        // Si es imagen, la redimensionamos en canvas para que no supere el límite de Firestore y viaje rápido por email
+        if (file.type.startsWith('image/')) {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDim = 900;
+            let w = img.width;
+            let h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+              else { w = Math.round((w * maxDim) / h); h = maxDim; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            setPreviewArchivoUrl(canvas.toDataURL('image/jpeg', 0.7));
+          };
+          img.src = result;
+        } else {
+          // Si es PDF u otro documento y ocupa menos de 600KB, guardamos su dataURL
+          if (file.size < 600000) {
+            setPreviewArchivoUrl(result);
+          } else {
+            setPreviewArchivoUrl('');
+          }
+        }
+      }
+    };
+    readerDataUrl.readAsDataURL(file);
+
+    try {
+      // 1. Intentar detectar primero si el importe viene en el propio nombre del archivo (ej: "Factura_Gasoil_45,50.pdf")
+      const importeEnNombre = extraerImporteDeTexto(file.name);
+
+      if (file.type === 'application/pdf') {
+        // Leer contenido del PDF buscando cadenas de texto internas
+        const arrayBuffer = await file.arrayBuffer();
+        const decoder = new TextDecoder('iso-8859-1');
+        const rawText = decoder.decode(arrayBuffer);
+        // Extraer bloques legibles entre paréntesis propios de sintaxis PDF
+        const bloquesTexto = (rawText.match(/\(([^()]+)\)/g) || []).map(s => s.slice(1, -1)).join(' ');
+        const detectado = extraerImporteDeTexto(bloquesTexto) || extraerImporteDeTexto(rawText) || importeEnNombre;
+
+        if (detectado) {
+          setImporteFacturaDetectado(String(detectado));
+          setMensajeAnalisis(`✓ Importe detectado automáticamente del PDF: ${detectado} € (puedes corregirlo si es necesario).`);
+        } else {
+          setMensajeAnalisis('ℹ️ PDF cargado. No se encontró texto plano legible del total; confirma o escribe el importe abajo.');
+        }
+      } else if (file.type.startsWith('image/')) {
+        // Para imágenes, cargamos Tesseract.js dinámicamente desde CDN para hacer OCR real en el navegador
+        if (!window.Tesseract) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+
+        if (window.Tesseract) {
+          const { data: { text } } = await window.Tesseract.recognize(file, 'spa');
+          const detectado = extraerImporteDeTexto(text) || importeEnNombre;
+          if (detectado) {
+            setImporteFacturaDetectado(String(detectado));
+            setMensajeAnalisis(`✓ Importe detectado por escáner óptico (OCR): ${detectado} € (revísalo antes de confirmar).`);
+          } else {
+            setMensajeAnalisis('ℹ️ Imagen analizada. Por favor introduce o verifica el importe manualmente.');
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error analizando documento:", err);
+      setMensajeAnalisis('ℹ️ Documento listo. Introduce el importe total de la factura abajo.');
+    } finally {
+      setAnalizandoFactura(false);
+    }
+  };
+
+  // Subir factura, guardar en la nube y enviar por correo electrónico automáticamente
+  const guardarYEnviarFactura = async (e) => {
+    e.preventDefault();
+    const imp = parseFloat(String(importeFacturaDetectado).replace(',', '.'));
+    if (isNaN(imp) || imp <= 0) {
+      alert('Por favor introduce un importe de factura válido mayor que 0.');
+      return;
+    }
+    if (!conceptoFactura.trim()) {
+      alert('Indica un concepto o proveedor para la factura.');
+      return;
+    }
+
+    setEnviandoFactura(true);
+    registrarSnapshot();
+
+    const nuevaFactura = {
+      id: Date.now(),
+      usuarioId: usuarioActual.id,
+      usuarioNombre: usuarioActual.nombre,
+      cuerda: usuarioActual.cuerda,
+      concepto: conceptoFactura.trim(),
+      importe: parseFloat(imp.toFixed(2)),
+      nombreArchivo: nombreArchivoFactura || 'Documento adjunto',
+      tipoArchivo: archivoFactura?.type || 'desconocido',
+      archivoDataUrl: previewArchivoUrl || '',
+      fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
+      enviadaACorreo: correoFacturacion || 'Sin correo configurado'
+    };
+
+    const nuevasFacturas = [nuevaFactura, ...facturas];
+    setFacturas(nuevasFacturas);
+    await guardarEnNube(null, null, null, nuevasFacturas);
+
+    // Enviar automáticamente al correo de facturación configurado por el Admin
+    if (correoFacturacion && correoFacturacion.includes('@')) {
+      try {
+        const formData = new FormData();
+        formData.append('_subject', `Nueva Factura Charanga Sarao - ${usuarioActual.nombre} (${imp.toFixed(2)} €)`);
+        formData.append('Músico', usuarioActual.nombre);
+        formData.append('Cuerda', usuarioActual.cuerda);
+        formData.append('Concepto_Factura', conceptoFactura.trim());
+        formData.append('Importe_Facturado', `${imp.toFixed(2)} €`);
+        formData.append('Fecha_Subida', nuevaFactura.fecha);
+        formData.append('_captcha', 'false');
+        if (archivoFactura) {
+          formData.append('attachment', archivoFactura, archivoFactura.name);
+        }
+
+        await fetch(`https://formsubmit.co/${correoFacturacion.trim()}`, {
+          method: 'POST',
+          body: formData
+        });
+      } catch (err) {
+        console.error("Error enviando email automático:", err);
+      }
+    }
+
+    setEnviandoFactura(false);
+    setArchivoFactura(null);
+    setPreviewArchivoUrl('');
+    setNombreArchivoFactura('');
+    setConceptoFactura('');
+    setImporteFacturaDetectado('');
+    setMensajeAnalisis('');
+    setShowModalSubirFactura(false);
+
+    if (correoFacturacion) {
+      alert(`Factura de ${imp.toFixed(2)} € registrada y enviada automáticamente a ${correoFacturacion}.`);
+    } else {
+      alert(`Factura de ${imp.toFixed(2)} € registrada correctamente. (Nota: El Admin aún no ha configurado un correo de facturación).`);
+    }
+  };
+
+  // Borrar factura (cualquier usuario puede borrar las suyas; Admin y Facturador pueden borrar cualquiera)
+  const eliminarFactura = async (factura) => {
+    const esMia = factura.usuarioId === usuarioActual.id || factura.usuarioNombre?.toLowerCase() === usuarioActual.nombre?.toLowerCase();
+    if (!esMia && !esFacturador && !esAdmin) {
+      alert('Solo puedes borrar tus propias facturas.');
+      return;
+    }
+
+    if (confirm(`¿Seguro que deseas eliminar la factura "${factura.concepto}" (${factura.importe.toFixed(2)} €)?`)) {
+      registrarSnapshot();
+      const nuevasFacturas = facturas.filter(f => f.id !== factura.id);
+      setFacturas(nuevasFacturas);
+      await guardarEnNube(null, null, null, nuevasFacturas);
+    }
+  };
+
+  // Guardar el correo de facturación desde el Panel Admin
+  const guardarCorreoFacturacionAdmin = async (e) => {
+    e.preventDefault();
+    if (!esAdmin) return;
+    setCorreoFacturacion(inputCorreoAdmin.trim());
+    await guardarEnNube(null, null, null, null, inputCorreoAdmin.trim());
+    alert(`Correo de facturación actualizado a: ${inputCorreoAdmin.trim() || '(Vacío)'}`);
+  };
+
   const abrirModalParaFecha = (fechaStr) => {
     if (!esAdmin) return;
     setNuevaFechaBolo(fechaStr);
     setShowModalBolo(true);
   };
 
-  // CÁLCULO DE TOTALES: Solo cuentan los movimientos verificados (verificado !== false)
+  // CÁLCULO DE TOTALES BOTE
   const movimientosContabilizados = movimientosBote.filter(m => m.verificado !== false);
   const totalIngresos = movimientosContabilizados.filter(m => m.cantidad > 0).reduce((acc, m) => acc + m.cantidad, 0);
   const totalGastos = movimientosContabilizados.filter(m => m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const totalPendienteGasolina = movimientosBote.filter(m => m.verificado === false && m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const saldoTotal = totalIngresos - totalGastos;
 
+  // CÁLCULO DE TOTALES DE FACTURAS
+  const misFacturas = facturas.filter(
+    f => f.usuarioId === usuarioActual?.id || f.usuarioNombre?.trim().toLowerCase() === usuarioActual?.nombre?.trim().toLowerCase()
+  );
+  const miTotalFacturado = misFacturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
+  const totalGeneralFacturado = facturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
+
   const exportarEstadisticasExcel = () => {
-    let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Bolos Confirmados;Total Bolos;Porcentaje (%)\n";
+    let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Bolos Confirmados;Total Bolos;Porcentaje (%);Total Facturado (€)\n";
     miembros.forEach(m => {
       const totalBolos = bolos.length;
       const dispoCount = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'puedo').length;
       const porcentaje = totalBolos > 0 ? Math.round((dispoCount / totalBolos) * 100) : 0;
-      csvContent += `${m.nombre};${m.instrumentos.join(', ')};${m.cuerda};${dispoCount};${totalBolos};${porcentaje}%\n`;
+      const facturadoM = facturas
+        .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
+        .reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
+      csvContent += `${m.nombre};${m.instrumentos.join(', ')};${m.cuerda};${dispoCount};${totalBolos};${porcentaje}%;${facturadoM.toFixed(2)}\n`;
     });
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -780,13 +1045,18 @@ export default function CharangaSaraoApp() {
               <img src="PEGATINAS.jpg" alt="Logo" className="w-full h-full object-cover" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-3xl tracking-wider text-green-400 leading-none" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                   CHARANGA SARAO
                 </h1>
                 {esAdmin && (
                   <span className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
                     <Shield className="w-3 h-3"/> Admin
+                  </span>
+                )}
+                {!esAdmin && esFacturador && (
+                  <span className="bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">
+                    Facturador
                   </span>
                 )}
                 {!esAdmin && esJefeCuerda && (
@@ -827,10 +1097,10 @@ export default function CharangaSaraoApp() {
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
                   {esAdmin 
-                    ? 'Modo Administrador: sincronizado en tiempo real entre ordenadores y teléfonos.' 
-                    : esJefeCuerda
-                      ? `Jefe de cuerda de ${usuarioActual.cuerda}: gestiona asistencias y añade refuerzos externos.`
-                      : 'Calendario de bolos, confirmación de asistencia, coches y bote.'}
+                    ? 'Modo Administrador: control de bolos, bote, plantilla y facturación con envío automático.' 
+                    : esFacturador
+                      ? 'Rol Facturador activo: tienes acceso al desglose completo de facturas de todos los músicos.'
+                      : 'Calendario de bolos, confirmación de asistencia, coches, bote y subida de facturas.'}
                 </p>
               </div>
             </div>
@@ -915,7 +1185,7 @@ export default function CharangaSaraoApp() {
             </div>
 
             {/* ACCESOS DIRECTOS */}
-            <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="p-3 bg-green-500/20 text-green-400 rounded-2xl w-fit mb-3"><CalendarIcon className="w-6 h-6"/></div>
@@ -943,12 +1213,21 @@ export default function CharangaSaraoApp() {
                 <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Saldo ({saldoTotal.toFixed(2)} €)</span>
               </div>
 
+              <div onClick={() => setPestañaActiva('facturas')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-cyan-500/30 hover:border-cyan-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
+                <div>
+                  <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-2xl w-fit mb-3"><FileText className="w-6 h-6"/></div>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Facturas</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Subir PDFs/fotos y control de facturación.</p>
+                </div>
+                <span className="text-xs font-bold text-cyan-400 mt-4 block">&rarr; Mi total: {miTotalFacturado.toFixed(2)} €</span>
+              </div>
+
               {esAdmin && (
                 <div onClick={() => setPestañaActiva('admin')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-rose-500/40 hover:border-rose-500 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                   <div>
                     <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl w-fit mb-3"><Shield className="w-6 h-6"/></div>
                     <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Panel Admin</h3>
-                    <p className="text-xs text-zinc-400 mt-1">Estadísticas y roles.</p>
+                    <p className="text-xs text-zinc-400 mt-1">Estadísticas, roles y correo de facturas.</p>
                   </div>
                   <span className="text-xs font-bold text-rose-400 mt-4 block">&rarr; Gestionar</span>
                 </div>
@@ -999,6 +1278,7 @@ export default function CharangaSaraoApp() {
                           )}
                         </div>
 
+                        {/* ASIGNACIÓN DE ROLES INCLUYENDO EL NUEVO ROL "FACTURADOR" */}
                         {esAdmin && (
                           <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
                             <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
@@ -1008,6 +1288,7 @@ export default function CharangaSaraoApp() {
                               { id: 'conductor', label: 'Conductor' },
                               { id: 'jefe_cuerda', label: 'Jefe Cuerda' },
                               { id: 'tesorero', label: 'Tesorero' },
+                              { id: 'facturador', label: 'Facturador' },
                               { id: 'admin', label: 'Admin' }
                             ].map(r => {
                               const tiene = m.roles?.includes(r.id);
@@ -1036,16 +1317,269 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* PANEL ADMIN */}
+        {/* NUEVA SECCIÓN: FACTURAS */}
+        {pestañaActiva === 'facturas' && (
+          <div className="space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
+              
+              {/* CABECERA FACTURAS */}
+              <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
+                <div>
+                  <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    GESTIÓN DE FACTURAS
+                  </h2>
+                  <p className="text-xs text-zinc-400">
+                    Sube tus facturas en PDF o foto. El sistema detecta el importe y lo envía automáticamente al correo de facturación.
+                  </p>
+                  {correoFacturacion && (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-1 rounded-lg mt-2">
+                      <Mail className="w-3.5 h-3.5"/> Envío automático activo a: <strong>{correoFacturacion}</strong>
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => {
+                    setArchivoFactura(null);
+                    setPreviewArchivoUrl('');
+                    setNombreArchivoFactura('');
+                    setConceptoFactura('');
+                    setImporteFacturaDetectado('');
+                    setMensajeAnalisis('');
+                    setShowModalSubirFactura(true);
+                  }}
+                  className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg transition cursor-pointer"
+                >
+                  <Upload className="w-4 h-4"/> + Subir Factura (PDF / Foto)
+                </button>
+              </div>
+
+              {/* RESUMEN PERSONAL DEL USUARIO */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-4">
+                  <span className="text-[11px] font-bold text-cyan-300 uppercase">Tu Total Facturado ({usuarioActual.nombre})</span>
+                  <p className="text-3xl font-black text-white mt-1">
+                    {miTotalFacturado.toFixed(2)} €
+                  </p>
+                  <span className="text-[11px] text-zinc-400">{misFacturas.length} factura(s) subida(s) por ti</span>
+                </div>
+
+                {(esFacturador || esAdmin) && (
+                  <div className="bg-black/60 border border-amber-500/30 rounded-2xl p-4">
+                    <span className="text-[11px] font-bold text-amber-300 uppercase">Total Global Facturado (Charanga Sarao)</span>
+                    <p className="text-3xl font-black text-amber-400 mt-1">
+                      {totalGeneralFacturado.toFixed(2)} €
+                    </p>
+                    <span className="text-[11px] text-zinc-400">{facturas.length} factura(s) registrada(s) en total</span>
+                  </div>
+                )}
+              </div>
+
+              {/* DESGLOSE POR MIEMBRO (EXCLUSIVO PARA FACTURADOR Y ADMIN) */}
+              {(esFacturador || esAdmin) && (
+                <div className="space-y-3 pt-2 border-t border-zinc-800">
+                  <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4"/> Desglose de Cantidad Facturada por cada Miembro (Vista Facturador / Admin)
+                  </h3>
+                  <div className="overflow-x-auto bg-black/50 rounded-2xl border border-zinc-800">
+                    <table className="w-full text-left text-xs text-zinc-300">
+                      <thead className="text-[10px] uppercase text-zinc-400 bg-zinc-950 border-b border-zinc-800">
+                        <tr>
+                          <th className="p-3">Músico</th>
+                          <th className="p-3">Cuerda</th>
+                          <th className="p-3">Nº Facturas</th>
+                          <th className="p-3">Total Facturado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/60">
+                        {miembros.map(m => {
+                          const facturasMiembro = facturas.filter(
+                            f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase()
+                          );
+                          const sumaMiembro = facturasMiembro.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
+
+                          return (
+                            <tr key={m.id} className="hover:bg-zinc-800/30">
+                              <td className="p-3 font-bold text-white">{m.nombre}</td>
+                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
+                              <td className="p-3">{facturasMiembro.length}</td>
+                              <td className="p-3 font-black text-cyan-400">{sumaMiembro.toFixed(2)} €</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* LISTADO DE FACTURAS (SI ES FACTURADOR/ADMIN VE TODAS, SI ES MÚSICO VE LAS SUYAS) */}
+              <div className="space-y-3 pt-2 border-t border-zinc-800">
+                <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">
+                  {(esFacturador || esAdmin) ? 'Todas las Facturas Subidas' : 'Mis Facturas Subidas'}
+                </h3>
+
+                {((esFacturador || esAdmin) ? facturas : misFacturas).length === 0 ? (
+                  <p className="text-xs text-zinc-500 text-center py-6 bg-black/40 rounded-2xl border border-zinc-800">
+                    No hay facturas registradas todavía.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5 max-h-96 overflow-y-auto">
+                    {((esFacturador || esAdmin) ? facturas : misFacturas).map(f => (
+                      <div key={f.id} className="p-3.5 bg-black/70 border border-zinc-800 hover:border-cyan-500/40 rounded-2xl flex justify-between items-center gap-3 text-xs transition">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-white text-sm">{f.concepto}</span>
+                            <span className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full text-[10px] font-black">
+                              {f.usuarioNombre}
+                            </span>
+                            <span className="text-[10px] text-zinc-500">({f.nombreArchivo})</span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400">
+                            📅 {f.fecha} • Enviada a: <strong className="text-zinc-300">{f.enviadaACorreo}</strong>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-base font-black text-cyan-400">
+                            {parseFloat(f.importe).toFixed(2)} €
+                          </span>
+
+                          {f.archivoDataUrl && (
+                            <a
+                              href={f.archivoDataUrl}
+                              download={f.nombreArchivo || 'factura'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-2 bg-zinc-800 hover:bg-zinc-700 text-cyan-300 rounded-xl transition"
+                              title="Ver / Descargar documento"
+                            >
+                              <Eye className="w-4 h-4"/>
+                            </a>
+                          )}
+
+                          {/* Cualquier usuario puede borrar su factura si se equivoca, y Admin/Facturador cualquiera */}
+                          <button
+                            onClick={() => eliminarFactura(f)}
+                            className="p-2 bg-rose-500/10 hover:bg-rose-500/30 text-rose-400 rounded-xl transition"
+                            title="Eliminar factura"
+                          >
+                            <Trash2 className="w-4 h-4"/>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* MODAL PARA SUBIR Y ANALIZAR FACTURA */}
+        {showModalSubirFactura && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border border-cyan-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-5 h-5 text-cyan-400"/>
+                <h3 className="text-lg font-black text-white">Subir y Analizar Factura</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">
+                Selecciona un PDF o haz una foto a la factura. Analizaremos el documento para extraer el importe total automáticamente.
+              </p>
+
+              <form onSubmit={guardarYEnviarFactura} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-cyan-300 block mb-1.5">
+                    1. Archivo de la factura (PDF o Imagen):
+                  </label>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/*"
+                    onChange={manejarSeleccionArchivoFactura}
+                    className="w-full text-xs text-zinc-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-cyan-500 file:text-black hover:file:bg-cyan-400 bg-black border border-zinc-800 rounded-2xl p-2 cursor-pointer"
+                    required
+                  />
+                </div>
+
+                {analizandoFactura && (
+                  <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-xl flex items-center gap-2 text-xs text-cyan-300">
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0"/>
+                    <span>Analizando factura para detectar el importe...</span>
+                  </div>
+                )}
+
+                {!analizandoFactura && mensajeAnalisis && (
+                  <div className="p-3 bg-zinc-950 border border-cyan-500/30 rounded-xl text-[11px] text-cyan-300 font-medium">
+                    {mensajeAnalisis}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs font-bold text-zinc-400 block mb-1">
+                    2. Concepto / Proveedor:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Factura Autónomo Actuación / Repuestos..."
+                    value={conceptoFactura}
+                    onChange={e => setConceptoFactura(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-cyan-400 block mb-1">
+                    3. Importe Total Detectado (€):
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Ej: 150.00"
+                    value={importeFacturaDetectado}
+                    onChange={e => setImporteFacturaDetectado(e.target.value)}
+                    className="w-full bg-black border border-cyan-500/50 rounded-xl px-3.5 py-2.5 text-base font-black text-white outline-none focus:border-cyan-400"
+                    required
+                  />
+                  <span className="text-[10px] text-zinc-500 block mt-1">
+                    El programa rellena este campo tras leer el documento. Puedes ajustarlo si fuera necesario.
+                  </span>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={analizandoFactura || enviandoFactura}
+                    className="flex-1 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-black py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5"
+                  >
+                    {enviandoFactura ? 'Enviando...' : 'Registrar y Enviar por Correo'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowModalSubirFactura(false)}
+                    className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* PANEL ADMIN (CON NUEVO APARTADO "CORREO DE FACTURACIÓN") */}
         {pestañaActiva === 'admin' && esAdmin && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
+              
               <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
                 <div>
                   <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                     PANEL DE ADMINISTRACIÓN
                   </h2>
-                  <p className="text-xs text-zinc-400">Estadísticas acumuladas y control de deshacer acciones.</p>
+                  <p className="text-xs text-zinc-400">Correo de facturación, estadísticas acumuladas y control de deshacer.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {historialEstados.length > 0 && (
@@ -1065,9 +1599,44 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
+              {/* APARTADO: CORREO DE FACTURACIÓN */}
+              <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-cyan-400"/>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    Correo de Facturación
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Introduce el correo electrónico al que se enviarán automáticamente todas las facturas que suban los músicos a la aplicación.
+                </p>
+                <form onSubmit={guardarCorreoFacturacionAdmin} className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="email"
+                    placeholder="ejemplo@charangasarao.com"
+                    value={inputCorreoAdmin}
+                    onChange={e => setInputCorreoAdmin(e.target.value)}
+                    className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold outline-none focus:border-cyan-400"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-5 py-2.5 rounded-xl shadow transition shrink-0 cursor-pointer"
+                  >
+                    Guardar Correo
+                  </button>
+                </form>
+                {correoFacturacion && (
+                  <p className="text-[11px] text-emerald-400 font-bold">
+                    ✓ Correo activo actual: {correoFacturacion}
+                  </p>
+                )}
+              </div>
+
+              {/* TABLA DE ASISTENCIA Y FACTURACIÓN */}
               <div className="space-y-3">
                 <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia acumulada de la plantilla
+                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia y Facturación acumulada de la plantilla
                 </h3>
                 
                 {miembros.length === 0 ? (
@@ -1082,6 +1651,7 @@ export default function CharangaSaraoApp() {
                           <th className="p-3">Roles</th>
                           <th className="p-3">Asistencia</th>
                           <th className="p-3">% Confirmado</th>
+                          <th className="p-3">Facturado (€)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
@@ -1090,6 +1660,9 @@ export default function CharangaSaraoApp() {
                           const siVan = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'puedo').length;
                           const talVez = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'tal_vez').length;
                           const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
+                          const totalFacturadoMiembro = facturas
+                            .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
+                            .reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
 
                           return (
                             <tr key={m.id} className="hover:bg-zinc-800/30">
@@ -1110,6 +1683,9 @@ export default function CharangaSaraoApp() {
                                   </div>
                                   <span className="font-black text-xs text-green-400">{pct}%</span>
                                 </div>
+                              </td>
+                              <td className="p-3 font-black text-cyan-400">
+                                {totalFacturadoMiembro.toFixed(2)} €
                               </td>
                             </tr>
                           );
@@ -1323,7 +1899,6 @@ export default function CharangaSaraoApp() {
                   return (
                     <div className="space-y-6 pt-4 border-t border-zinc-800">
                       
-                      {/* CABECERA DEL BOLO */}
                       <div className="flex justify-between items-start flex-wrap gap-4">
                         <div>
                           <span className="text-xs font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-full uppercase">
@@ -1357,7 +1932,6 @@ export default function CharangaSaraoApp() {
                         </div>
                       </div>
 
-                      {/* AÑADIR MÚSICO EXTRA TRAS CONFIRMAR ASISTENCIA */}
                       {puedeGestionarExtras && (
                         <div className="bg-gradient-to-r from-amber-500/10 to-zinc-900 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3">
                           <div>
@@ -1476,7 +2050,7 @@ export default function CharangaSaraoApp() {
                         )}
                       </div>
 
-                      {/* PARTICIPANTES: CONFIRMADOS (MIEMBROS + EXTRAS) */}
+                      {/* PARTICIPANTES: CONFIRMADOS */}
                       <div className="space-y-4">
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -2119,7 +2693,6 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
-              {/* TARJETAS RESUMEN DEL BOTE */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
                 <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
                   <span className="text-[11px] font-bold text-zinc-400 uppercase">Saldo Real Bote</span>
@@ -2147,7 +2720,6 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
-              {/* LISTA DE MOVIMIENTOS CON TICK DE VERIFICACIÓN */}
               <div className="space-y-3">
                 <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Historial de Movimientos y Gasolinas</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto bg-black/60 p-3 rounded-2xl border border-zinc-800">
@@ -2200,7 +2772,6 @@ export default function CharangaSaraoApp() {
                               {m.cantidad >= 0 ? `+${m.cantidad.toFixed(2)}` : m.cantidad.toFixed(2)} €
                             </span>
 
-                            {/* BOTÓN TICK DE VERIFICAR PAGO (PARA TESORERO Y ADMIN) */}
                             {m.cantidad < 0 && esTesorero && (
                               <button
                                 onClick={() => toggleVerificarMovimientoBote(m.id)}
@@ -2233,7 +2804,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL GASOLINA CON OPCIÓN DE ELEGIR PERSONA SI ES ADMIN SIN ROL DE CONDUCTOR */}
+        {/* MODAL GASOLINA */}
         {showModalGasolina && esConductor && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
@@ -2246,8 +2817,6 @@ export default function CharangaSaraoApp() {
               </p>
 
               <form onSubmit={agregarGasolinaConductor} className="space-y-3">
-                
-                {/* SI ES ADMIN (ESPECIALMENTE SI NO TIENE ROL DE CONDUCTOR), PESTAÑA PARA PONER EL NOMBRE DE A QUIÉN PERTENECE */}
                 {esAdmin && (
                   <div className="p-3 bg-black/60 border border-blue-500/30 rounded-2xl space-y-2">
                     <label className="text-xs text-blue-300 block font-bold">
@@ -2400,13 +2969,14 @@ export default function CharangaSaraoApp() {
 
       </main>
 
-      {/* BARRA INFERIOR */}
+      {/* BARRA INFERIOR CON LA NUEVA PESTAÑA "FACTURAS" */}
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-3 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1.5 z-40">
         {[
           { id: 'landing', label: 'Inicio', icon: Home },
           { id: 'bolos', label: 'Bolos', icon: CalendarIcon },
           { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
+          { id: 'facturas', label: 'Facturas', icon: FileText },
           ...(esAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : [])
         ].map(tab => {
           const Icon = tab.icon;
