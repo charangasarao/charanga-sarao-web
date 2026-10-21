@@ -5,7 +5,7 @@ import {
   Calendar as CalendarIcon, Car, Users, Wallet, Shield, MapPin, 
   Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, 
   UserPlus, Trash2, Shirt, ArrowRight, Home, Clock, AlertCircle, 
-  ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText 
+  ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText, Edit3 
 } from 'lucide-react';
 
 import { db } from './firebase';
@@ -72,9 +72,12 @@ export default function CharangaSaraoApp() {
   // Inicializar en el mes actual del sistema
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
 
-  // Modales Bolos
+  // Modales Bolos (Añadir, Editar, Eliminar)
   const [showModalBolo, setShowModalBolo] = useState(false);
+  const [showModalEditarBolos, setShowModalEditarBolos] = useState(false);
+  const [boloEditandoId, setBoloEditandoId] = useState(null);
   const [showModalEliminarBolos, setShowModalEliminarBolos] = useState(false);
+
   const [nuevoLugarBolo, setNuevoLugarBolo] = useState('');
   const [nuevoTituloBolo, setNuevoTituloBolo] = useState('');
   const [nuevaFechaBolo, setNuevaFechaBolo] = useState('');
@@ -82,6 +85,15 @@ export default function CharangaSaraoApp() {
   const [nuevaHoraFinBolo, setNuevaHoraFinBolo] = useState('');
   const [nuevoPresupuestoBolo, setNuevoPresupuestoBolo] = useState('');
   const [nuevoConFacturaBolo, setNuevoConFacturaBolo] = useState(false);
+
+  // Estados del formulario de Edición de Bolo
+  const [editLugarBolo, setEditLugarBolo] = useState('');
+  const [editTituloBolo, setEditTituloBolo] = useState('');
+  const [editFechaBolo, setEditFechaBolo] = useState('');
+  const [editHoraInicioBolo, setEditHoraInicioBolo] = useState('');
+  const [editHoraFinBolo, setEditHoraFinBolo] = useState('');
+  const [editPresupuestoBolo, setEditPresupuestoBolo] = useState('');
+  const [editConFacturaBolo, setEditConFacturaBolo] = useState(false);
 
   // Modal Músico Extra (Refuerzo)
   const [showModalExtra, setShowModalExtra] = useState(false);
@@ -99,7 +111,7 @@ export default function CharangaSaraoApp() {
   const [horaLlegadaDestino, setHoraLlegadaDestino] = useState('');
   const [instrumentoElegidoBolo, setInstrumentoElegidoBolo] = useState('');
 
-  // Bote
+  // Bote y Gasolina (0,20 €/km directo)
   const [showModalMovimientoBote, setShowModalMovimientoBote] = useState(false);
   const [conceptoBote, setConceptoBote] = useState('');
   const [importeBote, setImporteBote] = useState('');
@@ -107,13 +119,11 @@ export default function CharangaSaraoApp() {
 
   const [showModalGasolina, setShowModalGasolina] = useState(false);
   const [kmGasolina, setKmGasolina] = useState('');
-  const [consumoMedio, setConsumoMedio] = useState('6.5');
-  const [precioLitro, setPrecioLitro] = useState('1.45');
   const [destinoGasolina, setDestinoGasolina] = useState('');
+  const TARIFA_KM = 0.2;
 
   // Sincronización Firebase y cálculo del mes actual
   useEffect(() => {
-    // 1. Calcular índice del mes actual
     const hoy = new Date();
     const anioHoy = hoy.getFullYear();
     const mesHoy = hoy.getMonth();
@@ -122,7 +132,6 @@ export default function CharangaSaraoApp() {
       setMesIndexActivo(idxActual);
     }
 
-    // 2. Recuperar sesión guardada en el navegador
     let usuarioLocal = null;
     try {
       const uGuardado = localStorage.getItem('sarao_usuario_actual');
@@ -135,7 +144,6 @@ export default function CharangaSaraoApp() {
       console.error(e);
     }
 
-    // 3. Conectar a Firestore
     const docRef = doc(db, 'charanga', 'datos_generales');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -178,7 +186,6 @@ export default function CharangaSaraoApp() {
     return () => unsubscribe();
   }, []);
 
-  // Sincronizar cambios remotos del usuario si ya existe en la lista de Firestore
   useEffect(() => {
     if (usuarioActual && miembros.length > 0) {
       const actualEnBD = miembros.find(
@@ -300,7 +307,6 @@ export default function CharangaSaraoApp() {
     }
   };
 
-  // FUNCIÓN OPTIMIZADA: Abre la ficha al instante y asegura que el miembro quede registrado en la nube
   const setDisponibilidadBolo = async (boloId, estado, instrumentoElegido = null) => {
     registrarSnapshot();
 
@@ -308,7 +314,6 @@ export default function CharangaSaraoApp() {
       ? { estado, instrumento: instrumentoElegido || usuarioActual.instrumentos?.[0] || 'Saxo alto' } 
       : (estado ? { estado } : null);
 
-    // 1. Actualizar el estado del usuario actual de inmediato en la pantalla
     const nuevaDispUsuario = { ...(usuarioActual.disponibilidadBolos || {}) };
     if (datosDisp) {
       nuevaDispUsuario[boloId] = datosDisp;
@@ -320,7 +325,6 @@ export default function CharangaSaraoApp() {
     setUsuarioActual(usuarioActualizado);
     localStorage.setItem('sarao_usuario_actual', JSON.stringify(usuarioActualizado));
 
-    // 2. Asegurar que el usuario existe dentro de la lista 'miembros' de la base de datos
     let listaActualizada = [...miembros];
     const index = listaActualizada.findIndex(
       m => m.id === usuarioActual.id || m.nombre?.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase()
@@ -333,8 +337,6 @@ export default function CharangaSaraoApp() {
     }
 
     setMiembros(listaActualizada);
-
-    // 3. Guardar en Firestore
     await guardarEnNube(listaActualizada, null, null);
   };
 
@@ -363,6 +365,50 @@ export default function CharangaSaraoApp() {
     registrarSnapshot();
     const nuevosBolos = bolos.map(b => b.id === boloId ? { ...b, vestuario: nuevoVestuario } : b);
     setBolos(nuevosBolos);
+    await guardarEnNube(null, nuevosBolos, null);
+  };
+
+  // SELECCIONAR BOLO PARA EDITAR (ADMIN)
+  const seleccionarBoloParaEditar = (bolo) => {
+    setBoloEditandoId(bolo.id);
+    setEditLugarBolo(bolo.lugar || '');
+    setEditTituloBolo(bolo.titulo || '');
+    setEditFechaBolo(bolo.fecha || '');
+    setEditHoraInicioBolo(bolo.horaInicio || '');
+    setEditHoraFinBolo(bolo.horaFin || '');
+    setEditPresupuestoBolo(bolo.presupuesto ? String(bolo.presupuesto) : '');
+    setEditConFacturaBolo(Boolean(bolo.conFactura));
+  };
+
+  // GUARDAR CAMBIOS DE EDICIÓN DE BOLO (ADMIN)
+  const guardarEdicionBolo = async (e) => {
+    e.preventDefault();
+    if (!esAdmin || !boloEditandoId) return;
+    if (!editLugarBolo.trim() || !editFechaBolo) {
+      alert('El lugar y la fecha son obligatorios.');
+      return;
+    }
+
+    registrarSnapshot();
+    const nuevosBolos = bolos.map(b => {
+      if (b.id === boloEditandoId) {
+        return {
+          ...b,
+          lugar: editLugarBolo.trim(),
+          titulo: editTituloBolo.trim() || 'Actuación',
+          fecha: editFechaBolo,
+          horaInicio: editHoraInicioBolo,
+          horaFin: editHoraFinBolo,
+          presupuesto: parseFloat(editPresupuestoBolo) || 0,
+          conFactura: editConFacturaBolo
+        };
+      }
+      return b;
+    });
+
+    setBolos(nuevosBolos);
+    setBoloEditandoId(null);
+    setShowModalEditarBolos(false);
     await guardarEnNube(null, nuevosBolos, null);
   };
 
@@ -515,22 +561,21 @@ export default function CharangaSaraoApp() {
     await guardarEnNube(null, null, nuevoBote);
   };
 
+  // NUEVO CÁLCULO DIRECTO DE GASOLINA: KM * 0,20 €
   const agregarGasolinaConductor = async (e) => {
     e.preventDefault();
     if (!esConductor) return;
     const km = parseFloat(kmGasolina);
-    const cons = parseFloat(consumoMedio);
-    const precio = parseFloat(precioLitro);
 
-    if (isNaN(km) || km <= 0 || isNaN(cons) || isNaN(precio)) {
-      alert('Valores numéricos incorrectos.');
+    if (isNaN(km) || km <= 0) {
+      alert('Introduce un número de kilómetros válido.');
       return;
     }
 
-    const gastoCalculado = parseFloat(((km * cons / 100) * precio).toFixed(2));
+    const gastoCalculado = parseFloat((km * TARIFA_KM).toFixed(2));
     registrarSnapshot();
 
-    const conceptoTexto = `Gasolina ${usuarioActual.nombre} (${km} km${destinoGasolina ? ` - ${destinoGasolina}` : ''})`;
+    const conceptoTexto = `Gasolina ${usuarioActual.nombre} (${km} km x 0,20€/km${destinoGasolina.trim() ? ` - ${destinoGasolina.trim()}` : ''})`;
     const nuevoGasto = {
       id: Date.now(),
       concepto: conceptoTexto,
@@ -546,7 +591,7 @@ export default function CharangaSaraoApp() {
     setDestinoGasolina('');
     setShowModalGasolina(false);
     await guardarEnNube(null, null, nuevoBote);
-    alert(`Se ha registrado el gasto de gasolina (${gastoCalculado} €) en el bote.`);
+    alert(`Se ha añadido el gasto de gasolina (${gastoCalculado.toFixed(2)} €) al bote.`);
   };
 
   const eliminarMovimientoBote = async (movId) => {
@@ -853,7 +898,7 @@ export default function CharangaSaraoApp() {
                 <div>
                   <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6"/></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bote</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Tesorería y combustible.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Tesorería y kilometraje (0,20€/km).</p>
                 </div>
                 <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Saldo ({saldoTotal.toFixed(2)} €)</span>
               </div>
@@ -1043,6 +1088,7 @@ export default function CharangaSaraoApp() {
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
               
+              {/* CABECERA CON LOS 3 BOTONES SEGUIDOS PARA EL ADMIN: AÑADIR, EDITAR Y ELIMINAR */}
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
                 <div>
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
@@ -1050,17 +1096,26 @@ export default function CharangaSaraoApp() {
                   </h2>
                   {esAdmin && (
                     <p className="text-xs text-zinc-400 mt-0.5">
-                      💡 Consejo: Puedes pinchar directamente sobre cualquier día para crear un bolo en esa fecha.
+                      💡 Consejo: Pincha sobre cualquier día para crear un bolo o usa los botones superiores para editarlos.
                     </p>
                   )}
                 </div>
                 {esAdmin && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button 
                       onClick={() => setShowModalBolo(true)} 
-                      className="bg-green-500 hover:bg-green-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
+                      className="bg-green-500 hover:bg-green-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow transition"
                     >
                       <Plus className="w-4 h-4"/> + Añadir Bolo
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setBoloEditandoId(null);
+                        setShowModalEditarBolos(true);
+                      }} 
+                      className="bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow transition"
+                    >
+                      <Edit3 className="w-4 h-4"/> ✎ Editar Bolo
                     </button>
                     <button 
                       onClick={() => setShowModalEliminarBolos(true)} 
@@ -1175,7 +1230,6 @@ export default function CharangaSaraoApp() {
                 (() => {
                   const miDispo = usuarioActual.disponibilidadBolos?.[boloActual.id];
 
-                  // Si el usuario aún no ha puesto disponibilidad para este bolo: SOLO SE LE MUESTRA LA ENCUESTA
                   if (!miDispo) {
                     return (
                       <div className="bg-black/90 border border-amber-500/50 rounded-2xl p-6 text-center space-y-4">
@@ -1221,7 +1275,6 @@ export default function CharangaSaraoApp() {
                     );
                   }
 
-                  // Si ya puso disponibilidad: SE DESBLOQUEA TODA LA INFORMACIÓN DEL BOLO
                   const dispoPuedo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo');
                   const dispoTalVez = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez');
                   const dispoNo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'no');
@@ -1514,6 +1567,150 @@ export default function CharangaSaraoApp() {
                 <p className="text-xs text-zinc-500 text-center py-6">Haz clic en un bolo para ver sus detalles o confirmar tu plaza.</p>
               )}
 
+            </div>
+          </div>
+        )}
+
+        {/* MODAL PARA EDITAR BOLOS (EXCLUSIVO ADMIN) */}
+        {showModalEditarBolos && esAdmin && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-2 mb-3">
+                <Edit3 className="w-5 h-5 text-amber-400"/>
+                <h3 className="text-lg font-black text-white">
+                  {boloEditandoId ? 'Modificar Datos del Bolo' : 'Selecciona un Bolo para Editar'}
+                </h3>
+              </div>
+
+              {!boloEditandoId ? (
+                <>
+                  <p className="text-xs text-zinc-400 mb-4">Elige qué bolo quieres modificar (horario, lugar, fecha, presupuesto...):</p>
+                  <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
+                    {bolos.length === 0 ? (
+                      <p className="text-xs text-zinc-500 text-center py-4">No hay bolos creados actualmente.</p>
+                    ) : (
+                      bolos.map(b => (
+                        <div key={b.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex justify-between items-center text-xs">
+                          <div>
+                            <p className="font-black text-white text-base" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>📍 {b.lugar}</p>
+                            <p className="text-green-300 text-[11px]">{b.titulo}</p>
+                            <p className="text-zinc-500 text-[10px] mt-0.5">📅 {b.fecha} • ⏰ {b.horaInicio || '--'} - {b.horaFin || '--'}</p>
+                          </div>
+                          <button
+                            onClick={() => seleccionarBoloParaEditar(b)}
+                            className="bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black font-bold px-3 py-1.5 rounded-xl transition text-xs flex items-center gap-1"
+                          >
+                            <Edit3 className="w-3.5 h-3.5"/> Editar
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowModalEditarBolos(false)}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-2.5 rounded-xl text-sm"
+                  >
+                    Cerrar
+                  </button>
+                </>
+              ) : (
+                <form onSubmit={guardarEdicionBolo} className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-amber-400 block mb-1">Lugar del Bolo (Titular principal):</label>
+                    <input
+                      type="text"
+                      value={editLugarBolo}
+                      onChange={e => setEditLugarBolo(e.target.value)}
+                      className="w-full bg-black border border-amber-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-amber-400"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo / Descripción:</label>
+                    <input
+                      type="text"
+                      value={editTituloBolo}
+                      onChange={e => setEditTituloBolo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha del bolo:</label>
+                    <input
+                      type="date"
+                      value={editFechaBolo}
+                      onChange={e => setEditFechaBolo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
+                    <div>
+                      <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Inicio Actuación:</label>
+                      <input
+                        type="text"
+                        placeholder="Ej: 13:00h"
+                        value={editHoraInicioBolo}
+                        onChange={e => setEditHoraInicioBolo(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Fin Actuación:</label>
+                      <input
+                        type="text"
+                        placeholder="Ej: 17:00h"
+                        value={editHoraFinBolo}
+                        onChange={e => setEditHoraFinBolo(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-zinc-800 space-y-2">
+                    <div>
+                      <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto acordado (€):</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editPresupuestoBolo}
+                        onChange={e => setEditPresupuestoBolo(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="checkbox"
+                        id="editFacturaCheck"
+                        checked={editConFacturaBolo}
+                        onChange={e => setEditConFacturaBolo(e.target.checked)}
+                        className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                      />
+                      <label htmlFor="editFacturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-zinc-400"/> Se cobra con Factura oficial
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-3">
+                    <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-black py-2.5 rounded-xl text-sm">
+                      Guardar Cambios
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBoloEditandoId(null)}
+                      className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
+                    >
+                      Volver
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}
@@ -1854,7 +2051,7 @@ export default function CharangaSaraoApp() {
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                     BOTE Y FINANZAS SARAO
                   </h2>
-                  <p className="text-xs text-zinc-400">Control de ingresos, gastos de eventos y combustible de los conductores.</p>
+                  <p className="text-xs text-zinc-400">Control de ingresos, gastos de eventos y kilometraje (0,20 €/km).</p>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1863,7 +2060,7 @@ export default function CharangaSaraoApp() {
                       onClick={() => setShowModalGasolina(true)}
                       className="bg-blue-500 hover:bg-blue-400 text-black font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
                     >
-                      <Fuel className="w-4 h-4"/> Calculador Gasolina
+                      <Fuel className="w-4 h-4"/> Añadir Kilometraje (0,20€/km)
                     </button>
                   )}
 
@@ -1933,32 +2130,34 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL CALCULADOR GASOLINA */}
+        {/* MODAL GASOLINA SIMPLIFICADO: SOLO KILÓMETROS X 0,20 € */}
         {showModalGasolina && esConductor && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2">
                 <Fuel className="w-5 h-5 text-blue-400"/>
-                <h3 className="text-lg font-black text-white">Calculador de Gasolina Conductor</h3>
+                <h3 className="text-lg font-black text-white">Añadir Gasolina (0,20 € / km)</h3>
               </div>
-              <p className="text-xs text-zinc-400 mb-4">Calcula el combustible según los kilómetros realizados y aplícalo directamente como gasto al bote.</p>
+              <p className="text-xs text-zinc-400 mb-4">
+                Introduce tus kilómetros y la aplicación multiplicará automáticamente por <strong>0,20 €</strong> y lo descontará del bote.
+              </p>
 
               <form onSubmit={agregarGasolinaConductor} className="space-y-3">
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Kilómetros totales (Ida y Vuelta):</label>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Kilómetros realizados:</label>
                   <input
                     type="number"
                     step="0.1"
                     placeholder="Ej: 110"
                     value={kmGasolina}
                     onChange={e => setKmGasolina(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-blue-500"
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-blue-500"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Destino / Bolo (Opcional):</label>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Bolo / Destino (Opcional):</label>
                   <input
                     type="text"
                     placeholder="Ej: Cuéllar"
@@ -1968,42 +2167,18 @@ export default function CharangaSaraoApp() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[11px] text-zinc-400 block mb-1">Consumo (L/100km):</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={consumoMedio}
-                      onChange={e => setConsumoMedio(e.target.value)}
-                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-zinc-400 block mb-1">Precio Combustible (€/L):</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={precioLitro}
-                      onChange={e => setPrecioLitro(e.target.value)}
-                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {kmGasolina && !isNaN(parseFloat(kmGasolina)) && (
-                  <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-center">
-                    <span className="text-xs text-blue-300 font-bold">
-                      Gasto estimado a restar: {((parseFloat(kmGasolina) * parseFloat(consumoMedio) / 100) * parseFloat(precioLitro)).toFixed(2)} €
+                {kmGasolina && !isNaN(parseFloat(kmGasolina)) && parseFloat(kmGasolina) > 0 && (
+                  <div className="p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-xl text-center">
+                    <span className="text-xs text-zinc-300 block">Cálculo automático ({parseFloat(kmGasolina)} km × 0,20 €):</span>
+                    <span className="text-lg text-blue-400 font-black">
+                      {(parseFloat(kmGasolina) * TARIFA_KM).toFixed(2)} €
                     </span>
                   </div>
                 )}
 
                 <div className="flex gap-2 pt-2">
                   <button type="submit" className="flex-1 bg-blue-500 hover:bg-blue-400 text-black font-black py-2.5 rounded-xl text-sm">
-                    Añadir gasto al Bote
+                    Añadir al Bote
                   </button>
                   <button type="button" onClick={() => setShowModalGasolina(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
                     Cancelar
