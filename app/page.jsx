@@ -111,7 +111,7 @@ export default function CharangaSaraoApp() {
   const [horaLlegadaDestino, setHoraLlegadaDestino] = useState('');
   const [instrumentoElegidoBolo, setInstrumentoElegidoBolo] = useState('');
 
-  // Bote y Gasolina (0,20 €/km directo)
+  // Bote y Gasolina (0,20 €/km con verificación)
   const [showModalMovimientoBote, setShowModalMovimientoBote] = useState(false);
   const [conceptoBote, setConceptoBote] = useState('');
   const [importeBote, setImporteBote] = useState('');
@@ -120,6 +120,7 @@ export default function CharangaSaraoApp() {
   const [showModalGasolina, setShowModalGasolina] = useState(false);
   const [kmGasolina, setKmGasolina] = useState('');
   const [destinoGasolina, setDestinoGasolina] = useState('');
+  const [conductorGasolinaNombre, setConductorGasolinaNombre] = useState('');
   const TARIFA_KM = 0.2;
 
   // Sincronización Firebase y cálculo del mes actual
@@ -169,7 +170,7 @@ export default function CharangaSaraoApp() {
             cochesAsignados: [],
             musicosExtras: []
           }],
-          movimientosBote: [{ id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso', autor: 'Admin' }]
+          movimientosBote: [{ id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso', autor: 'Admin', verificado: true }]
         });
       }
       setCargado(true);
@@ -233,8 +234,10 @@ export default function CharangaSaraoApp() {
     alert('Acción revertida correctamente en todos los dispositivos.');
   };
 
+  // ROLES
   const esAdmin = usuarioActual?.roles?.includes('admin');
-  const esConductor = usuarioActual?.roles?.includes('conductor') || esAdmin;
+  const tieneRolConductor = usuarioActual?.roles?.includes('conductor');
+  const esConductor = tieneRolConductor || esAdmin;
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
   const esJefeCuerda = usuarioActual?.roles?.includes('jefe_cuerda');
   const puedeGestionarExtras = esAdmin || esJefeCuerda;
@@ -260,7 +263,7 @@ export default function CharangaSaraoApp() {
     if (existente) {
       const miembroActualizado = {
         ...existente,
-        roles: esAdminAcceso && !existente.roles.includes('admin') ? [...new Set([...existente.roles, 'admin', 'conductor', 'jefe_cuerda'])] : existente.roles
+        roles: esAdminAcceso && !existente.roles.includes('admin') ? [...new Set([...existente.roles, 'admin'])] : existente.roles
       };
       setUsuarioActual(miembroActualizado);
       localStorage.setItem('sarao_usuario_actual', JSON.stringify(miembroActualizado));
@@ -277,7 +280,7 @@ export default function CharangaSaraoApp() {
       nombre: nombreRegistro.trim(),
       instrumentos: instrumentosSeleccionados,
       cuerda: matchCuerda,
-      roles: esAdminAcceso ? ['admin', 'conductor', 'jefe_cuerda'] : ['musico'],
+      roles: esAdminAcceso ? ['admin'] : ['musico'],
       disponibilidadBolos: {}
     };
 
@@ -368,7 +371,6 @@ export default function CharangaSaraoApp() {
     await guardarEnNube(null, nuevosBolos, null);
   };
 
-  // SELECCIONAR BOLO PARA EDITAR (ADMIN)
   const seleccionarBoloParaEditar = (bolo) => {
     setBoloEditandoId(bolo.id);
     setEditLugarBolo(bolo.lugar || '');
@@ -380,7 +382,6 @@ export default function CharangaSaraoApp() {
     setEditConFacturaBolo(Boolean(bolo.conFactura));
   };
 
-  // GUARDAR CAMBIOS DE EDICIÓN DE BOLO (ADMIN)
   const guardarEdicionBolo = async (e) => {
     e.preventDefault();
     if (!esAdmin || !boloEditandoId) return;
@@ -551,7 +552,8 @@ export default function CharangaSaraoApp() {
       cantidad: cantidadReal,
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
       tipo: tipoMovimientoBote,
-      autor: usuarioActual.nombre
+      autor: usuarioActual.nombre,
+      verificado: true // Los ingresos/gastos manuales del tesorero entran ya verificados
     };
     const nuevoBote = [nuevoMov, ...movimientosBote];
     setMovimientosBote(nuevoBote);
@@ -561,7 +563,7 @@ export default function CharangaSaraoApp() {
     await guardarEnNube(null, null, nuevoBote);
   };
 
-  // NUEVO CÁLCULO DIRECTO DE GASOLINA: KM * 0,20 €
+  // APUNTAR GASOLINA: QUEDA PENDIENTE DE VERIFICAR PAGO (verificado: false)
   const agregarGasolinaConductor = async (e) => {
     e.preventDefault();
     if (!esConductor) return;
@@ -572,26 +574,59 @@ export default function CharangaSaraoApp() {
       return;
     }
 
+    // Si es Admin y no tiene rol de conductor (o escribió un nombre específico), usamos ese nombre
+    const requiereNombreManual = esAdmin && !tieneRolConductor;
+    const personaGasto = requiereNombreManual 
+      ? conductorGasolinaNombre.trim() 
+      : (conductorGasolinaNombre.trim() || usuarioActual.nombre);
+
+    if (!personaGasto) {
+      alert('Indica el nombre de la persona a la que pertenece este gasto de gasolina.');
+      return;
+    }
+
     const gastoCalculado = parseFloat((km * TARIFA_KM).toFixed(2));
     registrarSnapshot();
 
-    const conceptoTexto = `Gasolina ${usuarioActual.nombre} (${km} km x 0,20€/km${destinoGasolina.trim() ? ` - ${destinoGasolina.trim()}` : ''})`;
+    const conceptoTexto = `Gasolina de ${personaGasto} (${km} km × 0,20€/km${destinoGasolina.trim() ? ` - ${destinoGasolina.trim()}` : ''})`;
     const nuevoGasto = {
       id: Date.now(),
       concepto: conceptoTexto,
       cantidad: -gastoCalculado,
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
       tipo: 'gasto',
-      autor: usuarioActual.nombre
+      esGasolina: true,
+      conductorGasto: personaGasto,
+      autor: usuarioActual.nombre,
+      verificado: false // No se suma al bote hasta que se clique el tick de verificar
     };
 
     const nuevoBote = [nuevoGasto, ...movimientosBote];
     setMovimientosBote(nuevoBote);
     setKmGasolina('');
     setDestinoGasolina('');
+    setConductorGasolinaNombre('');
     setShowModalGasolina(false);
     await guardarEnNube(null, null, nuevoBote);
-    alert(`Se ha añadido el gasto de gasolina (${gastoCalculado.toFixed(2)} €) al bote.`);
+    alert(`Gasto de gasolina de ${personaGasto} (${gastoCalculado.toFixed(2)} €) apuntado. Se restará del bote cuando se verifique el pago con el tick ✓.`);
+  };
+
+  // VERIFICAR / DESMARCAR PAGO DE GASOLINA EN EL BOTE
+  const toggleVerificarMovimientoBote = async (movId) => {
+    if (!esTesorero) {
+      alert('Solo el Tesorero o el Administrador pueden verificar pagos del bote.');
+      return;
+    }
+    registrarSnapshot();
+    const nuevoBote = movimientosBote.map(m => {
+      if (m.id === movId) {
+        const estadoActual = m.verificado !== false;
+        return { ...m, verificado: !estadoActual };
+      }
+      return m;
+    });
+    setMovimientosBote(nuevoBote);
+    await guardarEnNube(null, null, nuevoBote);
   };
 
   const eliminarMovimientoBote = async (movId) => {
@@ -610,8 +645,11 @@ export default function CharangaSaraoApp() {
     setShowModalBolo(true);
   };
 
-  const totalIngresos = movimientosBote.filter(m => m.cantidad > 0).reduce((acc, m) => acc + m.cantidad, 0);
-  const totalGastos = movimientosBote.filter(m => m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
+  // CÁLCULO DE TOTALES: Solo cuentan los movimientos verificados (verificado !== false)
+  const movimientosContabilizados = movimientosBote.filter(m => m.verificado !== false);
+  const totalIngresos = movimientosContabilizados.filter(m => m.cantidad > 0).reduce((acc, m) => acc + m.cantidad, 0);
+  const totalGastos = movimientosContabilizados.filter(m => m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
+  const totalPendienteGasolina = movimientosBote.filter(m => m.verificado === false && m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const saldoTotal = totalIngresos - totalGastos;
 
   const exportarEstadisticasExcel = () => {
@@ -716,6 +754,8 @@ export default function CharangaSaraoApp() {
   const instrumentosParaExtra = esAdmin 
     ? INSTRUMENTOS_DISPONIBLES 
     : INSTRUMENTOS_DISPONIBLES.filter(i => i.cuerda === usuarioActual.cuerda);
+
+  const listaConductoresPlantilla = miembros.filter(m => m.roles?.includes('conductor'));
 
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
@@ -1088,7 +1128,6 @@ export default function CharangaSaraoApp() {
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
               
-              {/* CABECERA CON LOS 3 BOTONES SEGUIDOS PARA EL ADMIN: AÑADIR, EDITAR Y ELIMINAR */}
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
                 <div>
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
@@ -2051,13 +2090,18 @@ export default function CharangaSaraoApp() {
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                     BOTE Y FINANZAS SARAO
                   </h2>
-                  <p className="text-xs text-zinc-400">Control de ingresos, gastos de eventos y kilometraje (0,20 €/km).</p>
+                  <p className="text-xs text-zinc-400">
+                    La gasolina queda apuntada y solo se resta del bote cuando se pulsa el tick de verificación (✓).
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
                   {esConductor && (
                     <button
-                      onClick={() => setShowModalGasolina(true)}
+                      onClick={() => {
+                        setConductorGasolinaNombre(tieneRolConductor ? usuarioActual.nombre : '');
+                        setShowModalGasolina(true);
+                      }}
                       className="bg-blue-500 hover:bg-blue-400 text-black font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
                     >
                       <Fuel className="w-4 h-4"/> Añadir Kilometraje (0,20€/km)
@@ -2075,53 +2119,112 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+              {/* TARJETAS RESUMEN DEL BOTE */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
                 <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Saldo Actual Bote</span>
+                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Saldo Real Bote</span>
                   <p className={`text-2xl font-black mt-1 ${saldoTotal >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
                     {saldoTotal.toFixed(2)} €
                   </p>
                 </div>
                 <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Ingresos Totales</span>
+                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Ingresos</span>
                   <p className="text-2xl font-black text-emerald-400 mt-1">
                     +{totalIngresos.toFixed(2)} €
                   </p>
                 </div>
                 <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Gastos Totales</span>
+                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Gastos Pagados (✓)</span>
                   <p className="text-2xl font-black text-rose-400 mt-1">
                     -{totalGastos.toFixed(2)} €
                   </p>
                 </div>
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+                  <span className="text-[11px] font-bold text-amber-300 uppercase">Gasolina sin Verificar</span>
+                  <p className="text-2xl font-black text-amber-400 mt-1">
+                    {totalPendienteGasolina.toFixed(2)} €
+                  </p>
+                </div>
               </div>
 
+              {/* LISTA DE MOVIMIENTOS CON TICK DE VERIFICACIÓN */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Historial de Movimientos</h3>
-                <div className="space-y-2 max-h-80 overflow-y-auto bg-black/60 p-3 rounded-2xl border border-zinc-800">
+                <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Historial de Movimientos y Gasolinas</h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto bg-black/60 p-3 rounded-2xl border border-zinc-800">
                   {movimientosBote.length === 0 ? (
                     <p className="text-xs text-zinc-500 text-center py-4">No hay movimientos registrados.</p>
                   ) : (
-                    movimientosBote.map(m => (
-                      <div key={m.id} className="flex justify-between items-center text-xs p-2.5 bg-zinc-900/80 rounded-xl border border-zinc-800 hover:border-zinc-700">
-                        <div>
-                          <p className="font-bold text-white text-sm">{m.concepto}</p>
-                          <span className="text-[11px] text-zinc-400">
-                            {m.fecha} • Por: <strong className="text-zinc-300">{m.autor || 'Desconocido'}</strong>
-                          </span>
+                    movimientosBote.map(m => {
+                      const estaVerificado = m.verificado !== false;
+
+                      return (
+                        <div 
+                          key={m.id} 
+                          className={`flex justify-between items-center text-xs p-3 rounded-xl border transition ${
+                            estaVerificado 
+                              ? 'bg-zinc-900/80 border-zinc-800' 
+                              : 'bg-amber-500/10 border-amber-500/40'
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className={`font-bold text-sm ${estaVerificado ? 'text-white' : 'text-amber-200'}`}>
+                                {m.concepto}
+                              </p>
+                              {!estaVerificado ? (
+                                <span className="text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40">
+                                  ⏳ Pendiente de verificar pago (No restado)
+                                </span>
+                              ) : m.esGasolina && (
+                                <span className="text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40">
+                                  ✓ Pago verificado
+                                </span>
+                              )}
+                            </div>
+
+                            <span className="text-[11px] text-zinc-400 block">
+                              {m.fecha} • {m.conductorGasto ? (
+                                <>Pertenece a: <strong className="text-blue-300">{m.conductorGasto}</strong> (Apuntado por {m.autor})</>
+                              ) : (
+                                <>Registrado por: <strong className="text-zinc-300">{m.autor || 'Admin'}</strong></>
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className={`font-black text-sm ${
+                              !estaVerificado 
+                                ? 'text-amber-400 line-through opacity-80' 
+                                : m.cantidad >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {m.cantidad >= 0 ? `+${m.cantidad.toFixed(2)}` : m.cantidad.toFixed(2)} €
+                            </span>
+
+                            {/* BOTÓN TICK DE VERIFICAR PAGO (PARA TESORERO Y ADMIN) */}
+                            {m.cantidad < 0 && esTesorero && (
+                              <button
+                                onClick={() => toggleVerificarMovimientoBote(m.id)}
+                                className={`px-2.5 py-1.5 rounded-xl font-black text-[11px] flex items-center gap-1 transition cursor-pointer border ${
+                                  estaVerificado
+                                    ? 'bg-emerald-500 text-black border-emerald-400 shadow-md'
+                                    : 'bg-zinc-900 hover:bg-emerald-500/20 text-zinc-300 hover:text-emerald-300 border-zinc-700'
+                                }`}
+                                title={estaVerificado ? "Pago verificado y descontado del bote (clic para desmarcar)" : "Clic para verificar el pago y restarlo del bote"}
+                              >
+                                <Check className="w-3.5 h-3.5"/>
+                                {estaVerificado ? 'Pagado' : 'Verificar'}
+                              </button>
+                            )}
+
+                            {esTesorero && (
+                              <button onClick={() => eliminarMovimientoBote(m.id)} className="text-rose-400 hover:text-rose-300 p-1">
+                                <Trash2 className="w-4 h-4"/>
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`font-black text-sm ${m.cantidad >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {m.cantidad >= 0 ? `+${m.cantidad.toFixed(2)}` : m.cantidad.toFixed(2)} €
-                          </span>
-                          {esTesorero && (
-                            <button onClick={() => eliminarMovimientoBote(m.id)} className="text-rose-400 hover:text-rose-300 p-1">
-                              <Trash2 className="w-3.5 h-3.5"/>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -2130,19 +2233,55 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL GASOLINA SIMPLIFICADO: SOLO KILÓMETROS X 0,20 € */}
+        {/* MODAL GASOLINA CON OPCIÓN DE ELEGIR PERSONA SI ES ADMIN SIN ROL DE CONDUCTOR */}
         {showModalGasolina && esConductor && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
               <div className="flex items-center gap-2 mb-2">
                 <Fuel className="w-5 h-5 text-blue-400"/>
-                <h3 className="text-lg font-black text-white">Añadir Gasolina (0,20 € / km)</h3>
+                <h3 className="text-lg font-black text-white">Apuntar Gasolina (0,20 € / km)</h3>
               </div>
               <p className="text-xs text-zinc-400 mb-4">
-                Introduce tus kilómetros y la aplicación multiplicará automáticamente por <strong>0,20 €</strong> y lo descontará del bote.
+                El gasto quedará apuntado en la lista y se descontará del bote en cuanto se pulse el tick de verificación (✓).
               </p>
 
               <form onSubmit={agregarGasolinaConductor} className="space-y-3">
+                
+                {/* SI ES ADMIN (ESPECIALMENTE SI NO TIENE ROL DE CONDUCTOR), PESTAÑA PARA PONER EL NOMBRE DE A QUIÉN PERTENECE */}
+                {esAdmin && (
+                  <div className="p-3 bg-black/60 border border-blue-500/30 rounded-2xl space-y-2">
+                    <label className="text-xs text-blue-300 block font-bold">
+                      ¿A qué conductor pertenece este gasto?
+                    </label>
+                    {listaConductoresPlantilla.length > 0 && (
+                      <div className="flex gap-1.5 flex-wrap mb-1">
+                        {listaConductoresPlantilla.map(c => (
+                          <button
+                            type="button"
+                            key={c.id}
+                            onClick={() => setConductorGasolinaNombre(c.nombre)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
+                              conductorGasolinaNombre === c.nombre
+                                ? 'bg-blue-500 text-black border-blue-400'
+                                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
+                            }`}
+                          >
+                            {c.nombre}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <input
+                      type="text"
+                      placeholder="Escribe o selecciona el nombre del conductor..."
+                      value={conductorGasolinaNombre}
+                      onChange={e => setConductorGasolinaNombre(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white font-bold outline-none focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="text-xs text-zinc-400 block mb-1 font-bold">Kilómetros realizados:</label>
                   <input
@@ -2169,7 +2308,9 @@ export default function CharangaSaraoApp() {
 
                 {kmGasolina && !isNaN(parseFloat(kmGasolina)) && parseFloat(kmGasolina) > 0 && (
                   <div className="p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-xl text-center">
-                    <span className="text-xs text-zinc-300 block">Cálculo automático ({parseFloat(kmGasolina)} km × 0,20 €):</span>
+                    <span className="text-xs text-zinc-300 block">
+                      Importe para <strong>{esAdmin ? (conductorGasolinaNombre || '...') : usuarioActual.nombre}</strong> ({parseFloat(kmGasolina)} km × 0,20 €):
+                    </span>
                     <span className="text-lg text-blue-400 font-black">
                       {(parseFloat(kmGasolina) * TARIFA_KM).toFixed(2)} €
                     </span>
@@ -2178,7 +2319,7 @@ export default function CharangaSaraoApp() {
 
                 <div className="flex gap-2 pt-2">
                   <button type="submit" className="flex-1 bg-blue-500 hover:bg-blue-400 text-black font-black py-2.5 rounded-xl text-sm">
-                    Añadir al Bote
+                    Apuntar Gasto de Gasolina
                   </button>
                   <button type="button" onClick={() => setShowModalGasolina(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
                     Cancelar
