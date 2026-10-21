@@ -605,7 +605,6 @@ export default function CharangaSaraoApp() {
   const totalDiasMes = new Date(mesSeleccionado.anio, mesSeleccionado.mes + 1, 0).getDate();
   const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7;
 
-  // Filtrado de instrumentos disponibles según si eres Admin o Jefe de Cuerda
   const instrumentosParaExtra = esAdmin 
     ? INSTRUMENTOS_DISPONIBLES 
     : INSTRUMENTOS_DISPONIBLES.filter(i => i.cuerda === usuarioActual.cuerda);
@@ -1201,7 +1200,7 @@ export default function CharangaSaraoApp() {
                         </div>
                       </div>
 
-                      {/* NUEVA FUNCIÓN: AÑADIR MÚSICO EXTRA TRAS CONFIRMAR ASISTENCIA */}
+                      {/* AÑADIR MÚSICO EXTRA TRAS CONFIRMAR ASISTENCIA */}
                       {puedeGestionarExtras && (
                         <div className="bg-gradient-to-r from-amber-500/10 to-zinc-900 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3">
                           <div>
@@ -1334,7 +1333,6 @@ export default function CharangaSaraoApp() {
                           </div>
 
                           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                            {/* Músicos de la plantilla */}
                             {dispoPuedo.map(m => {
                               const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
                               const dispM = m.disponibilidadBolos?.[boloActual.id];
@@ -1363,7 +1361,6 @@ export default function CharangaSaraoApp() {
                               );
                             })}
 
-                            {/* Músicos Extras de Refuerzo */}
                             {musicosExtras.map(ex => {
                               const conf = CONFIG_CUERDAS[ex.cuerda] || CONFIG_CUERDAS['Saxos'];
                               const puedeGestionarEste = puedeEliminarAsistencia(ex.cuerda);
