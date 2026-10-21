@@ -8,6 +8,9 @@ import {
   ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText 
 } from 'lucide-react';
 
+import { db } from './firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+
 const CONFIG_CUERDAS = {
   'Saxos': { label: 'Saxos', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', dot: '#34d399' },
   'Trompetas': { label: 'Trompetas', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', dot: '#fbbf24' },
@@ -56,30 +59,18 @@ export default function CharangaSaraoApp() {
   const PASSWORD_CHARANGA = 'sarao2027';
   const PASSWORD_ADMIN = 'admin2027';
 
+  // Datos globales sincronizados con Firebase
   const [miembros, setMiembros] = useState([]);
-  const [bolos, setBolos] = useState([
-    {
-      id: 1,
-      titulo: 'Pasacalles y Vermú',
-      lugar: 'Cuéllar',
-      fecha: '2027-08-15',
-      horaInicio: '13:00h',
-      horaFin: '17:00h',
-      vestuario: 'Negro',
-      presupuesto: 1200,
-      conFactura: true,
-      cochesAsignados: []
-    }
-  ]);
-  const [movimientosBote, setMovimientosBote] = useState([
-    { id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso', autor: 'Admin' }
-  ]);
+  const [bolos, setBolos] = useState([]);
+  const [movimientosBote, setMovimientosBote] = useState([]);
 
+  // Historial para Deshacer
   const [historialEstados, setHistorialEstados] = useState([]);
+
+  // Usuario local en este dispositivo
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
-
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
 
   // Modales Bolos
@@ -115,42 +106,84 @@ export default function CharangaSaraoApp() {
   const [precioLitro, setPrecioLitro] = useState('1.45');
   const [destinoGasolina, setDestinoGasolina] = useState('');
 
+  // 1. SINCRONIZACIÓN EN TIEMPO REAL CON FIREBASE
   useEffect(() => {
-    try {
-      const miembrosGuardados = localStorage.getItem('sarao_miembros');
-      const bolosGuardados = localStorage.getItem('sarao_bolos');
-      const boteGuardado = localStorage.getItem('sarao_bote');
-      const usuarioGuardado = localStorage.getItem('sarao_usuario_actual');
+    // Escuchar documento global de la charanga
+    const docRef = doc(db, 'charanga', 'datos_generales');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.miembros) setMiembros(data.miembros);
+        if (data.bolos) setBolos(data.bolos);
+        if (data.movimientosBote) setMovimientosBote(data.movimientosBote);
+      } else {
+        // Inicializar documento base si aún no existe
+        setDoc(docRef, {
+          miembros: [],
+          bolos: [{
+            id: 1,
+            titulo: 'Pasacalles y Vermú',
+            lugar: 'Cuéllar',
+            fecha: '2027-08-15',
+            horaInicio: '13:00h',
+            horaFin: '17:00h',
+            vestuario: 'Negro',
+            presupuesto: 1200,
+            conFactura: true,
+            cochesAsignados: []
+          }],
+          movimientosBote: [{ id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso', autor: 'Admin' }]
+        });
+      }
+      setCargado(true);
+    }, (error) => {
+      console.error("Error conectando a Firestore:", error);
+      setCargado(true);
+    });
 
-      if (miembrosGuardados) setMiembros(JSON.parse(miembrosGuardados));
-      if (bolosGuardados) setBolos(JSON.parse(bolosGuardados));
-      if (boteGuardado) setMovimientosBote(JSON.parse(boteGuardado));
-      
-      if (usuarioGuardado) {
-        const u = JSON.parse(usuarioGuardado);
-        setUsuarioActual(u);
+    // Mantener sesión del dispositivo local
+    try {
+      const uGuardado = localStorage.getItem('sarao_usuario_actual');
+      if (uGuardado) {
+        setUsuarioActual(JSON.parse(uGuardado));
         setAutenticado(true);
       }
     } catch (e) {
       console.error(e);
     }
-    setCargado(true);
 
     const link = document.createElement('link');
     link.href = 'https://fonts.googleapis.com/css2?family=Bangers&display=swap';
     link.rel = 'stylesheet';
     document.head.appendChild(link);
+
+    return () => unsubscribe();
   }, []);
 
+  // Mantener actualizado el usuario local cuando cambian sus datos en Firestore (ej. sus roles)
   useEffect(() => {
-    if (!cargado) return;
-    localStorage.setItem('sarao_miembros', JSON.stringify(miembros));
-    localStorage.setItem('sarao_bolos', JSON.stringify(bolos));
-    localStorage.setItem('sarao_bote', JSON.stringify(movimientosBote));
-    if (usuarioActual) {
-      localStorage.setItem('sarao_usuario_actual', JSON.stringify(usuarioActual));
+    if (usuarioActual && miembros.length > 0) {
+      const actualEnBD = miembros.find(m => m.id === usuarioActual.id);
+      if (actualEnBD && JSON.stringify(actualEnBD) !== JSON.stringify(usuarioActual)) {
+        setUsuarioActual(actualEnBD);
+        localStorage.setItem('sarao_usuario_actual', JSON.stringify(actualEnBD));
+      }
     }
-  }, [miembros, bolos, movimientosBote, usuarioActual, cargado]);
+  }, [miembros]);
+
+  // FUNCIÓN PARA GUARDAR EN LA NUBE PARA TODOS LOS DISPOSITIVOS
+  const guardarEnNube = async (nuevosMiembros, nuevosBolos, nuevoBote) => {
+    try {
+      await setDoc(doc(db, 'charanga', 'datos_generales'), {
+        miembros: nuevosMiembros ?? miembros,
+        bolos: nuevosBolos ?? bolos,
+        movimientosBote: nuevoBote ?? movimientosBote
+      }, { merge: true });
+    } catch (e) {
+      console.error("Error guardando en la nube:", e);
+      alert("Error al sincronizar con la nube. Revisa tu conexión a internet.");
+    }
+  };
 
   const registrarSnapshot = () => {
     setHistorialEstados(prev => [
@@ -163,25 +196,15 @@ export default function CharangaSaraoApp() {
     ]);
   };
 
-  const deshacerUltimoCambio = () => {
+  const deshacerUltimoCambio = async () => {
     if (historialEstados.length === 0) {
       alert('No hay acciones previas para deshacer.');
       return;
     }
     const anterior = historialEstados[historialEstados.length - 1];
-    setMiembros(anterior.miembros);
-    setBolos(anterior.bolos);
-    setMovimientosBote(anterior.movimientosBote);
     setHistorialEstados(prev => prev.slice(0, -1));
-
-    if (usuarioActual) {
-      const uRev = anterior.miembros.find(m => m.id === usuarioActual.id);
-      if (uRev) {
-        setUsuarioActual(uRev);
-        localStorage.setItem('sarao_usuario_actual', JSON.stringify(uRev));
-      }
-    }
-    alert('Acción revertida correctamente.');
+    await guardarEnNube(anterior.miembros, anterior.bolos, anterior.movimientosBote);
+    alert('Acción revertida correctamente en todos los dispositivos.');
   };
 
   const esAdmin = usuarioActual?.roles?.includes('admin');
@@ -189,7 +212,7 @@ export default function CharangaSaraoApp() {
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
   const esJefeCuerda = usuarioActual?.roles?.includes('jefe_cuerda');
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     const pass = passwordInput.trim();
 
@@ -229,10 +252,10 @@ export default function CharangaSaraoApp() {
     };
 
     const nuevaLista = [...miembros, nuevoMiembro];
-    setMiembros(nuevaLista);
     setUsuarioActual(nuevoMiembro);
     localStorage.setItem('sarao_usuario_actual', JSON.stringify(nuevoMiembro));
     setAutenticado(true);
+    await guardarEnNube(nuevaLista, null, null);
   };
 
   const cerrarSesion = () => {
@@ -253,9 +276,9 @@ export default function CharangaSaraoApp() {
     }
   };
 
-  const setDisponibilidadBolo = (boloId, estado, instrumentoElegido = null) => {
+  const setDisponibilidadBolo = async (boloId, estado, instrumentoElegido = null) => {
     registrarSnapshot();
-    setMiembros(miembros.map(m => {
+    const nuevaLista = miembros.map(m => {
       if (m.id === usuarioActual.id) {
         const datosDisp = estado === 'puedo' ? { estado, instrumento: instrumentoElegido || m.instrumentos[0] } : (estado ? { estado } : null);
         const nuevaDisp = { ...m.disponibilidadBolos };
@@ -264,44 +287,47 @@ export default function CharangaSaraoApp() {
         
         const actualizado = { ...m, disponibilidadBolos: nuevaDisp };
         setUsuarioActual(actualizado);
+        localStorage.setItem('sarao_usuario_actual', JSON.stringify(actualizado));
         return actualizado;
       }
       return m;
-    }));
+    });
+    await guardarEnNube(nuevaLista, null, null);
   };
 
-  const toggleRolMiembro = (miembroId, rol) => {
+  const toggleRolMiembro = async (miembroId, rol) => {
     if (!esAdmin) return;
     registrarSnapshot();
-    setMiembros(miembros.map(m => {
+    const nuevaLista = miembros.map(m => {
       if (m.id === miembroId) {
         const tieneRol = m.roles?.includes(rol);
         const nuevosRoles = tieneRol ? m.roles.filter(r => r !== rol) : [...(m.roles || []), rol];
-        const actualizado = { ...m, roles: nuevosRoles };
-        if (usuarioActual.id === m.id) setUsuarioActual(actualizado);
-        return actualizado;
+        return { ...m, roles: nuevosRoles };
       }
       return m;
-    }));
+    });
+    await guardarEnNube(nuevaLista, null, null);
   };
 
-  const cambiarVestuarioBolo = (boloId, nuevoVestuario) => {
+  const cambiarVestuarioBolo = async (boloId, nuevoVestuario) => {
     if (!esAdmin) return;
     registrarSnapshot();
-    setBolos(bolos.map(b => b.id === boloId ? { ...b, vestuario: nuevoVestuario } : b));
+    const nuevosBolos = bolos.map(b => b.id === boloId ? { ...b, vestuario: nuevoVestuario } : b);
+    await guardarEnNube(null, nuevosBolos, null);
   };
 
-  const eliminarBolo = (boloId, boloLugar) => {
+  const eliminarBolo = async (boloId, boloLugar) => {
     if (!esAdmin) return;
     if (confirm(`¿Eliminar el bolo de "${boloLugar}" definitivamente?`)) {
       registrarSnapshot();
-      setBolos(bolos.filter(b => b.id !== boloId));
-      setMiembros(miembros.map(m => {
+      const nuevosBolos = bolos.filter(b => b.id !== boloId);
+      const nuevosMiembros = miembros.map(m => {
         const disp = { ...m.disponibilidadBolos };
         delete disp[boloId];
         return { ...m, disponibilidadBolos: disp };
-      }));
+      });
       if (boloSeleccionadoId === boloId) setBoloSeleccionadoId(null);
+      await guardarEnNube(nuevosMiembros, nuevosBolos, null);
     }
   };
 
@@ -311,33 +337,35 @@ export default function CharangaSaraoApp() {
     return false;
   };
 
-  const eliminarDisponibilidadMiembro = (miembroId, cuerdaMiembro, nombreMiembro) => {
+  const eliminarDisponibilidadMiembro = async (miembroId, cuerdaMiembro, nombreMiembro) => {
     if (!puedeEliminarAsistencia(cuerdaMiembro)) {
       alert(`Como jefe de cuerda, solo puedes descartar músicos de tu cuerda (${usuarioActual.cuerda}).`);
       return;
     }
     if (confirm(`¿Descartar a ${nombreMiembro} de este bolo?`)) {
       registrarSnapshot();
-      setMiembros(miembros.map(m => {
+      const nuevaLista = miembros.map(m => {
         if (m.id === miembroId) {
           const nuevaDisp = { ...m.disponibilidadBolos };
           delete nuevaDisp[boloSeleccionadoId];
           return { ...m, disponibilidadBolos: nuevaDisp };
         }
         return m;
-      }));
+      });
+      await guardarEnNube(nuevaLista, null, null);
     }
   };
 
-  const eliminarMiembroPlantilla = (miembroId) => {
+  const eliminarMiembroPlantilla = async (miembroId) => {
     if (!esAdmin) return;
     if (confirm('¿Seguro que deseas eliminar a este músico de la plantilla?')) {
       registrarSnapshot();
-      setMiembros(miembros.filter(m => m.id !== miembroId));
+      const nuevaLista = miembros.filter(m => m.id !== miembroId);
+      await guardarEnNube(nuevaLista, null, null);
     }
   };
 
-  const agregarMovimientoGeneralBote = (e) => {
+  const agregarMovimientoGeneralBote = async (e) => {
     e.preventDefault();
     if (!esTesorero) return;
     const imp = parseFloat(importeBote);
@@ -355,13 +383,14 @@ export default function CharangaSaraoApp() {
       tipo: tipoMovimientoBote,
       autor: usuarioActual.nombre
     };
-    setMovimientosBote([nuevoMov, ...movimientosBote]);
+    const nuevoBote = [nuevoMov, ...movimientosBote];
     setConceptoBote('');
     setImporteBote('');
     setShowModalMovimientoBote(false);
+    await guardarEnNube(null, null, nuevoBote);
   };
 
-  const agregarGasolinaConductor = (e) => {
+  const agregarGasolinaConductor = async (e) => {
     e.preventDefault();
     if (!esConductor) return;
     const km = parseFloat(kmGasolina);
@@ -386,22 +415,23 @@ export default function CharangaSaraoApp() {
       autor: usuarioActual.nombre
     };
 
-    setMovimientosBote([nuevoGasto, ...movimientosBote]);
+    const nuevoBote = [nuevoGasto, ...movimientosBote];
     setKmGasolina('');
     setDestinoGasolina('');
     setShowModalGasolina(false);
+    await guardarEnNube(null, null, nuevoBote);
     alert(`Se ha registrado el gasto de gasolina (${gastoCalculado} €) en el bote.`);
   };
 
-  const eliminarMovimientoBote = (movId) => {
+  const eliminarMovimientoBote = async (movId) => {
     if (!esTesorero) return;
     if (confirm('¿Deseas eliminar este movimiento del bote?')) {
       registrarSnapshot();
-      setMovimientosBote(movimientosBote.filter(m => m.id !== movId));
+      const nuevoBote = movimientosBote.filter(m => m.id !== movId);
+      await guardarEnNube(null, null, nuevoBote);
     }
   };
 
-  // Abrir modal de añadir bolo directamente pinchando en el día
   const abrirModalParaFecha = (fechaStr) => {
     if (!esAdmin) return;
     setNuevaFechaBolo(fechaStr);
@@ -429,7 +459,13 @@ export default function CharangaSaraoApp() {
     document.body.removeChild(link);
   };
 
-  if (!cargado) return null;
+  if (!cargado) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-green-400 font-bold">
+        Cargando datos de Sarao...
+      </div>
+    );
+  }
 
   if (!autenticado) {
     return (
@@ -568,14 +604,14 @@ export default function CharangaSaraoApp() {
             <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl">
               <div className="relative z-10">
                 <span className="bg-green-500/20 text-green-400 text-xs font-black px-3 py-1 rounded-full uppercase border border-green-500/30">
-                  2026 - 2028
+                  En directo en la nube ☁️
                 </span>
                 <h2 className="text-3xl sm:text-4xl tracking-wide text-white mt-3" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                   Bienvenido a la app de gestión de Sarao
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
                   {esAdmin 
-                    ? 'Modo Administrador: pincha directamente en cualquier día del calendario para programar un bolo.' 
+                    ? 'Modo Administrador: sincronizado en tiempo real entre ordenadores y teléfonos.' 
                     : esJefeCuerda
                       ? `Jefe de cuerda de ${usuarioActual.cuerda}: revisa y gestiona la asistencia de tu sección.`
                       : 'Calendario de bolos, confirmación de asistencia, coches y bote.'}
@@ -876,7 +912,6 @@ export default function CharangaSaraoApp() {
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
               
-              {/* CABECERA */}
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
                 <div>
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
@@ -942,7 +977,7 @@ export default function CharangaSaraoApp() {
                   </select>
                 </div>
 
-                {/* Cuadrícula de días: Pinchar en el día abre para añadir bolo si eres Admin */}
+                {/* Cuadrícula de días */}
                 <div className="grid grid-cols-7 gap-1 text-center text-xs">
                   {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
                     <div key={d} className="font-bold text-zinc-500 py-1">{d}</div>
@@ -983,13 +1018,12 @@ export default function CharangaSaraoApp() {
                           )}
                         </div>
 
-                        {/* Lista de bolos de este día */}
                         <div className="space-y-1 overflow-y-auto max-h-[55px] mt-1">
                           {bolosDelDia.map(b => (
                             <div
                               key={b.id}
                               onClick={(e) => {
-                                e.stopPropagation(); // Evitar que abra el modal de nuevo bolo al hacer clic en el bolo existente
+                                e.stopPropagation();
                                 setBoloSeleccionadoId(b.id);
                               }}
                               className="text-[9px] leading-tight text-green-200 font-black bg-green-500/40 hover:bg-green-500/70 p-1 rounded cursor-pointer truncate shadow-sm transition"
@@ -1131,9 +1165,10 @@ export default function CharangaSaraoApp() {
                                 </div>
 
                                 {(esAdmin || car.conductor === usuarioActual.nombre) && (
-                                  <button onClick={() => {
+                                  <button onClick={async () => {
                                     registrarSnapshot();
-                                    setBolos(bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b));
+                                    const nuevosBolos = bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b);
+                                    await guardarEnNube(null, nuevosBolos, null);
                                   }} className="text-rose-400 hover:text-rose-300 p-1">
                                     <Trash2 className="w-4 h-4"/>
                                   </button>
@@ -1341,7 +1376,7 @@ export default function CharangaSaraoApp() {
               </div>
               <p className="text-xs text-zinc-400 mb-4">Indica la salida, paradas intermedias con hora y llegada.</p>
 
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!origenTrayecto || !destinoTrayecto) return;
                 registrarSnapshot();
@@ -1355,12 +1390,13 @@ export default function CharangaSaraoApp() {
                   destino: destinoTrayecto,
                   horaLlegada: horaLlegadaDestino
                 };
-                setBolos(bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: [...(b.cochesAsignados || []), nuevoCar] } : b));
+                const nuevosBolos = bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: [...(b.cochesAsignados || []), nuevoCar] } : b);
                 
                 setOrigenTrayecto(''); setHoraSalidaOrigen('');
                 setParadasIntermedias([{ lugar: '', hora: '' }]);
                 setDestinoTrayecto(''); setHoraLlegadaDestino(''); setVehiculoTrayecto('');
                 setShowModalTrayectoBolo(false);
+                await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
                 
                 <div>
@@ -1457,11 +1493,11 @@ export default function CharangaSaraoApp() {
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-green-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-black text-white mb-3">Añadir Nuevo Bolo</h3>
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!nuevoLugarBolo.trim() || !nuevaFechaBolo) return;
                 registrarSnapshot();
-                setBolos([...bolos, {
+                const nuevoBolo = {
                   id: Date.now(),
                   lugar: nuevoLugarBolo.trim(),
                   titulo: nuevoTituloBolo.trim() || 'Actuación',
@@ -1472,11 +1508,13 @@ export default function CharangaSaraoApp() {
                   conFactura: nuevoConFacturaBolo,
                   vestuario: 'Por definir',
                   cochesAsignados: []
-                }]);
+                };
+                const nuevosBolos = [...bolos, nuevoBolo];
                 setNuevoLugarBolo(''); setNuevoTituloBolo(''); setNuevaFechaBolo('');
                 setNuevaHoraInicioBolo(''); setNuevaHoraFinBolo('');
                 setNuevoPresupuestoBolo(''); setNuevoConFacturaBolo(false);
                 setShowModalBolo(false);
+                await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
                 
                 <div>
