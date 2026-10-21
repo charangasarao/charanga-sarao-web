@@ -82,7 +82,7 @@ export default function CharangaSaraoApp() {
   const [boloEditandoId, setBoloEditandoId] = useState(null);
   const [showModalEliminarBolos, setShowModalEliminarBolos] = useState(false);
 
-  // Modal de Confirmación de Presupuesto (Revisión antes de pasar a verde)
+  // Modal de Confirmación de Presupuesto
   const [showModalConfirmarPresupuesto, setShowModalConfirmarPresupuesto] = useState(false);
   const [presupuestoAConfirmarId, setPresupuestoAConfirmarId] = useState(null);
 
@@ -262,7 +262,7 @@ export default function CharangaSaraoApp() {
     alert('Acción revertida correctamente en todos los dispositivos.');
   };
 
-  // ROLES Y PERMISOS (INCLUYENDO EL NUEVO ROL "BOLOS")
+  // ROLES Y PERMISOS
   const esAdmin = usuarioActual?.roles?.includes('admin');
   const esGestorBolos = usuarioActual?.roles?.includes('bolos') || esAdmin;
   const tieneRolConductor = usuarioActual?.roles?.includes('conductor');
@@ -393,7 +393,6 @@ export default function CharangaSaraoApp() {
     await guardarEnNube(nuevaLista, null, null);
   };
 
-  // VESTUARIO EDITABLE POR ADMIN Y ROL BOLOS
   const cambiarVestuarioBolo = async (boloId, nuevoVestuario) => {
     if (!esGestorBolos) return;
     registrarSnapshot();
@@ -445,10 +444,9 @@ export default function CharangaSaraoApp() {
   };
 
   // =========================================================================
-  // FUNCIONES DE BOLOS PRESUPUESTADOS (CONFIRMAR CON REVISIÓN Y RECHAZAR)
+  // FUNCIONES DE BOLOS PRESUPUESTADOS
   // =========================================================================
 
-  // Al pulsar el tick de confirmar presupuesto, abre el modal con sus datos para revisarlos antes de pasarlo a confirmado
   const abrirModalConfirmarPresupuesto = (bolo) => {
     if (!esGestorBolos) return;
     setPresupuestoAConfirmarId(bolo.id);
@@ -462,7 +460,6 @@ export default function CharangaSaraoApp() {
     setShowModalConfirmarPresupuesto(true);
   };
 
-  // Confirmar definitivamente el bolo presupuestado (pasa a estado 'confirmado' en verde)
   const confirmarBoloPresupuestadoDefinitivo = async (e) => {
     e.preventDefault();
     if (!esGestorBolos || !presupuestoAConfirmarId) return;
@@ -483,7 +480,7 @@ export default function CharangaSaraoApp() {
           horaFin: editHoraFinBolo,
           presupuesto: parseFloat(editPresupuestoBolo) || 0,
           conFactura: editConFacturaBolo,
-          estadoBolo: 'confirmado' // Pasa a verde en el calendario y activa asistencias
+          estadoBolo: 'confirmado'
         };
       }
       return b;
@@ -493,10 +490,9 @@ export default function CharangaSaraoApp() {
     setShowModalConfirmarPresupuesto(false);
     setPresupuestoAConfirmarId(null);
     await guardarEnNube(null, nuevosBolos, null);
-    alert(`¡Bolo en ${editLugarBolo.trim()} confirmado! Ya aparece en color verde en el calendario oficial.`);
+    alert(`¡Bolo en ${editLugarBolo.trim()} confirmado! Ya aparece en color verde en el calendario oficial y en Próximos Bolos.`);
   };
 
-  // Rechazar un bolo presupuestado (desaparece de presupuestados y del calendario)
   const rechazarBoloPresupuestado = async (boloId, boloLugar) => {
     if (!esGestorBolos) return;
     if (confirm(`¿Rechazar y descartar el presupuesto de "${boloLugar}"? Desaparecerá del listado y del calendario.`)) {
@@ -969,9 +965,21 @@ export default function CharangaSaraoApp() {
   const miTotalFacturado = misFacturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
   const totalGeneralFacturado = facturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
 
-  // SEPARACIÓN DE BOLOS CONFIRMADOS VS PRESUPUESTADOS
+  // FECHA DE HOY EN FORMATO YYYY-MM-DD PARA DESCARTAR BOLOS PASADOS DEL CARRUSEL DE PRÓXIMOS BOLOS
+  const fechaHoyObj = new Date();
+  const hoyStr = `${fechaHoyObj.getFullYear()}-${String(fechaHoyObj.getMonth() + 1).padStart(2, '0')}-${String(fechaHoyObj.getDate()).padStart(2, '0')}`;
+
+  // SEPARACIÓN DE BOLOS:
+  // 1. Todos los confirmados (para estadísticas e histórico)
   const bolosConfirmados = bolos.filter(b => b.estadoBolo !== 'presupuestado');
-  const bolosPresupuestados = bolos.filter(b => b.estadoBolo === 'presupuestado').sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  // 2. Próximos Bolos en la Landing: SOLO CONFIRMADOS Y CON FECHA >= HOY (una vez pasa el día del bolo, desaparece de aquí)
+  const proximosBolosConfirmados = bolos
+    .filter(b => b.estadoBolo !== 'presupuestado' && b.fecha >= hoyStr)
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  // 3. Bolos presupuestados (en amarillo)
+  const bolosPresupuestados = bolos
+    .filter(b => b.estadoBolo === 'presupuestado')
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
   const exportarEstadisticasExcel = () => {
     let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Bolos Confirmados;Total Bolos;Porcentaje (%);Total Facturado (€)\n";
@@ -1069,11 +1077,16 @@ export default function CharangaSaraoApp() {
   }
 
   const boloActual = bolos.find(b => b.id === boloSeleccionadoId);
-  const bolosOrdenados = [...bolos].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
   const mesSeleccionado = MESES_PERMITIDOS[mesIndexActivo] || MESES_PERMITIDOS[0];
   const totalDiasMes = new Date(mesSeleccionado.anio, mesSeleccionado.mes + 1, 0).getDate();
   const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7;
+
+  // Bolos que pertenecen al mes que se está viendo actualmente en el calendario
+  const prefijoMesActual = `${mesSeleccionado.anio}-${String(mesSeleccionado.mes + 1).padStart(2, '0')}`;
+  const bolosDelMesVisible = bolos
+    .filter(b => b.fecha?.startsWith(prefijoMesActual))
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
   const instrumentosParaExtra = (esAdmin || esGestorBolos) 
     ? INSTRUMENTOS_DISPONIBLES 
@@ -1097,15 +1110,15 @@ export default function CharangaSaraoApp() {
         </div>
       )}
 
-      <header className="bg-gradient-to-b from-zinc-900 to-black border-b border-green-500/20 px-6 py-5 sticky top-0 z-30 backdrop-blur-md bg-opacity-90">
+      <header className="bg-gradient-to-b from-zinc-900 to-black border-b border-green-500/20 px-4 sm:px-6 py-4 sm:py-5 sticky top-0 z-30 backdrop-blur-md bg-opacity-90">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl overflow-hidden border border-green-500/40 bg-black shrink-0">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl overflow-hidden border border-green-500/40 bg-black shrink-0">
               <img src="PEGATINAS.jpg" alt="Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-3xl tracking-wider text-green-400 leading-none" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                <h1 className="text-2xl sm:text-3xl tracking-wider text-green-400 leading-none" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                   CHARANGA SARAO
                 </h1>
                 {esAdmin && (
@@ -1146,12 +1159,12 @@ export default function CharangaSaraoApp() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto p-4 sm:p-6">
+      <main className="max-w-5xl mx-auto p-3 sm:p-6">
 
         {/* INICIO / LANDING PAGE */}
         {pestañaActiva === 'landing' && (
           <div className="space-y-6">
-            <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl">
+            <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-5 sm:p-8 relative overflow-hidden shadow-2xl">
               <div className="relative z-10">
                 <span className="bg-green-500/20 text-green-400 text-xs font-black px-3 py-1 rounded-full uppercase border border-green-500/30">
                   En directo en la nube ☁️
@@ -1169,23 +1182,22 @@ export default function CharangaSaraoApp() {
               </div>
             </div>
 
-            {/* CARRUSEL DESLIZABLE HORIZONTAL */}
+            {/* CARRUSEL DESLIZABLE HORIZONTAL: SOLO PRÓXIMOS BOLOS CONFIRMADOS Y NO VENCIDOS */}
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5 text-green-400"/> Próximos Bolos y Presupuestos
+                  <CalendarIcon className="w-5 h-5 text-green-400"/> Próximos Bolos Confirmados
                 </h3>
-                <span className="text-xs text-zinc-500">Desliza para ver más &rarr;</span>
+                <span className="text-xs text-zinc-500">Desliza &rarr;</span>
               </div>
 
-              {bolosOrdenados.length === 0 ? (
+              {proximosBolosConfirmados.length === 0 ? (
                 <div className="p-6 bg-zinc-900/50 rounded-3xl border border-zinc-800 text-center text-xs text-zinc-500">
-                  No hay bolos programados actualmente.
+                  No hay próximos bolos confirmados pendientes.
                 </div>
               ) : (
                 <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-zinc-700">
-                  {bolosOrdenados.map(b => {
-                    const esPresupuesto = b.estadoBolo === 'presupuestado';
+                  {proximosBolosConfirmados.map(b => {
                     const dispMiembro = usuarioActual.disponibilidadBolos?.[b.id]?.estado;
                     const vest = OPCIONES_VESTUARIO.find(v => v.id === b.vestuario) || OPCIONES_VESTUARIO[0];
                     const numConfirmados = miembros.filter(m => m.disponibilidadBolos?.[b.id]?.estado === 'puedo').length + (b.musicosExtras?.length || 0);
@@ -1197,27 +1209,15 @@ export default function CharangaSaraoApp() {
                           setBoloSeleccionadoId(b.id);
                           setPestañaActiva('bolos');
                         }}
-                        className={`snap-start shrink-0 w-[290px] sm:w-[320px] bg-zinc-900 border rounded-3xl p-5 cursor-pointer transition shadow-xl hover:scale-[1.02] flex flex-col justify-between ${
-                          esPresupuesto 
-                            ? 'border-amber-500/60 hover:border-amber-400' 
-                            : 'border-zinc-800 hover:border-green-500/70'
-                        }`}
+                        className="snap-start shrink-0 w-[280px] sm:w-[320px] bg-zinc-900 border border-zinc-800 hover:border-green-500/70 rounded-3xl p-5 cursor-pointer transition shadow-xl hover:scale-[1.02] flex flex-col justify-between"
                       >
                         <div>
                           <div className="flex justify-between items-start gap-2 mb-2">
-                            <span className={`text-xs font-black px-3 py-1 rounded-full border ${
-                              esPresupuesto
-                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                                : 'bg-green-500/20 text-green-400 border-green-500/30'
-                            }`}>
+                            <span className="text-xs font-black px-3 py-1 rounded-full border bg-green-500/20 text-green-400 border-green-500/30">
                               📅 {b.fecha}
                             </span>
 
-                            {esPresupuesto ? (
-                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-black">
-                                Presupuestado
-                              </span>
-                            ) : dispMiembro && (
+                            {dispMiembro && (
                               <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                                 dispMiembro === 'puedo' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
                                 dispMiembro === 'tal_vez' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
@@ -1232,7 +1232,7 @@ export default function CharangaSaraoApp() {
                             {b.lugar}
                           </h4>
                           {b.titulo && (
-                            <p className={`text-xs font-semibold mt-0.5 ${esPresupuesto ? 'text-amber-300' : 'text-green-300'}`}>
+                            <p className="text-xs font-semibold mt-0.5 text-green-300">
                               {b.titulo}
                             </p>
                           )}
@@ -1241,23 +1241,17 @@ export default function CharangaSaraoApp() {
                             <p className="flex items-center gap-1.5 text-zinc-400">
                               <Clock className="w-3.5 h-3.5 text-green-400"/> Horario: <strong className="text-white">{b.horaInicio || '13:00h'} - {b.horaFin || '17:00h'}</strong>
                             </p>
-                            {!esPresupuesto && (
-                              <p className="flex items-center gap-1.5 text-zinc-400">
-                                <Shirt className="w-3.5 h-3.5 text-amber-400"/> Ropa: <strong className="text-zinc-200">{vest.label}</strong>
-                              </p>
-                            )}
+                            <p className="flex items-center gap-1.5 text-zinc-400">
+                              <Shirt className="w-3.5 h-3.5 text-amber-400"/> Ropa: <strong className="text-zinc-200">{vest.label}</strong>
+                            </p>
                           </div>
                         </div>
 
                         <div className="mt-4 pt-3 border-t border-zinc-800/80 flex justify-between items-center">
                           <span className="text-[11px] font-bold text-zinc-400">
-                            {esPresupuesto ? (
-                              <span className="text-amber-400">⏳ Pendiente de aceptar</span>
-                            ) : (
-                              <>👥 <strong className="text-emerald-400">{numConfirmados}</strong> en plantilla</>
-                            )}
+                            👥 <strong className="text-emerald-400">{numConfirmados}</strong> en plantilla
                           </span>
-                          <span className={`text-xs font-bold flex items-center gap-1 ${esPresupuesto ? 'text-amber-400' : 'text-green-400'}`}>
+                          <span className="text-xs font-bold flex items-center gap-1 text-green-400">
                             Ver detalles &rarr;
                           </span>
                         </div>
@@ -1329,10 +1323,10 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* NUEVA SECCIÓN: BOLOS PRESUPUESTADOS */}
+        {/* SECCIÓN: BOLOS PRESUPUESTADOS */}
         {pestañaActiva === 'presupuestos' && (
           <div className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
                 <div>
@@ -1553,7 +1547,7 @@ export default function CharangaSaraoApp() {
         {/* PLANTILLA */}
         {pestañaActiva === 'miembros' && (
           <div className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                   PLANTILLA DE MÚSICOS ({miembros.length})
@@ -1592,7 +1586,6 @@ export default function CharangaSaraoApp() {
                           )}
                         </div>
 
-                        {/* ASIGNACIÓN DE ROLES INCLUYENDO EL NUEVO ROL "BOLOS" Y "FACTURADOR" */}
                         {esAdmin && (
                           <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
                             <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
@@ -1635,7 +1628,7 @@ export default function CharangaSaraoApp() {
         {/* SECCIÓN: FACTURAS */}
         {pestañaActiva === 'facturas' && (
           <div className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
                 <div>
@@ -1879,7 +1872,7 @@ export default function CharangaSaraoApp() {
         {/* PANEL ADMIN */}
         {pestañaActiva === 'admin' && esAdmin && (
           <div className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
                 <div>
@@ -2004,65 +1997,64 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* CALENDARIO DE BOLOS (VERDE = CONFIRMADO, AMARILLO = PRESUPUESTADO) */}
+        {/* CALENDARIO DE BOLOS OPTIMIZADO PARA MÓVIL Y ESCRITORIO */}
         {pestañaActiva === 'bolos' && (
           <div className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-3.5 sm:p-6">
               
-              <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
+              <div className="flex justify-between items-start flex-wrap gap-3 border-b border-zinc-800 pb-4 mb-4">
                 <div>
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                     CALENDARIO DE BOLOS
                   </h2>
-                  <div className="flex items-center gap-4 text-xs text-zinc-400 mt-1 flex-wrap">
+                  <div className="flex items-center gap-3 text-[11px] text-zinc-400 mt-1 flex-wrap">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Confirmado
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Presupuestado (Pendiente)
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Presupuestado
                     </span>
                   </div>
                 </div>
 
-                {/* BOTONES VISIBLES PARA ADMIN Y ROL "BOLOS" */}
                 {esGestorBolos && (
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full sm:w-auto">
                     <button 
                       onClick={() => {
                         setEsCreacionPresupuesto(false);
                         setShowModalBolo(true);
                       }} 
-                      className="bg-green-500 hover:bg-green-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow transition"
+                      className="flex-1 sm:flex-none justify-center bg-green-500 hover:bg-green-400 text-black font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow transition"
                     >
-                      <Plus className="w-4 h-4"/> + Añadir Bolo
+                      <Plus className="w-3.5 h-3.5"/> + Añadir
                     </button>
                     <button 
                       onClick={() => {
                         setBoloEditandoId(null);
                         setShowModalEditarBolos(true);
                       }} 
-                      className="bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow transition"
+                      className="flex-1 sm:flex-none justify-center bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow transition"
                     >
-                      <Edit3 className="w-4 h-4"/> ✎ Editar Bolo
+                      <Edit3 className="w-3.5 h-3.5"/> ✎ Editar
                     </button>
                     <button 
                       onClick={() => setShowModalEliminarBolos(true)} 
-                      className="bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow transition"
+                      className="flex-1 sm:flex-none justify-center bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow transition"
                     >
-                      <Trash2 className="w-4 h-4"/> - Eliminar Bolo
+                      <Trash2 className="w-3.5 h-3.5"/> - Borrar
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* SELECTOR Y NAVEGACIÓN DE MESES */}
-              <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 mb-6">
-                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
+              {/* SELECTOR Y CUADRÍCULA ADAPTATIVA MÓVIL/PC */}
+              <div className="bg-black/60 border border-zinc-800 rounded-2xl p-2.5 sm:p-4 mb-5">
+                <div className="flex justify-between items-center mb-3 gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => setMesIndexActivo(prev => Math.max(0, prev - 1))}
                       disabled={mesIndexActivo === 0}
-                      className="p-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-white"
+                      className="p-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
                       title="Mes anterior"
                     >
                       <ChevronLeft className="w-4 h-4"/>
@@ -2070,12 +2062,12 @@ export default function CharangaSaraoApp() {
                     <button
                       onClick={() => setMesIndexActivo(prev => Math.min(MESES_PERMITIDOS.length - 1, prev + 1))}
                       disabled={mesIndexActivo === MESES_PERMITIDOS.length - 1}
-                      className="p-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg text-white"
+                      className="p-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
                       title="Mes siguiente"
                     >
                       <ChevronRight className="w-4 h-4"/>
                     </button>
-                    <h3 className="text-lg font-bold text-white ml-1">
+                    <h3 className="text-base sm:text-lg font-black text-white ml-1">
                       {mesSeleccionado.label}
                     </h3>
                   </div>
@@ -2083,7 +2075,7 @@ export default function CharangaSaraoApp() {
                   <select
                     value={mesIndexActivo}
                     onChange={e => setMesIndexActivo(parseInt(e.target.value))}
-                    className="bg-zinc-900 border border-zinc-700 text-xs text-green-300 font-bold rounded-xl px-3 py-1.5 outline-none focus:border-green-500"
+                    className="bg-zinc-900 border border-zinc-700 text-xs text-green-300 font-bold rounded-xl px-2.5 py-2 outline-none focus:border-green-500"
                   >
                     {MESES_PERMITIDOS.map((m, idx) => (
                       <option key={idx} value={idx}>{m.label}</option>
@@ -2091,14 +2083,14 @@ export default function CharangaSaraoApp() {
                   </select>
                 </div>
 
-                {/* Cuadrícula de días */}
+                {/* Cuadrícula de días optimizada para pantalla vertical de móvil */}
                 <div className="grid grid-cols-7 gap-1 text-center text-xs">
                   {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
-                    <div key={d} className="font-bold text-zinc-500 py-1">{d}</div>
+                    <div key={d} className="font-black text-zinc-500 py-1 text-[11px]">{d}</div>
                   ))}
 
                   {Array.from({ length: diaSemanaInicio }, (_, i) => (
-                    <div key={`empty-${i}`} className="min-h-[80px] rounded-xl bg-zinc-950/20 border border-transparent"></div>
+                    <div key={`empty-${i}`} className="min-h-[54px] sm:min-h-[85px] rounded-xl bg-zinc-950/20 border border-transparent"></div>
                   ))}
 
                   {Array.from({ length: totalDiasMes }, (_, i) => {
@@ -2109,38 +2101,71 @@ export default function CharangaSaraoApp() {
                     const bolosDelDia = bolos.filter(b => b.fecha === fechaStr);
                     const tieneConfirmado = bolosDelDia.some(b => b.estadoBolo !== 'presupuestado');
                     const tienePresupuestado = bolosDelDia.some(b => b.estadoBolo === 'presupuestado');
+                    const estaSeleccionadoHoy = bolosDelDia.some(b => b.id === boloSeleccionadoId);
 
                     return (
                       <div
                         key={diaNum}
                         onClick={() => {
-                          if (esGestorBolos) {
+                          // En móvil, si tocas un día que ya tiene bolo, te abre directamente ese bolo para que sea comodísimo
+                          if (bolosDelDia.length > 0) {
+                            setBoloSeleccionadoId(bolosDelDia[0].id);
+                          } else if (esGestorBolos) {
                             abrirModalParaFecha(fechaStr);
                           }
                         }}
-                        className={`min-h-[85px] p-1.5 rounded-xl border flex flex-col justify-between transition group relative ${
+                        className={`min-h-[56px] sm:min-h-[85px] p-1 sm:p-1.5 rounded-xl border flex flex-col justify-between transition group relative cursor-pointer ${
                           tieneConfirmado 
                             ? 'bg-green-500/20 border-green-500' 
                             : tienePresupuestado
                               ? 'bg-amber-500/20 border-amber-400'
                               : 'bg-zinc-950 border-zinc-900 text-zinc-600'
-                        } ${esGestorBolos ? 'hover:border-green-400 hover:bg-zinc-900/80 cursor-pointer' : ''}`}
-                        title={esGestorBolos ? `Pincha para añadir un bolo el ${diaNum} de ${mesSeleccionado.label}` : ''}
+                        } ${estaSeleccionadoHoy ? 'ring-2 ring-white scale-[1.03] z-10' : ''}`}
                       >
                         <div className="flex justify-between items-center">
-                          <span className={`font-bold text-xs ${
-                            tieneConfirmado ? 'text-green-300' : tienePresupuestado ? 'text-amber-300' : 'text-zinc-500'
+                          <span className={`font-black text-xs sm:text-sm mx-auto sm:mx-0 ${
+                            tieneConfirmado ? 'text-green-300' : tienePresupuestado ? 'text-amber-300' : 'text-zinc-400'
                           }`}>
                             {diaNum}
                           </span>
                           {esGestorBolos && (
-                            <span className="opacity-0 group-hover:opacity-100 text-[10px] text-green-400 bg-green-500/20 rounded px-1 transition font-bold" title="Añadir bolo">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                abrirModalParaFecha(fechaStr);
+                              }}
+                              className="hidden sm:inline-block opacity-0 group-hover:opacity-100 text-[10px] text-green-400 bg-green-500/20 rounded px-1 transition font-bold"
+                              title="Añadir bolo en este día"
+                            >
                               +
-                            </span>
+                            </button>
                           )}
                         </div>
 
-                        <div className="space-y-1 overflow-y-auto max-h-[55px] mt-1">
+                        {/* VISTA MÓVIL VERTICAL: Indicador compacto limpio + texto corto legible */}
+                        {bolosDelDia.length > 0 && (
+                          <div className="sm:hidden flex flex-col items-center justify-center gap-0.5 mt-0.5">
+                            <div className="flex gap-1">
+                              {bolosDelDia.map(b => (
+                                <span
+                                  key={b.id}
+                                  className={`w-2 h-2 rounded-full ${
+                                    b.estadoBolo === 'presupuestado' ? 'bg-amber-400' : 'bg-green-400'
+                                  }`}
+                                ></span>
+                              ))}
+                            </div>
+                            <span className={`text-[9px] font-black leading-none truncate max-w-full px-0.5 ${
+                              tieneConfirmado ? 'text-green-200' : 'text-amber-200'
+                            }`}>
+                              {bolosDelDia[0].lugar.slice(0, 6)}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* VISTA ESCRITORIO: Etiquetas completas dentro de la casilla */}
+                        <div className="hidden sm:block space-y-1 overflow-y-auto max-h-[55px] mt-1">
                           {bolosDelDia.map(b => {
                             const esPres = b.estadoBolo === 'presupuestado';
                             return (
@@ -2155,7 +2180,7 @@ export default function CharangaSaraoApp() {
                                     ? 'bg-amber-400 text-black hover:bg-amber-300'
                                     : 'bg-green-500/40 hover:bg-green-500/70 text-green-200'
                                 }`}
-                                title={`${b.lugar}${b.titulo ? ` - ${b.titulo}` : ''} (${esPres ? 'Presupuestado' : 'Confirmado'})`}
+                                title={`${b.lugar}${b.titulo ? ` - ${b.titulo}` : ''}`}
                               >
                                 📍 {b.lugar}
                               </div>
@@ -2166,15 +2191,61 @@ export default function CharangaSaraoApp() {
                     );
                   })}
                 </div>
+
+                {/* LISTA DE BOLOS DEL MES (ESPECIALMENTE CÓMODA EN MÓVIL VERTICAL) */}
+                {bolosDelMesVisible.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-zinc-800/90 space-y-2">
+                    <span className="text-[11px] font-black text-zinc-400 uppercase tracking-wider block">
+                      Bolos en {mesSeleccionado.label} (Toca uno para abrirlo):
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {bolosDelMesVisible.map(b => {
+                        const esPres = b.estadoBolo === 'presupuestado';
+                        const activo = boloSeleccionadoId === b.id;
+                        const diaSolo = b.fecha.split('-')[2];
+                        return (
+                          <div
+                            key={b.id}
+                            onClick={() => setBoloSeleccionadoId(b.id)}
+                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+                              esPres
+                                ? 'bg-amber-500/10 border-amber-500/40 text-amber-200'
+                                : 'bg-green-500/10 border-green-500/40 text-green-200'
+                            } ${activo ? 'ring-2 ring-white bg-zinc-800' : 'hover:bg-zinc-900'}`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-9 h-9 rounded-xl flex flex-col items-center justify-center font-black shrink-0 ${
+                                esPres ? 'bg-amber-400 text-black' : 'bg-green-500 text-black'
+                              }`}>
+                                <span className="text-xs leading-none">{diaSolo}</span>
+                              </div>
+                              <div className="truncate">
+                                <p className="font-black text-white text-sm truncate">📍 {b.lugar}</p>
+                                <p className="text-[11px] text-zinc-400 truncate">
+                                  {b.titulo || 'Actuación'} • {b.horaInicio || '13:00h'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                              esPres ? 'bg-amber-400 text-black' : 'bg-green-500/20 text-green-300 border border-green-500/30'
+                            }`}>
+                              {esPres ? 'Presupuesto' : 'Ver bolo'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* DETALLES DEL BOLO SELECCIONADO */}
               {boloActual ? (
                 (() => {
-                  // Si es un bolo PRESUPUESTADO (Amarillo), mostramos tarjeta de presupuesto pendiente
                   if (boloActual.estadoBolo === 'presupuestado') {
                     return (
-                      <div className="bg-amber-500/10 border border-amber-400/50 rounded-2xl p-6 space-y-4">
+                      <div className="bg-amber-500/10 border border-amber-400/50 rounded-2xl p-5 sm:p-6 space-y-4">
                         <div className="flex justify-between items-start flex-wrap gap-3">
                           <div>
                             <span className="text-[10px] font-black uppercase bg-amber-400 text-black px-2.5 py-1 rounded-full">
@@ -2199,16 +2270,16 @@ export default function CharangaSaraoApp() {
                           </div>
 
                           {esGestorBolos && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
                               <button
                                 onClick={() => abrirModalConfirmarPresupuesto(boloActual)}
-                                className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow cursor-pointer"
+                                className="flex-1 sm:flex-none justify-center bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow cursor-pointer"
                               >
                                 <Check className="w-4 h-4"/> ✓ Confirmar Bolo
                               </button>
                               <button
                                 onClick={() => rechazarBoloPresupuestado(boloActual.id, boloActual.lugar)}
-                                className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                                className="flex-1 sm:flex-none justify-center bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
                               >
                                 <XCircle className="w-4 h-4"/> ✕ Rechazar
                               </button>
@@ -2222,12 +2293,11 @@ export default function CharangaSaraoApp() {
                     );
                   }
 
-                  // Si es un bolo CONFIRMADO (Verde), funciona como bolo al uso
                   const miDispo = usuarioActual.disponibilidadBolos?.[boloActual.id];
 
                   if (!miDispo) {
                     return (
-                      <div className="bg-black/90 border border-amber-500/50 rounded-2xl p-6 text-center space-y-4">
+                      <div className="bg-black/90 border border-amber-500/50 rounded-2xl p-5 sm:p-6 text-center space-y-4">
                         <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto">
                           <AlertCircle className="w-6 h-6"/>
                         </div>
@@ -2261,10 +2331,10 @@ export default function CharangaSaraoApp() {
                           </div>
                         )}
 
-                        <div className="flex justify-center gap-3 pt-2">
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'puedo', instrumentoElegidoBolo || usuarioActual.instrumentos[0])} className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl text-xs cursor-pointer transition">🟢 Puedo</button>
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'tal_vez')} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-xl text-xs cursor-pointer transition">🟡 Tal vez</button>
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'no')} className="px-5 py-2.5 bg-rose-500 hover:bg-rose-400 text-white font-black rounded-xl text-xs cursor-pointer transition">🔴 No puedo</button>
+                        <div className="flex justify-center gap-2 sm:gap-3 pt-2">
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'puedo', instrumentoElegidoBolo || usuarioActual.instrumentos[0])} className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl text-xs cursor-pointer transition">🟢 Puedo</button>
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'tal_vez')} className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-xl text-xs cursor-pointer transition">🟡 Tal vez</button>
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'no')} className="flex-1 sm:flex-none px-4 py-2.5 bg-rose-500 hover:bg-rose-400 text-white font-black rounded-xl text-xs cursor-pointer transition">🔴 No puedo</button>
                         </div>
                       </div>
                     );
@@ -2329,7 +2399,7 @@ export default function CharangaSaraoApp() {
                               setInstrumentoExtra(instrumentosParaExtra[0]?.nombre || 'Saxo alto');
                               setShowModalExtra(true);
                             }}
-                            className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 transition"
+                            className="w-full sm:w-auto justify-center bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 transition"
                           >
                             <Plus className="w-4 h-4"/> + Añadir Músico Extra
                           </button>
@@ -2338,7 +2408,7 @@ export default function CharangaSaraoApp() {
 
                       {/* Rutas y Caravanas */}
                       <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 space-y-3">
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center flex-wrap gap-2">
                           <h4 className="font-bold text-zinc-200 text-xs uppercase tracking-wider flex items-center gap-1.5">
                             <Car className="w-4 h-4 text-blue-400"/> Caravana de Coches y Rutas
                           </h4>
@@ -2391,7 +2461,7 @@ export default function CharangaSaraoApp() {
                         </div>
                       </div>
 
-                      {/* VESTUARIO OFICIAL (EDITABLE POR ADMIN Y ROL BOLOS) */}
+                      {/* VESTUARIO OFICIAL */}
                       <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
                         <div className="flex items-center gap-2.5">
                           <div className="p-2.5 bg-green-500/20 text-green-400 rounded-xl">
@@ -2424,7 +2494,7 @@ export default function CharangaSaraoApp() {
                             })}
                           </div>
                         ) : (
-                          <div className={`px-3 py-1.5 rounded-xl text-xs font-bold border ${vestuarioActual.color}`}>
+                          <div className={`px-3 py-1.5 rounded-xl text-xs font-bold border w-fit ${vestuarioActual.color}`}>
                             {vestuarioActual.label}
                           </div>
                         )}
@@ -2557,7 +2627,7 @@ export default function CharangaSaraoApp() {
                   );
                 })()
               ) : (
-                <p className="text-xs text-zinc-500 text-center py-6">Haz clic en un bolo para ver sus detalles o confirmar tu plaza.</p>
+                <p className="text-xs text-zinc-500 text-center py-6">Toca cualquier día con bolo en el calendario o en la lista del mes para ver sus detalles.</p>
               )}
 
             </div>
@@ -2776,7 +2846,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL ELIMINAR BOLOS (ADMIN Y ROL BOLOS) */}
+        {/* MODAL ELIMINAR BOLOS */}
         {showModalEliminarBolos && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-rose-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
@@ -2955,7 +3025,7 @@ export default function CharangaSaraoApp() {
               <p className="text-xs text-zinc-400 mb-3">
                 {esCreacionPresupuesto 
                   ? 'Se guardará como bolo presupuestado y aparecerá en color amarillo en el calendario hasta que sea confirmado o rechazado.' 
-                  : 'Crea un bolo o márcalo como presupuesto pendiente.'}
+                  : 'Crea un bolo confirmado o márcalo como presupuesto pendiente.'}
               </p>
 
               <form onSubmit={async (e) => {
@@ -2985,7 +3055,6 @@ export default function CharangaSaraoApp() {
                 await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
 
-                {/* Selector rápido de tipo de registro (Confirmado Verde vs Presupuesto Amarillo) */}
                 <div className="grid grid-cols-2 gap-2 p-1 bg-black rounded-xl border border-zinc-800">
                   <button
                     type="button"
@@ -3081,7 +3150,7 @@ export default function CharangaSaraoApp() {
         {/* BOTE / TESORERÍA */}
         {pestañaActiva === 'bote' && (
           <div className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
                 <div>
@@ -3322,7 +3391,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL INGRESOS Y GASTOS (TESORERO Y ADMIN) */}
+        {/* MODAL INGRESOS Y GASTOS */}
         {showModalMovimientoBote && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
@@ -3392,7 +3461,7 @@ export default function CharangaSaraoApp() {
 
       </main>
 
-      {/* BARRA INFERIOR CON LA NUEVA PESTAÑA "PRESUPUESTADOS" */}
+      {/* BARRA INFERIOR */}
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-2.5 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto">
         {[
           { id: 'landing', label: 'Inicio', icon: Home },
