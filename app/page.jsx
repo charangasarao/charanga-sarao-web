@@ -6,7 +6,7 @@ import {
   Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, 
   UserPlus, Trash2, Shirt, ArrowRight, Home, Clock, AlertCircle, 
   ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText, 
-  Edit3, Upload, Mail, Eye, CheckCircle2, Loader2
+  Edit3, Upload, Mail, Eye, Loader2, ClipboardList, XCircle
 } from 'lucide-react';
 
 import { db } from './firebase';
@@ -77,9 +77,14 @@ export default function CharangaSaraoApp() {
 
   // Modales Bolos (Añadir, Editar, Eliminar)
   const [showModalBolo, setShowModalBolo] = useState(false);
+  const [esCreacionPresupuesto, setEsCreacionPresupuesto] = useState(false);
   const [showModalEditarBolos, setShowModalEditarBolos] = useState(false);
   const [boloEditandoId, setBoloEditandoId] = useState(null);
   const [showModalEliminarBolos, setShowModalEliminarBolos] = useState(false);
+
+  // Modal de Confirmación de Presupuesto (Revisión antes de pasar a verde)
+  const [showModalConfirmarPresupuesto, setShowModalConfirmarPresupuesto] = useState(false);
+  const [presupuestoAConfirmarId, setPresupuestoAConfirmarId] = useState(null);
 
   const [nuevoLugarBolo, setNuevoLugarBolo] = useState('');
   const [nuevoTituloBolo, setNuevoTituloBolo] = useState('');
@@ -89,7 +94,7 @@ export default function CharangaSaraoApp() {
   const [nuevoPresupuestoBolo, setNuevoPresupuestoBolo] = useState('');
   const [nuevoConFacturaBolo, setNuevoConFacturaBolo] = useState(false);
 
-  // Estados de Edición de Bolo
+  // Estados de Edición / Confirmación de Bolo
   const [editLugarBolo, setEditLugarBolo] = useState('');
   const [editTituloBolo, setEditTituloBolo] = useState('');
   const [editFechaBolo, setEditFechaBolo] = useState('');
@@ -126,7 +131,7 @@ export default function CharangaSaraoApp() {
   const [conductorGasolinaNombre, setConductorGasolinaNombre] = useState('');
   const TARIFA_KM = 0.2;
 
-  // Estados de Facturas (Subida, análisis OCR/PDF y envío por correo)
+  // Estados de Facturas
   const [showModalSubirFactura, setShowModalSubirFactura] = useState(false);
   const [archivoFactura, setArchivoFactura] = useState(null);
   const [previewArchivoUrl, setPreviewArchivoUrl] = useState('');
@@ -184,6 +189,7 @@ export default function CharangaSaraoApp() {
             vestuario: 'Negro',
             presupuesto: 1200,
             conFactura: true,
+            estadoBolo: 'confirmado',
             cochesAsignados: [],
             musicosExtras: []
           }],
@@ -229,7 +235,7 @@ export default function CharangaSaraoApp() {
       }, { merge: true });
     } catch (e) {
       console.error("Error guardando en la nube:", e);
-      alert("No se pudo sincronizar con Firebase. Revisa el tamaño del archivo o tu conexión.");
+      alert("No se pudo sincronizar con Firebase. Revisa tu conexión.");
     }
   };
 
@@ -256,8 +262,9 @@ export default function CharangaSaraoApp() {
     alert('Acción revertida correctamente en todos los dispositivos.');
   };
 
-  // ROLES
+  // ROLES Y PERMISOS (INCLUYENDO EL NUEVO ROL "BOLOS")
   const esAdmin = usuarioActual?.roles?.includes('admin');
+  const esGestorBolos = usuarioActual?.roles?.includes('bolos') || esAdmin;
   const tieneRolConductor = usuarioActual?.roles?.includes('conductor');
   const esConductor = tieneRolConductor || esAdmin;
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
@@ -386,8 +393,9 @@ export default function CharangaSaraoApp() {
     await guardarEnNube(nuevaLista, null, null);
   };
 
+  // VESTUARIO EDITABLE POR ADMIN Y ROL BOLOS
   const cambiarVestuarioBolo = async (boloId, nuevoVestuario) => {
-    if (!esAdmin) return;
+    if (!esGestorBolos) return;
     registrarSnapshot();
     const nuevosBolos = bolos.map(b => b.id === boloId ? { ...b, vestuario: nuevoVestuario } : b);
     setBolos(nuevosBolos);
@@ -407,7 +415,7 @@ export default function CharangaSaraoApp() {
 
   const guardarEdicionBolo = async (e) => {
     e.preventDefault();
-    if (!esAdmin || !boloEditandoId) return;
+    if (!esGestorBolos || !boloEditandoId) return;
     if (!editLugarBolo.trim() || !editFechaBolo) {
       alert('El lugar y la fecha son obligatorios.');
       return;
@@ -436,8 +444,72 @@ export default function CharangaSaraoApp() {
     await guardarEnNube(null, nuevosBolos, null);
   };
 
+  // =========================================================================
+  // FUNCIONES DE BOLOS PRESUPUESTADOS (CONFIRMAR CON REVISIÓN Y RECHAZAR)
+  // =========================================================================
+
+  // Al pulsar el tick de confirmar presupuesto, abre el modal con sus datos para revisarlos antes de pasarlo a confirmado
+  const abrirModalConfirmarPresupuesto = (bolo) => {
+    if (!esGestorBolos) return;
+    setPresupuestoAConfirmarId(bolo.id);
+    setEditLugarBolo(bolo.lugar || '');
+    setEditTituloBolo(bolo.titulo || '');
+    setEditFechaBolo(bolo.fecha || '');
+    setEditHoraInicioBolo(bolo.horaInicio || '');
+    setEditHoraFinBolo(bolo.horaFin || '');
+    setEditPresupuestoBolo(bolo.presupuesto ? String(bolo.presupuesto) : '');
+    setEditConFacturaBolo(Boolean(bolo.conFactura));
+    setShowModalConfirmarPresupuesto(true);
+  };
+
+  // Confirmar definitivamente el bolo presupuestado (pasa a estado 'confirmado' en verde)
+  const confirmarBoloPresupuestadoDefinitivo = async (e) => {
+    e.preventDefault();
+    if (!esGestorBolos || !presupuestoAConfirmarId) return;
+    if (!editLugarBolo.trim() || !editFechaBolo) {
+      alert('El lugar y la fecha son obligatorios.');
+      return;
+    }
+
+    registrarSnapshot();
+    const nuevosBolos = bolos.map(b => {
+      if (b.id === presupuestoAConfirmarId) {
+        return {
+          ...b,
+          lugar: editLugarBolo.trim(),
+          titulo: editTituloBolo.trim() || 'Actuación',
+          fecha: editFechaBolo,
+          horaInicio: editHoraInicioBolo,
+          horaFin: editHoraFinBolo,
+          presupuesto: parseFloat(editPresupuestoBolo) || 0,
+          conFactura: editConFacturaBolo,
+          estadoBolo: 'confirmado' // Pasa a verde en el calendario y activa asistencias
+        };
+      }
+      return b;
+    });
+
+    setBolos(nuevosBolos);
+    setShowModalConfirmarPresupuesto(false);
+    setPresupuestoAConfirmarId(null);
+    await guardarEnNube(null, nuevosBolos, null);
+    alert(`¡Bolo en ${editLugarBolo.trim()} confirmado! Ya aparece en color verde en el calendario oficial.`);
+  };
+
+  // Rechazar un bolo presupuestado (desaparece de presupuestados y del calendario)
+  const rechazarBoloPresupuestado = async (boloId, boloLugar) => {
+    if (!esGestorBolos) return;
+    if (confirm(`¿Rechazar y descartar el presupuesto de "${boloLugar}"? Desaparecerá del listado y del calendario.`)) {
+      registrarSnapshot();
+      const nuevosBolos = bolos.filter(b => b.id !== boloId);
+      if (boloSeleccionadoId === boloId) setBoloSeleccionadoId(null);
+      setBolos(nuevosBolos);
+      await guardarEnNube(null, nuevosBolos, null);
+    }
+  };
+
   const eliminarBolo = async (boloId, boloLugar) => {
-    if (!esAdmin) return;
+    if (!esGestorBolos) return;
     if (confirm(`¿Eliminar el bolo de "${boloLugar}" definitivamente?`)) {
       registrarSnapshot();
       const nuevosBolos = bolos.filter(b => b.id !== boloId);
@@ -454,7 +526,7 @@ export default function CharangaSaraoApp() {
   };
 
   const puedeEliminarAsistencia = (cuerdaMiembro) => {
-    if (esAdmin) return true;
+    if (esAdmin || esGestorBolos) return true;
     if (esJefeCuerda && usuarioActual.cuerda === cuerdaMiembro) return true;
     return false;
   };
@@ -494,7 +566,7 @@ export default function CharangaSaraoApp() {
     const instObj = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === instrumentoExtra);
     const cuerdaExtra = instObj?.cuerda || 'Saxos';
 
-    if (!esAdmin && usuarioActual.cuerda !== cuerdaExtra) {
+    if (!esAdmin && !esGestorBolos && usuarioActual.cuerda !== cuerdaExtra) {
       alert(`Solo puedes añadir refuerzos para tu cuerda (${usuarioActual.cuerda}).`);
       return;
     }
@@ -660,16 +732,13 @@ export default function CharangaSaraoApp() {
   };
 
   // =========================================================================
-  // FUNCIONES DE FACTURACIÓN (ANÁLISIS DE PDF/IMAGEN + ENVÍO CORREO + BORRADO)
+  // FUNCIONES DE FACTURACIÓN
   // =========================================================================
 
-  // Extraer importe numérico del texto analizado
   const extraerImporteDeTexto = (texto) => {
     if (!texto) return null;
-    const lineas = texto.replace(/\r/g, '\n').split('\n');
     let candidatos = [];
 
-    // 1. Buscar líneas con palabras clave como TOTAL, IMPORTE, PAGAR, EUR, €
     const regexClave = /(?:total|importe|pagar|base|cuota|neto|factura|eur|€)[^0-9]*([0-9]{1,5}(?:[.,][0-9]{1,2})?)/gi;
     let match;
     while ((match = regexClave.exec(texto)) !== null) {
@@ -677,12 +746,10 @@ export default function CharangaSaraoApp() {
       if (!isNaN(val) && val > 0 && val < 50000) candidatos.push(val);
     }
 
-    // 2. Si no hubo match con palabra clave, buscar cifras con formato decimal de moneda (XX,XX o XX.XX)
     if (candidatos.length === 0) {
       const regexMoneda = /\b([0-9]{1,4}[.,][0-9]{2})\b/g;
       while ((match = regexMoneda.exec(texto)) !== null) {
         const val = parseFloat(match[1].replace(',', '.'));
-        // Evitar años como 20.26 o 20.27
         if (!isNaN(val) && val > 0.5 && val < 25000 && val !== 20.26 && val !== 20.27) {
           candidatos.push(val);
         }
@@ -690,13 +757,11 @@ export default function CharangaSaraoApp() {
     }
 
     if (candidatos.length > 0) {
-      // Normalmente el Total de una factura es el importe más alto de los importes desglosados
       return Math.max(...candidatos).toFixed(2);
     }
     return null;
   };
 
-  // Procesar archivo subido (PDF o Imagen)
   const manejarSeleccionArchivoFactura = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -709,12 +774,10 @@ export default function CharangaSaraoApp() {
     setAnalizandoFactura(true);
     setMensajeAnalisis('Analizando documento para detectar el importe...');
 
-    // Crear vista previa comprimida o DataURL para guardar y enviar
     const readerDataUrl = new FileReader();
     readerDataUrl.onload = (ev) => {
       const result = ev.target?.result;
       if (typeof result === 'string') {
-        // Si es imagen, la redimensionamos en canvas para que no supere el límite de Firestore y viaje rápido por email
         if (file.type.startsWith('image/')) {
           const img = new Image();
           img.onload = () => {
@@ -734,7 +797,6 @@ export default function CharangaSaraoApp() {
           };
           img.src = result;
         } else {
-          // Si es PDF u otro documento y ocupa menos de 600KB, guardamos su dataURL
           if (file.size < 600000) {
             setPreviewArchivoUrl(result);
           } else {
@@ -746,15 +808,12 @@ export default function CharangaSaraoApp() {
     readerDataUrl.readAsDataURL(file);
 
     try {
-      // 1. Intentar detectar primero si el importe viene en el propio nombre del archivo (ej: "Factura_Gasoil_45,50.pdf")
       const importeEnNombre = extraerImporteDeTexto(file.name);
 
       if (file.type === 'application/pdf') {
-        // Leer contenido del PDF buscando cadenas de texto internas
         const arrayBuffer = await file.arrayBuffer();
         const decoder = new TextDecoder('iso-8859-1');
         const rawText = decoder.decode(arrayBuffer);
-        // Extraer bloques legibles entre paréntesis propios de sintaxis PDF
         const bloquesTexto = (rawText.match(/\(([^()]+)\)/g) || []).map(s => s.slice(1, -1)).join(' ');
         const detectado = extraerImporteDeTexto(bloquesTexto) || extraerImporteDeTexto(rawText) || importeEnNombre;
 
@@ -762,10 +821,9 @@ export default function CharangaSaraoApp() {
           setImporteFacturaDetectado(String(detectado));
           setMensajeAnalisis(`✓ Importe detectado automáticamente del PDF: ${detectado} € (puedes corregirlo si es necesario).`);
         } else {
-          setMensajeAnalisis('ℹ️ PDF cargado. No se encontró texto plano legible del total; confirma o escribe el importe abajo.');
+          setMensajeAnalisis('ℹ️ PDF cargado. Confirma o escribe el importe abajo.');
         }
       } else if (file.type.startsWith('image/')) {
-        // Para imágenes, cargamos Tesseract.js dinámicamente desde CDN para hacer OCR real en el navegador
         if (!window.Tesseract) {
           await new Promise((resolve, reject) => {
             const script = document.createElement('script');
@@ -795,7 +853,6 @@ export default function CharangaSaraoApp() {
     }
   };
 
-  // Subir factura, guardar en la nube y enviar por correo electrónico automáticamente
   const guardarYEnviarFactura = async (e) => {
     e.preventDefault();
     const imp = parseFloat(String(importeFacturaDetectado).replace(',', '.'));
@@ -829,7 +886,6 @@ export default function CharangaSaraoApp() {
     setFacturas(nuevasFacturas);
     await guardarEnNube(null, null, null, nuevasFacturas);
 
-    // Enviar automáticamente al correo de facturación configurado por el Admin
     if (correoFacturacion && correoFacturacion.includes('@')) {
       try {
         const formData = new FormData();
@@ -865,11 +921,10 @@ export default function CharangaSaraoApp() {
     if (correoFacturacion) {
       alert(`Factura de ${imp.toFixed(2)} € registrada y enviada automáticamente a ${correoFacturacion}.`);
     } else {
-      alert(`Factura de ${imp.toFixed(2)} € registrada correctamente. (Nota: El Admin aún no ha configurado un correo de facturación).`);
+      alert(`Factura de ${imp.toFixed(2)} € registrada correctamente.`);
     }
   };
 
-  // Borrar factura (cualquier usuario puede borrar las suyas; Admin y Facturador pueden borrar cualquiera)
   const eliminarFactura = async (factura) => {
     const esMia = factura.usuarioId === usuarioActual.id || factura.usuarioNombre?.toLowerCase() === usuarioActual.nombre?.toLowerCase();
     if (!esMia && !esFacturador && !esAdmin) {
@@ -885,7 +940,6 @@ export default function CharangaSaraoApp() {
     }
   };
 
-  // Guardar el correo de facturación desde el Panel Admin
   const guardarCorreoFacturacionAdmin = async (e) => {
     e.preventDefault();
     if (!esAdmin) return;
@@ -895,7 +949,8 @@ export default function CharangaSaraoApp() {
   };
 
   const abrirModalParaFecha = (fechaStr) => {
-    if (!esAdmin) return;
+    if (!esGestorBolos) return;
+    setEsCreacionPresupuesto(false);
     setNuevaFechaBolo(fechaStr);
     setShowModalBolo(true);
   };
@@ -914,10 +969,14 @@ export default function CharangaSaraoApp() {
   const miTotalFacturado = misFacturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
   const totalGeneralFacturado = facturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
 
+  // SEPARACIÓN DE BOLOS CONFIRMADOS VS PRESUPUESTADOS
+  const bolosConfirmados = bolos.filter(b => b.estadoBolo !== 'presupuestado');
+  const bolosPresupuestados = bolos.filter(b => b.estadoBolo === 'presupuestado').sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
   const exportarEstadisticasExcel = () => {
     let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Bolos Confirmados;Total Bolos;Porcentaje (%);Total Facturado (€)\n";
     miembros.forEach(m => {
-      const totalBolos = bolos.length;
+      const totalBolos = bolosConfirmados.length;
       const dispoCount = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'puedo').length;
       const porcentaje = totalBolos > 0 ? Math.round((dispoCount / totalBolos) * 100) : 0;
       const facturadoM = facturas
@@ -1016,7 +1075,7 @@ export default function CharangaSaraoApp() {
   const totalDiasMes = new Date(mesSeleccionado.anio, mesSeleccionado.mes + 1, 0).getDate();
   const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7;
 
-  const instrumentosParaExtra = esAdmin 
+  const instrumentosParaExtra = (esAdmin || esGestorBolos) 
     ? INSTRUMENTOS_DISPONIBLES 
     : INSTRUMENTOS_DISPONIBLES.filter(i => i.cuerda === usuarioActual.cuerda);
 
@@ -1052,6 +1111,11 @@ export default function CharangaSaraoApp() {
                 {esAdmin && (
                   <span className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
                     <Shield className="w-3 h-3"/> Admin
+                  </span>
+                )}
+                {!esAdmin && esGestorBolos && (
+                  <span className="bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">
+                    Gestor Bolos
                   </span>
                 )}
                 {!esAdmin && esFacturador && (
@@ -1097,9 +1161,9 @@ export default function CharangaSaraoApp() {
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
                   {esAdmin 
-                    ? 'Modo Administrador: control de bolos, bote, plantilla y facturación con envío automático.' 
-                    : esFacturador
-                      ? 'Rol Facturador activo: tienes acceso al desglose completo de facturas de todos los músicos.'
+                    ? 'Modo Administrador: control de bolos, presupuestos en curso, bote, plantilla y facturación.' 
+                    : esGestorBolos
+                      ? 'Rol Bolos activo: puedes gestionar el calendario, vestuario y bolos presupuestados.'
                       : 'Calendario de bolos, confirmación de asistencia, coches, bote y subida de facturas.'}
                 </p>
               </div>
@@ -1109,7 +1173,7 @@ export default function CharangaSaraoApp() {
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5 text-green-400"/> Próximos Bolos
+                  <CalendarIcon className="w-5 h-5 text-green-400"/> Próximos Bolos y Presupuestos
                 </h3>
                 <span className="text-xs text-zinc-500">Desliza para ver más &rarr;</span>
               </div>
@@ -1121,6 +1185,7 @@ export default function CharangaSaraoApp() {
               ) : (
                 <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-zinc-700">
                   {bolosOrdenados.map(b => {
+                    const esPresupuesto = b.estadoBolo === 'presupuestado';
                     const dispMiembro = usuarioActual.disponibilidadBolos?.[b.id]?.estado;
                     const vest = OPCIONES_VESTUARIO.find(v => v.id === b.vestuario) || OPCIONES_VESTUARIO[0];
                     const numConfirmados = miembros.filter(m => m.disponibilidadBolos?.[b.id]?.estado === 'puedo').length + (b.musicosExtras?.length || 0);
@@ -1132,14 +1197,27 @@ export default function CharangaSaraoApp() {
                           setBoloSeleccionadoId(b.id);
                           setPestañaActiva('bolos');
                         }}
-                        className="snap-start shrink-0 w-[290px] sm:w-[320px] bg-zinc-900 border border-zinc-800 hover:border-green-500/70 rounded-3xl p-5 cursor-pointer transition shadow-xl hover:scale-[1.02] flex flex-col justify-between"
+                        className={`snap-start shrink-0 w-[290px] sm:w-[320px] bg-zinc-900 border rounded-3xl p-5 cursor-pointer transition shadow-xl hover:scale-[1.02] flex flex-col justify-between ${
+                          esPresupuesto 
+                            ? 'border-amber-500/60 hover:border-amber-400' 
+                            : 'border-zinc-800 hover:border-green-500/70'
+                        }`}
                       >
                         <div>
                           <div className="flex justify-between items-start gap-2 mb-2">
-                            <span className="text-xs font-black bg-green-500/20 text-green-400 px-3 py-1 rounded-full border border-green-500/30">
+                            <span className={`text-xs font-black px-3 py-1 rounded-full border ${
+                              esPresupuesto
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                : 'bg-green-500/20 text-green-400 border-green-500/30'
+                            }`}>
                               📅 {b.fecha}
                             </span>
-                            {dispMiembro && (
+
+                            {esPresupuesto ? (
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-black">
+                                Presupuestado
+                              </span>
+                            ) : dispMiembro && (
                               <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                                 dispMiembro === 'puedo' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
                                 dispMiembro === 'tal_vez' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
@@ -1154,26 +1232,32 @@ export default function CharangaSaraoApp() {
                             {b.lugar}
                           </h4>
                           {b.titulo && (
-                            <p className="text-xs text-green-300 font-semibold mt-0.5">
+                            <p className={`text-xs font-semibold mt-0.5 ${esPresupuesto ? 'text-amber-300' : 'text-green-300'}`}>
                               {b.titulo}
                             </p>
                           )}
 
                           <div className="mt-3 pt-3 border-t border-zinc-800/80 space-y-1.5 text-xs text-zinc-300">
                             <p className="flex items-center gap-1.5 text-zinc-400">
-                              <Clock className="w-3.5 h-3.5 text-green-400"/> Tocar: <strong className="text-white">{b.horaInicio || '13:00h'} - {b.horaFin || '17:00h'}</strong>
+                              <Clock className="w-3.5 h-3.5 text-green-400"/> Horario: <strong className="text-white">{b.horaInicio || '13:00h'} - {b.horaFin || '17:00h'}</strong>
                             </p>
-                            <p className="flex items-center gap-1.5 text-zinc-400">
-                              <Shirt className="w-3.5 h-3.5 text-amber-400"/> Ropa: <strong className="text-zinc-200">{vest.label}</strong>
-                            </p>
+                            {!esPresupuesto && (
+                              <p className="flex items-center gap-1.5 text-zinc-400">
+                                <Shirt className="w-3.5 h-3.5 text-amber-400"/> Ropa: <strong className="text-zinc-200">{vest.label}</strong>
+                              </p>
+                            )}
                           </div>
                         </div>
 
                         <div className="mt-4 pt-3 border-t border-zinc-800/80 flex justify-between items-center">
                           <span className="text-[11px] font-bold text-zinc-400">
-                            👥 <strong className="text-emerald-400">{numConfirmados}</strong> en plantilla
+                            {esPresupuesto ? (
+                              <span className="text-amber-400">⏳ Pendiente de aceptar</span>
+                            ) : (
+                              <>👥 <strong className="text-emerald-400">{numConfirmados}</strong> en plantilla</>
+                            )}
                           </span>
-                          <span className="text-xs font-bold text-green-400 flex items-center gap-1">
+                          <span className={`text-xs font-bold flex items-center gap-1 ${esPresupuesto ? 'text-amber-400' : 'text-green-400'}`}>
                             Ver detalles &rarr;
                           </span>
                         </div>
@@ -1189,28 +1273,37 @@ export default function CharangaSaraoApp() {
               <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="p-3 bg-green-500/20 text-green-400 rounded-2xl w-fit mb-3"><CalendarIcon className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bolos</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Fechas, vestuario, rutas y asistencia.</p>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Calendario de Bolos</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Bolos confirmados (verde) y presupuestados (amarillo).</p>
                 </div>
                 <span className="text-xs font-bold text-green-400 mt-4 block">&rarr; Ver calendario</span>
+              </div>
+
+              <div onClick={() => setPestañaActiva('presupuestos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-amber-500/30 hover:border-amber-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
+                <div>
+                  <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><ClipboardList className="w-6 h-6"/></div>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bolos Presupuestados</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Presupuestos enviados pendientes de confirmar o rechazar.</p>
+                </div>
+                <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Pendientes ({bolosPresupuestados.length})</span>
               </div>
 
               <div onClick={() => setPestañaActiva('miembros')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Users className="w-6 h-6"/></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Plantilla</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Integrantes de Sarao.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Integrantes y asignación de roles.</p>
                 </div>
                 <span className="text-xs font-bold text-fuchsia-400 mt-4 block">&rarr; Ver plantilla ({miembros.length})</span>
               </div>
 
               <div onClick={() => setPestañaActiva('bote')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
-                  <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6"/></div>
+                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6"/></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bote</h3>
                   <p className="text-xs text-zinc-400 mt-1">Tesorería y kilometraje (0,20€/km).</p>
                 </div>
-                <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Saldo ({saldoTotal.toFixed(2)} €)</span>
+                <span className="text-xs font-bold text-emerald-400 mt-4 block">&rarr; Saldo ({saldoTotal.toFixed(2)} €)</span>
               </div>
 
               <div onClick={() => setPestañaActiva('facturas')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-cyan-500/30 hover:border-cyan-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
@@ -1232,6 +1325,227 @@ export default function CharangaSaraoApp() {
                   <span className="text-xs font-bold text-rose-400 mt-4 block">&rarr; Gestionar</span>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* NUEVA SECCIÓN: BOLOS PRESUPUESTADOS */}
+        {pestañaActiva === 'presupuestos' && (
+          <div className="space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
+              
+              <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-amber-400 inline-block"></span>
+                    <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                      BOLOS PRESUPUESTADOS ({bolosPresupuestados.length})
+                    </h2>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Bolos a los que se ha enviado presupuesto pero aún no han sido aceptados. Aparecen en <strong>amarillo</strong> en el calendario general.
+                  </p>
+                </div>
+
+                {esGestorBolos && (
+                  <button
+                    onClick={() => {
+                      setEsCreacionPresupuesto(true);
+                      setNuevoLugarBolo('');
+                      setNuevoTituloBolo('');
+                      setNuevaFechaBolo('');
+                      setNuevaHoraInicioBolo('');
+                      setNuevaHoraFinBolo('');
+                      setNuevoPresupuestoBolo('');
+                      setNuevoConFacturaBolo(false);
+                      setShowModalBolo(true);
+                    }}
+                    className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg transition cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4"/> + Añadir Nuevo Presupuesto
+                  </button>
+                )}
+              </div>
+
+              {bolosPresupuestados.length === 0 ? (
+                <div className="p-8 bg-black/40 border border-zinc-800 rounded-2xl text-center space-y-2">
+                  <ClipboardList className="w-8 h-8 text-zinc-600 mx-auto"/>
+                  <p className="text-xs text-zinc-400 font-bold">No hay ningún bolo presupuestado pendiente de respuesta.</p>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {bolosPresupuestados.map(b => (
+                    <div key={b.id} className="bg-amber-500/10 border border-amber-500/40 rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-lg">
+                      <div>
+                        <div className="flex justify-between items-center gap-2 mb-2">
+                          <span className="text-xs font-black bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full border border-amber-500/40">
+                            📅 {b.fecha}
+                          </span>
+                          <span className="text-[10px] font-black uppercase bg-amber-400 text-black px-2.5 py-0.5 rounded-full">
+                            ⏳ Pendiente de Aceptar
+                          </span>
+                        </div>
+
+                        <h3 className="text-3xl tracking-wide text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                          📍 {b.lugar}
+                        </h3>
+                        {b.titulo && (
+                          <p className="text-xs font-bold text-amber-300 mt-0.5">
+                            {b.titulo}
+                          </p>
+                        )}
+
+                        <div className="mt-3 pt-3 border-t border-amber-500/20 space-y-1 text-xs text-zinc-300">
+                          <p>⏰ Horario: <strong>{b.horaInicio || 'Por definir'} - {b.horaFin || 'Por definir'}</strong></p>
+                          {esGestorBolos && (
+                            <p className="text-amber-200 font-bold">
+                              💰 Presupuesto enviado: <strong>{b.presupuesto ? `${b.presupuesto} €` : 'Sin especificar'}</strong> ({b.conFactura ? 'Con Factura' : 'Sin Factura'})
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {esGestorBolos ? (
+                        <div className="pt-3 border-t border-amber-500/20 flex items-center gap-2">
+                          <button
+                            onClick={() => abrirModalConfirmarPresupuesto(b)}
+                            className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition cursor-pointer"
+                            title="Revisar datos y confirmar bolo"
+                          >
+                            <Check className="w-4 h-4"/> ✓ Confirmar Bolo
+                          </button>
+                          <button
+                            onClick={() => rechazarBoloPresupuestado(b.id, b.lugar)}
+                            className="flex-1 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                            title="Rechazar presupuesto y borrar del calendario"
+                          >
+                            <XCircle className="w-4 h-4"/> ✕ Rechazar
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-zinc-400 italic">
+                          Esperando confirmación del organizador para abrir la lista de asistencia.
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE REVISIÓN AL PULSAR EL TICK DE CONFIRMAR PRESUPUESTO */}
+        {showModalConfirmarPresupuesto && esGestorBolos && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border border-emerald-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-2 mb-2">
+                <Check className="w-6 h-6 text-emerald-400"/>
+                <h3 className="text-lg font-black text-white">Confirmar Bolo Presupuestado</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">
+                Revisa o modifica cualquier dato (horario, precio final, fecha...) antes de confirmar. Al confirmar, pasará a color <strong>verde</strong> en el calendario y se abrirán las asistencias.
+              </p>
+
+              <form onSubmit={confirmarBoloPresupuestadoDefinitivo} className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-bold text-emerald-400 block mb-1">Lugar del Bolo:</label>
+                  <input
+                    type="text"
+                    value={editLugarBolo}
+                    onChange={e => setEditLugarBolo(e.target.value)}
+                    className="w-full bg-black border border-emerald-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-emerald-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo (Opcional):</label>
+                  <input
+                    type="text"
+                    value={editTituloBolo}
+                    onChange={e => setEditTituloBolo(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha del bolo:</label>
+                  <input
+                    type="date"
+                    value={editFechaBolo}
+                    onChange={e => setEditFechaBolo(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
+                  <div>
+                    <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Inicio:</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: 13:00h"
+                      value={editHoraInicioBolo}
+                      onChange={e => setEditHoraInicioBolo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Fin:</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: 17:00h"
+                      value={editHoraFinBolo}
+                      onChange={e => setEditHoraFinBolo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-zinc-800 space-y-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto final (€):</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editPresupuestoBolo}
+                      onChange={e => setEditPresupuestoBolo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="confirmFacturaCheck"
+                      checked={editConFacturaBolo}
+                      onChange={e => setEditConFacturaBolo(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
+                    />
+                    <label htmlFor="confirmFacturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-zinc-400"/> Va con Factura oficial
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-3">
+                  <button type="submit" className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black py-2.5 rounded-xl text-sm shadow-lg cursor-pointer">
+                    ✓ Confirmar Bolo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModalConfirmarPresupuesto(false);
+                      setPresupuestoAConfirmarId(null);
+                    }}
+                    className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -1278,13 +1592,14 @@ export default function CharangaSaraoApp() {
                           )}
                         </div>
 
-                        {/* ASIGNACIÓN DE ROLES INCLUYENDO EL NUEVO ROL "FACTURADOR" */}
+                        {/* ASIGNACIÓN DE ROLES INCLUYENDO EL NUEVO ROL "BOLOS" Y "FACTURADOR" */}
                         {esAdmin && (
                           <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
                             <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
                               <Key className="w-3 h-3 text-rose-400"/> Asignar rol (solo admin):
                             </span>
                             {[
+                              { id: 'bolos', label: 'Bolos' },
                               { id: 'conductor', label: 'Conductor' },
                               { id: 'jefe_cuerda', label: 'Jefe Cuerda' },
                               { id: 'tesorero', label: 'Tesorero' },
@@ -1317,12 +1632,11 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* NUEVA SECCIÓN: FACTURAS */}
+        {/* SECCIÓN: FACTURAS */}
         {pestañaActiva === 'facturas' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
               
-              {/* CABECERA FACTURAS */}
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
                 <div>
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
@@ -1354,7 +1668,6 @@ export default function CharangaSaraoApp() {
                 </button>
               </div>
 
-              {/* RESUMEN PERSONAL DEL USUARIO */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-4">
                   <span className="text-[11px] font-bold text-cyan-300 uppercase">Tu Total Facturado ({usuarioActual.nombre})</span>
@@ -1375,7 +1688,6 @@ export default function CharangaSaraoApp() {
                 )}
               </div>
 
-              {/* DESGLOSE POR MIEMBRO (EXCLUSIVO PARA FACTURADOR Y ADMIN) */}
               {(esFacturador || esAdmin) && (
                 <div className="space-y-3 pt-2 border-t border-zinc-800">
                   <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
@@ -1413,7 +1725,6 @@ export default function CharangaSaraoApp() {
                 </div>
               )}
 
-              {/* LISTADO DE FACTURAS (SI ES FACTURADOR/ADMIN VE TODAS, SI ES MÚSICO VE LAS SUYAS) */}
               <div className="space-y-3 pt-2 border-t border-zinc-800">
                 <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">
                   {(esFacturador || esAdmin) ? 'Todas las Facturas Subidas' : 'Mis Facturas Subidas'}
@@ -1458,7 +1769,6 @@ export default function CharangaSaraoApp() {
                             </a>
                           )}
 
-                          {/* Cualquier usuario puede borrar su factura si se equivoca, y Admin/Facturador cualquiera */}
                           <button
                             onClick={() => eliminarFactura(f)}
                             className="p-2 bg-rose-500/10 hover:bg-rose-500/30 text-rose-400 rounded-xl transition"
@@ -1543,9 +1853,6 @@ export default function CharangaSaraoApp() {
                     className="w-full bg-black border border-cyan-500/50 rounded-xl px-3.5 py-2.5 text-base font-black text-white outline-none focus:border-cyan-400"
                     required
                   />
-                  <span className="text-[10px] text-zinc-500 block mt-1">
-                    El programa rellena este campo tras leer el documento. Puedes ajustarlo si fuera necesario.
-                  </span>
                 </div>
 
                 <div className="flex gap-2 pt-2">
@@ -1569,7 +1876,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* PANEL ADMIN (CON NUEVO APARTADO "CORREO DE FACTURACIÓN") */}
+        {/* PANEL ADMIN */}
         {pestañaActiva === 'admin' && esAdmin && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
@@ -1599,7 +1906,6 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
-              {/* APARTADO: CORREO DE FACTURACIÓN */}
               <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <Mail className="w-5 h-5 text-cyan-400"/>
@@ -1633,7 +1939,6 @@ export default function CharangaSaraoApp() {
                 )}
               </div>
 
-              {/* TABLA DE ASISTENCIA Y FACTURACIÓN */}
               <div className="space-y-3">
                 <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia y Facturación acumulada de la plantilla
@@ -1656,7 +1961,7 @@ export default function CharangaSaraoApp() {
                       </thead>
                       <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
                         {miembros.map(m => {
-                          const totalBolos = bolos.length;
+                          const totalBolos = bolosConfirmados.length;
                           const siVan = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'puedo').length;
                           const talVez = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'tal_vez').length;
                           const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
@@ -1699,7 +2004,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* CALENDARIO DE BOLOS */}
+        {/* CALENDARIO DE BOLOS (VERDE = CONFIRMADO, AMARILLO = PRESUPUESTADO) */}
         {pestañaActiva === 'bolos' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
@@ -1709,16 +2014,24 @@ export default function CharangaSaraoApp() {
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                     CALENDARIO DE BOLOS
                   </h2>
-                  {esAdmin && (
-                    <p className="text-xs text-zinc-400 mt-0.5">
-                      💡 Consejo: Pincha sobre cualquier día para crear un bolo o usa los botones superiores para editarlos.
-                    </p>
-                  )}
+                  <div className="flex items-center gap-4 text-xs text-zinc-400 mt-1 flex-wrap">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Confirmado
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Presupuestado (Pendiente)
+                    </span>
+                  </div>
                 </div>
-                {esAdmin && (
+
+                {/* BOTONES VISIBLES PARA ADMIN Y ROL "BOLOS" */}
+                {esGestorBolos && (
                   <div className="flex items-center gap-2 flex-wrap">
                     <button 
-                      onClick={() => setShowModalBolo(true)} 
+                      onClick={() => {
+                        setEsCreacionPresupuesto(false);
+                        setShowModalBolo(true);
+                      }} 
                       className="bg-green-500 hover:bg-green-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow transition"
                     >
                       <Plus className="w-4 h-4"/> + Añadir Bolo
@@ -1794,25 +2107,33 @@ export default function CharangaSaraoApp() {
                     const diaFormateado = String(diaNum).padStart(2, '0');
                     const fechaStr = `${mesSeleccionado.anio}-${mesFormateado}-${diaFormateado}`;
                     const bolosDelDia = bolos.filter(b => b.fecha === fechaStr);
+                    const tieneConfirmado = bolosDelDia.some(b => b.estadoBolo !== 'presupuestado');
+                    const tienePresupuestado = bolosDelDia.some(b => b.estadoBolo === 'presupuestado');
 
                     return (
                       <div
                         key={diaNum}
                         onClick={() => {
-                          if (esAdmin) {
+                          if (esGestorBolos) {
                             abrirModalParaFecha(fechaStr);
                           }
                         }}
                         className={`min-h-[85px] p-1.5 rounded-xl border flex flex-col justify-between transition group relative ${
-                          bolosDelDia.length > 0 
+                          tieneConfirmado 
                             ? 'bg-green-500/20 border-green-500' 
-                            : 'bg-zinc-950 border-zinc-900 text-zinc-600'
-                        } ${esAdmin ? 'hover:border-green-400 hover:bg-zinc-900/80 cursor-pointer' : ''}`}
-                        title={esAdmin ? `Pincha para añadir un bolo el ${diaNum} de ${mesSeleccionado.label}` : ''}
+                            : tienePresupuestado
+                              ? 'bg-amber-500/20 border-amber-400'
+                              : 'bg-zinc-950 border-zinc-900 text-zinc-600'
+                        } ${esGestorBolos ? 'hover:border-green-400 hover:bg-zinc-900/80 cursor-pointer' : ''}`}
+                        title={esGestorBolos ? `Pincha para añadir un bolo el ${diaNum} de ${mesSeleccionado.label}` : ''}
                       >
                         <div className="flex justify-between items-center">
-                          <span className={`font-bold text-xs ${bolosDelDia.length > 0 ? 'text-green-300' : 'text-zinc-500'}`}>{diaNum}</span>
-                          {esAdmin && (
+                          <span className={`font-bold text-xs ${
+                            tieneConfirmado ? 'text-green-300' : tienePresupuestado ? 'text-amber-300' : 'text-zinc-500'
+                          }`}>
+                            {diaNum}
+                          </span>
+                          {esGestorBolos && (
                             <span className="opacity-0 group-hover:opacity-100 text-[10px] text-green-400 bg-green-500/20 rounded px-1 transition font-bold" title="Añadir bolo">
                               +
                             </span>
@@ -1820,19 +2141,26 @@ export default function CharangaSaraoApp() {
                         </div>
 
                         <div className="space-y-1 overflow-y-auto max-h-[55px] mt-1">
-                          {bolosDelDia.map(b => (
-                            <div
-                              key={b.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setBoloSeleccionadoId(b.id);
-                              }}
-                              className="text-[9px] leading-tight text-green-200 font-black bg-green-500/40 hover:bg-green-500/70 p-1 rounded cursor-pointer truncate shadow-sm transition"
-                              title={`${b.lugar}${b.titulo ? ` - ${b.titulo}` : ''}`}
-                            >
-                              📍 {b.lugar}
-                            </div>
-                          ))}
+                          {bolosDelDia.map(b => {
+                            const esPres = b.estadoBolo === 'presupuestado';
+                            return (
+                              <div
+                                key={b.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setBoloSeleccionadoId(b.id);
+                                }}
+                                className={`text-[9px] leading-tight font-black p-1 rounded cursor-pointer truncate shadow-sm transition ${
+                                  esPres
+                                    ? 'bg-amber-400 text-black hover:bg-amber-300'
+                                    : 'bg-green-500/40 hover:bg-green-500/70 text-green-200'
+                                }`}
+                                title={`${b.lugar}${b.titulo ? ` - ${b.titulo}` : ''} (${esPres ? 'Presupuestado' : 'Confirmado'})`}
+                              >
+                                📍 {b.lugar}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -1843,6 +2171,58 @@ export default function CharangaSaraoApp() {
               {/* DETALLES DEL BOLO SELECCIONADO */}
               {boloActual ? (
                 (() => {
+                  // Si es un bolo PRESUPUESTADO (Amarillo), mostramos tarjeta de presupuesto pendiente
+                  if (boloActual.estadoBolo === 'presupuestado') {
+                    return (
+                      <div className="bg-amber-500/10 border border-amber-400/50 rounded-2xl p-6 space-y-4">
+                        <div className="flex justify-between items-start flex-wrap gap-3">
+                          <div>
+                            <span className="text-[10px] font-black uppercase bg-amber-400 text-black px-2.5 py-1 rounded-full">
+                              ⏳ Bolo Presupuestado (Pendiente de confirmación)
+                            </span>
+                            <h3 className="text-4xl tracking-wide text-white mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                              📍 {boloActual.lugar}
+                            </h3>
+                            {boloActual.titulo && (
+                              <p className="text-sm font-bold text-amber-300 mt-0.5">
+                                {boloActual.titulo}
+                              </p>
+                            )}
+                            <p className="text-xs text-zinc-300 mt-2">
+                              📅 Fecha: <strong>{boloActual.fecha}</strong> • ⏰ Horario previsto: <strong>{boloActual.horaInicio || 'Por definir'} a {boloActual.horaFin || 'Por definir'}</strong>
+                            </p>
+                            {esGestorBolos && (
+                              <p className="text-xs text-amber-200 font-bold mt-1">
+                                💰 Presupuesto: {boloActual.presupuesto ? `${boloActual.presupuesto} €` : 'No indicado'} • {boloActual.conFactura ? 'Con Factura' : 'Sin Factura'}
+                              </p>
+                            )}
+                          </div>
+
+                          {esGestorBolos && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => abrirModalConfirmarPresupuesto(boloActual)}
+                                className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow cursor-pointer"
+                              >
+                                <Check className="w-4 h-4"/> ✓ Confirmar Bolo
+                              </button>
+                              <button
+                                onClick={() => rechazarBoloPresupuestado(boloActual.id, boloActual.lugar)}
+                                className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                              >
+                                <XCircle className="w-4 h-4"/> ✕ Rechazar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-400 border-t border-amber-500/20 pt-3">
+                          Este bolo aún no ha sido aceptado. En cuanto se confirme con el tick (✓), pasará a color verde y se habilitará la votación de asistencia, coches y vestuario.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  // Si es un bolo CONFIRMADO (Verde), funciona como bolo al uso
                   const miDispo = usuarioActual.disponibilidadBolos?.[boloActual.id];
 
                   if (!miDispo) {
@@ -1917,7 +2297,7 @@ export default function CharangaSaraoApp() {
                           <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 mt-2">
                             <span>📅 <strong>{boloActual.fecha}</strong></span>
                             <span>🎺 Actuación: <strong>{boloActual.horaInicio || '13:00h'} - {boloActual.horaFin || '17:00h'}</strong></span>
-                            {esAdmin && (
+                            {esGestorBolos && (
                               <span className="text-[11px] font-bold bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
                                 💰 {boloActual.presupuesto ? `${boloActual.presupuesto} €` : 'Sin presupuesto'} • {boloActual.conFactura ? 'Factura Sí' : 'Sin factura'}
                               </span>
@@ -1993,7 +2373,7 @@ export default function CharangaSaraoApp() {
                                   </div>
                                 </div>
 
-                                {(esAdmin || car.conductor === usuarioActual.nombre) && (
+                                {(esGestorBolos || car.conductor === usuarioActual.nombre) && (
                                   <button onClick={async () => {
                                     registrarSnapshot();
                                     const nuevosBolos = bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b);
@@ -2011,7 +2391,7 @@ export default function CharangaSaraoApp() {
                         </div>
                       </div>
 
-                      {/* VESTUARIO OFICIAL */}
+                      {/* VESTUARIO OFICIAL (EDITABLE POR ADMIN Y ROL BOLOS) */}
                       <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
                         <div className="flex items-center gap-2.5">
                           <div className="p-2.5 bg-green-500/20 text-green-400 rounded-xl">
@@ -2023,9 +2403,9 @@ export default function CharangaSaraoApp() {
                           </div>
                         </div>
 
-                        {esAdmin ? (
+                        {esGestorBolos ? (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] text-zinc-500 font-bold uppercase mr-1">Elegir ropa (Admin):</span>
+                            <span className="text-[10px] text-zinc-500 font-bold uppercase mr-1">Elegir ropa:</span>
                             {OPCIONES_VESTUARIO.map(opt => {
                               const seleccionado = (boloActual.vestuario || 'Por definir') === opt.id;
                               return (
@@ -2184,8 +2564,8 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL PARA EDITAR BOLOS (EXCLUSIVO ADMIN) */}
-        {showModalEditarBolos && esAdmin && (
+        {/* MODAL PARA EDITAR BOLOS (ADMIN Y ROL BOLOS) */}
+        {showModalEditarBolos && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center gap-2 mb-3">
@@ -2205,7 +2585,9 @@ export default function CharangaSaraoApp() {
                       bolos.map(b => (
                         <div key={b.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex justify-between items-center text-xs">
                           <div>
-                            <p className="font-black text-white text-base" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>📍 {b.lugar}</p>
+                            <p className="font-black text-white text-base" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                              📍 {b.lugar} {b.estadoBolo === 'presupuestado' && <span className="text-amber-400 text-[10px] font-sans">(Presupuesto)</span>}
+                            </p>
                             <p className="text-green-300 text-[11px]">{b.titulo}</p>
                             <p className="text-zinc-500 text-[10px] mt-0.5">📅 {b.fecha} • ⏰ {b.horaInicio || '--'} - {b.horaFin || '--'}</p>
                           </div>
@@ -2394,8 +2776,8 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL ELIMINAR BOLOS (ADMIN) */}
-        {showModalEliminarBolos && esAdmin && (
+        {/* MODAL ELIMINAR BOLOS (ADMIN Y ROL BOLOS) */}
+        {showModalEliminarBolos && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-rose-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
               <div className="flex items-center gap-2 mb-3">
@@ -2561,11 +2943,21 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL AÑADIR BOLO */}
-        {showModalBolo && (
+        {/* MODAL AÑADIR BOLO O NUEVO PRESUPUESTO */}
+        {showModalBolo && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-zinc-900 border border-green-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-black text-white mb-3">Añadir Nuevo Bolo</h3>
+            <div className={`bg-zinc-900 border rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto ${
+              esCreacionPresupuesto ? 'border-amber-500/50' : 'border-green-500/40'
+            }`}>
+              <h3 className="text-lg font-black text-white mb-1">
+                {esCreacionPresupuesto ? 'Añadir Nuevo Presupuesto de Bolo' : 'Añadir Nuevo Bolo'}
+              </h3>
+              <p className="text-xs text-zinc-400 mb-3">
+                {esCreacionPresupuesto 
+                  ? 'Se guardará como bolo presupuestado y aparecerá en color amarillo en el calendario hasta que sea confirmado o rechazado.' 
+                  : 'Crea un bolo o márcalo como presupuesto pendiente.'}
+              </p>
+
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!nuevoLugarBolo.trim() || !nuevaFechaBolo) return;
@@ -2573,13 +2965,14 @@ export default function CharangaSaraoApp() {
                 const nuevoBolo = {
                   id: Date.now(),
                   lugar: nuevoLugarBolo.trim(),
-                  titulo: nuevoTituloBolo.trim() || 'Actuación',
+                  titulo: nuevoTituloBolo.trim() || '',
                   fecha: nuevaFechaBolo,
                   horaInicio: nuevaHoraInicioBolo,
                   horaFin: nuevaHoraFinBolo,
                   presupuesto: parseFloat(nuevoPresupuestoBolo) || 0,
                   conFactura: nuevoConFacturaBolo,
                   vestuario: 'Por definir',
+                  estadoBolo: esCreacionPresupuesto ? 'presupuestado' : 'confirmado',
                   cochesAsignados: [],
                   musicosExtras: []
                 };
@@ -2591,6 +2984,28 @@ export default function CharangaSaraoApp() {
                 setShowModalBolo(false);
                 await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
+
+                {/* Selector rápido de tipo de registro (Confirmado Verde vs Presupuesto Amarillo) */}
+                <div className="grid grid-cols-2 gap-2 p-1 bg-black rounded-xl border border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => setEsCreacionPresupuesto(false)}
+                    className={`py-1.5 rounded-lg text-xs font-black transition ${
+                      !esCreacionPresupuesto ? 'bg-green-500 text-black' : 'text-zinc-400'
+                    }`}
+                  >
+                    🟢 Bolo Confirmado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEsCreacionPresupuesto(true)}
+                    className={`py-1.5 rounded-lg text-xs font-black transition ${
+                      esCreacionPresupuesto ? 'bg-amber-400 text-black' : 'text-zinc-400'
+                    }`}
+                  >
+                    🟡 Presupuestado
+                  </button>
+                </div>
                 
                 <div>
                   <label className="text-[11px] font-bold text-green-400 block mb-1">Lugar del Bolo (Titular principal):</label>
@@ -2598,8 +3013,8 @@ export default function CharangaSaraoApp() {
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo / Descripción (Secundario):</label>
-                  <input type="text" placeholder="Ej: Pasacalles y Vermú, Diana floreada, Fiesta de peñas..." value={nuevoTituloBolo} onChange={e => setNuevoTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo (Opcional):</label>
+                  <input type="text" placeholder="Ej: Pasacalles y Vermú, Diana floreada..." value={nuevoTituloBolo} onChange={e => setNuevoTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
                 </div>
 
                 <div>
@@ -2609,18 +3024,18 @@ export default function CharangaSaraoApp() {
 
                 <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
                   <div>
-                    <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Inicio Actuación:</label>
+                    <label className="text-[11px] font-bold text-green-400 block mb-1">A qué hora empieza:</label>
                     <input type="text" placeholder="Ej: 13:00h" value={nuevaHoraInicioBolo} onChange={e => setNuevaHoraInicioBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Fin Actuación:</label>
+                    <label className="text-[11px] font-bold text-green-400 block mb-1">A qué hora acaba:</label>
                     <input type="text" placeholder="Ej: 17:00h" value={nuevaHoraFinBolo} onChange={e => setNuevaHoraFinBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-zinc-800 space-y-2">
                   <div>
-                    <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto acordado (€):</label>
+                    <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto en euros (€):</label>
                     <input
                       type="number"
                       step="0.01"
@@ -2640,14 +3055,23 @@ export default function CharangaSaraoApp() {
                       className="w-4 h-4 accent-green-500 rounded cursor-pointer"
                     />
                     <label htmlFor="facturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-zinc-400"/> Se cobra con Factura oficial
+                      <FileText className="w-3.5 h-3.5 text-zinc-400"/> Va con Factura oficial
                     </label>
                   </div>
                 </div>
 
                 <div className="flex gap-2 pt-3">
-                  <button type="submit" className="flex-1 bg-green-500 text-black font-black py-2.5 rounded-xl text-sm">Guardar Bolo</button>
-                  <button type="button" onClick={() => setShowModalBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
+                  <button
+                    type="submit"
+                    className={`flex-1 text-black font-black py-2.5 rounded-xl text-sm ${
+                      esCreacionPresupuesto ? 'bg-amber-400 hover:bg-amber-300' : 'bg-green-500 hover:bg-green-400'
+                    }`}
+                  >
+                    {esCreacionPresupuesto ? 'Guardar Presupuesto (Amarillo)' : 'Guardar Bolo Confirmado'}
+                  </button>
+                  <button type="button" onClick={() => setShowModalBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                    Cancelar
+                  </button>
                 </div>
               </form>
             </div>
@@ -2780,7 +3204,6 @@ export default function CharangaSaraoApp() {
                                     ? 'bg-emerald-500 text-black border-emerald-400 shadow-md'
                                     : 'bg-zinc-900 hover:bg-emerald-500/20 text-zinc-300 hover:text-emerald-300 border-zinc-700'
                                 }`}
-                                title={estaVerificado ? "Pago verificado y descontado del bote (clic para desmarcar)" : "Clic para verificar el pago y restarlo del bote"}
                               >
                                 <Check className="w-3.5 h-3.5"/>
                                 {estaVerificado ? 'Pagado' : 'Verificar'}
@@ -2969,11 +3392,12 @@ export default function CharangaSaraoApp() {
 
       </main>
 
-      {/* BARRA INFERIOR CON LA NUEVA PESTAÑA "FACTURAS" */}
-      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-3 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1.5 z-40">
+      {/* BARRA INFERIOR CON LA NUEVA PESTAÑA "PRESUPUESTADOS" */}
+      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-2.5 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto">
         {[
           { id: 'landing', label: 'Inicio', icon: Home },
           { id: 'bolos', label: 'Bolos', icon: CalendarIcon },
+          { id: 'presupuestos', label: 'Presupuestos', icon: ClipboardList },
           { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
           { id: 'facturas', label: 'Facturas', icon: FileText },
@@ -2982,9 +3406,9 @@ export default function CharangaSaraoApp() {
           const Icon = tab.icon;
           const activa = pestañaActiva === tab.id;
           return (
-            <button key={tab.id} onClick={() => { setPestañaActiva(tab.id); if (tab.id !== 'bolos') setBoloSeleccionadoId(null); }} className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-black transition ${activa ? 'bg-green-500 text-black shadow-lg scale-105' : 'text-zinc-400 hover:text-white'}`}>
+            <button key={tab.id} onClick={() => { setPestañaActiva(tab.id); if (tab.id !== 'bolos') setBoloSeleccionadoId(null); }} className={`flex items-center gap-1.5 px-2.5 py-2.5 rounded-xl text-xs font-black transition shrink-0 ${activa ? 'bg-green-500 text-black shadow-lg scale-105' : 'text-zinc-400 hover:text-white'}`}>
               <Icon className="w-4 h-4"/>
-              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="hidden md:inline">{tab.label}</span>
             </button>
           );
         })}
