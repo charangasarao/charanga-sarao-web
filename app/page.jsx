@@ -122,17 +122,32 @@ export default function CharangaSaraoApp() {
       setMesIndexActivo(idxActual);
     }
 
-    // 2. Conectar a Firestore
+    // 2. Recuperar sesión guardada en el navegador
+    let usuarioLocal = null;
+    try {
+      const uGuardado = localStorage.getItem('sarao_usuario_actual');
+      if (uGuardado) {
+        usuarioLocal = JSON.parse(uGuardado);
+        setUsuarioActual(usuarioLocal);
+        setAutenticado(true);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    // 3. Conectar a Firestore
     const docRef = doc(db, 'charanga', 'datos_generales');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.miembros) setMiembros(data.miembros);
+        const listaMiembrosRemota = data.miembros || [];
+        
+        setMiembros(listaMiembrosRemota);
         if (data.bolos) setBolos(data.bolos);
         if (data.movimientosBote) setMovimientosBote(data.movimientosBote);
       } else {
         setDoc(docRef, {
-          miembros: [],
+          miembros: usuarioLocal ? [usuarioLocal] : [],
           bolos: [{
             id: 1,
             titulo: 'Pasacalles y Vermú',
@@ -155,16 +170,6 @@ export default function CharangaSaraoApp() {
       setCargado(true);
     });
 
-    try {
-      const uGuardado = localStorage.getItem('sarao_usuario_actual');
-      if (uGuardado) {
-        setUsuarioActual(JSON.parse(uGuardado));
-        setAutenticado(true);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
     const link = document.createElement('link');
     link.href = 'https://fonts.googleapis.com/css2?family=Bangers&display=swap';
     link.rel = 'stylesheet';
@@ -173,9 +178,12 @@ export default function CharangaSaraoApp() {
     return () => unsubscribe();
   }, []);
 
+  // Sincronizar cambios remotos del usuario si ya existe en la lista de Firestore
   useEffect(() => {
     if (usuarioActual && miembros.length > 0) {
-      const actualEnBD = miembros.find(m => m.id === usuarioActual.id);
+      const actualEnBD = miembros.find(
+        m => m.id === usuarioActual.id || m.nombre?.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase()
+      );
       if (actualEnBD && JSON.stringify(actualEnBD) !== JSON.stringify(usuarioActual)) {
         setUsuarioActual(actualEnBD);
         localStorage.setItem('sarao_usuario_actual', JSON.stringify(actualEnBD));
@@ -192,7 +200,7 @@ export default function CharangaSaraoApp() {
       }, { merge: true });
     } catch (e) {
       console.error("Error guardando en la nube:", e);
-      alert("Error al sincronizar con la nube.");
+      alert("No se pudo sincronizar con Firebase. Asegúrate de haber activado Firestore en 'Modo de prueba' en la consola de Firebase.");
     }
   };
 
@@ -250,6 +258,9 @@ export default function CharangaSaraoApp() {
       setUsuarioActual(miembroActualizado);
       localStorage.setItem('sarao_usuario_actual', JSON.stringify(miembroActualizado));
       setAutenticado(true);
+      const listaActualizada = miembros.map(m => m.id === existente.id ? miembroActualizado : m);
+      setMiembros(listaActualizada);
+      await guardarEnNube(listaActualizada, null, null);
       return;
     }
 
@@ -265,6 +276,7 @@ export default function CharangaSaraoApp() {
 
     const nuevaLista = [...miembros, nuevoMiembro];
     setUsuarioActual(nuevoMiembro);
+    setMiembros(nuevaLista);
     localStorage.setItem('sarao_usuario_actual', JSON.stringify(nuevoMiembro));
     setAutenticado(true);
     await guardarEnNube(nuevaLista, null, null);
@@ -288,23 +300,42 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  // FUNCIÓN OPTIMIZADA: Abre la ficha al instante y asegura que el miembro quede registrado en la nube
   const setDisponibilidadBolo = async (boloId, estado, instrumentoElegido = null) => {
     registrarSnapshot();
-    const nuevaLista = miembros.map(m => {
-      if (m.id === usuarioActual.id) {
-        const datosDisp = estado === 'puedo' ? { estado, instrumento: instrumentoElegido || m.instrumentos[0] } : (estado ? { estado } : null);
-        const nuevaDisp = { ...m.disponibilidadBolos };
-        if (datosDisp) nuevaDisp[boloId] = datosDisp;
-        else delete nuevaDisp[boloId];
-        
-        const actualizado = { ...m, disponibilidadBolos: nuevaDisp };
-        setUsuarioActual(actualizado);
-        localStorage.setItem('sarao_usuario_actual', JSON.stringify(actualizado));
-        return actualizado;
-      }
-      return m;
-    });
-    await guardarEnNube(nuevaLista, null, null);
+
+    const datosDisp = estado === 'puedo' 
+      ? { estado, instrumento: instrumentoElegido || usuarioActual.instrumentos?.[0] || 'Saxo alto' } 
+      : (estado ? { estado } : null);
+
+    // 1. Actualizar el estado del usuario actual de inmediato en la pantalla
+    const nuevaDispUsuario = { ...(usuarioActual.disponibilidadBolos || {}) };
+    if (datosDisp) {
+      nuevaDispUsuario[boloId] = datosDisp;
+    } else {
+      delete nuevaDispUsuario[boloId];
+    }
+
+    const usuarioActualizado = { ...usuarioActual, disponibilidadBolos: nuevaDispUsuario };
+    setUsuarioActual(usuarioActualizado);
+    localStorage.setItem('sarao_usuario_actual', JSON.stringify(usuarioActualizado));
+
+    // 2. Asegurar que el usuario existe dentro de la lista 'miembros' de la base de datos
+    let listaActualizada = [...miembros];
+    const index = listaActualizada.findIndex(
+      m => m.id === usuarioActual.id || m.nombre?.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase()
+    );
+
+    if (index !== -1) {
+      listaActualizada[index] = usuarioActualizado;
+    } else {
+      listaActualizada.push(usuarioActualizado);
+    }
+
+    setMiembros(listaActualizada);
+
+    // 3. Guardar en Firestore
+    await guardarEnNube(listaActualizada, null, null);
   };
 
   const toggleRolMiembro = async (miembroId, rol) => {
@@ -314,10 +345,16 @@ export default function CharangaSaraoApp() {
       if (m.id === miembroId) {
         const tieneRol = m.roles?.includes(rol);
         const nuevosRoles = tieneRol ? m.roles.filter(r => r !== rol) : [...(m.roles || []), rol];
-        return { ...m, roles: nuevosRoles };
+        const actualizado = { ...m, roles: nuevosRoles };
+        if (usuarioActual.id === m.id) {
+          setUsuarioActual(actualizado);
+          localStorage.setItem('sarao_usuario_actual', JSON.stringify(actualizado));
+        }
+        return actualizado;
       }
       return m;
     });
+    setMiembros(nuevaLista);
     await guardarEnNube(nuevaLista, null, null);
   };
 
@@ -325,6 +362,7 @@ export default function CharangaSaraoApp() {
     if (!esAdmin) return;
     registrarSnapshot();
     const nuevosBolos = bolos.map(b => b.id === boloId ? { ...b, vestuario: nuevoVestuario } : b);
+    setBolos(nuevosBolos);
     await guardarEnNube(null, nuevosBolos, null);
   };
 
@@ -339,6 +377,8 @@ export default function CharangaSaraoApp() {
         return { ...m, disponibilidadBolos: disp };
       });
       if (boloSeleccionadoId === boloId) setBoloSeleccionadoId(null);
+      setBolos(nuevosBolos);
+      setMiembros(nuevosMiembros);
       await guardarEnNube(nuevosMiembros, nuevosBolos, null);
     }
   };
@@ -360,10 +400,16 @@ export default function CharangaSaraoApp() {
         if (m.id === miembroId) {
           const nuevaDisp = { ...m.disponibilidadBolos };
           delete nuevaDisp[boloSeleccionadoId];
-          return { ...m, disponibilidadBolos: nuevaDisp };
+          const actualizado = { ...m, disponibilidadBolos: nuevaDisp };
+          if (usuarioActual.id === m.id) {
+            setUsuarioActual(actualizado);
+            localStorage.setItem('sarao_usuario_actual', JSON.stringify(actualizado));
+          }
+          return actualizado;
         }
         return m;
       });
+      setMiembros(nuevaLista);
       await guardarEnNube(nuevaLista, null, null);
     }
   };
@@ -403,6 +449,7 @@ export default function CharangaSaraoApp() {
       return b;
     });
 
+    setBolos(nuevosBolos);
     setNombreExtra('');
     setCharangaExtra('');
     setInstrumentoExtra('');
@@ -427,6 +474,7 @@ export default function CharangaSaraoApp() {
         }
         return b;
       });
+      setBolos(nuevosBolos);
       await guardarEnNube(null, nuevosBolos, null);
     }
   };
@@ -436,6 +484,7 @@ export default function CharangaSaraoApp() {
     if (confirm('¿Seguro que deseas eliminar a este músico de la plantilla?')) {
       registrarSnapshot();
       const nuevaLista = miembros.filter(m => m.id !== miembroId);
+      setMiembros(nuevaLista);
       await guardarEnNube(nuevaLista, null, null);
     }
   };
@@ -459,6 +508,7 @@ export default function CharangaSaraoApp() {
       autor: usuarioActual.nombre
     };
     const nuevoBote = [nuevoMov, ...movimientosBote];
+    setMovimientosBote(nuevoBote);
     setConceptoBote('');
     setImporteBote('');
     setShowModalMovimientoBote(false);
@@ -491,6 +541,7 @@ export default function CharangaSaraoApp() {
     };
 
     const nuevoBote = [nuevoGasto, ...movimientosBote];
+    setMovimientosBote(nuevoBote);
     setKmGasolina('');
     setDestinoGasolina('');
     setShowModalGasolina(false);
@@ -503,6 +554,7 @@ export default function CharangaSaraoApp() {
     if (confirm('¿Deseas eliminar este movimiento del bote?')) {
       registrarSnapshot();
       const nuevoBote = movimientosBote.filter(m => m.id !== movId);
+      setMovimientosBote(nuevoBote);
       await guardarEnNube(null, null, nuevoBote);
     }
   };
@@ -1161,9 +1213,9 @@ export default function CharangaSaraoApp() {
                         )}
 
                         <div className="flex justify-center gap-3 pt-2">
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'puedo', instrumentoElegidoBolo || usuarioActual.instrumentos[0])} className="px-5 py-2.5 bg-emerald-500 text-black font-black rounded-xl text-xs cursor-pointer">🟢 Puedo</button>
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'tal_vez')} className="px-5 py-2.5 bg-amber-500 text-black font-black rounded-xl text-xs cursor-pointer">🟡 Tal vez</button>
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'no')} className="px-5 py-2.5 bg-rose-500 text-white font-black rounded-xl text-xs cursor-pointer">🔴 No puedo</button>
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'puedo', instrumentoElegidoBolo || usuarioActual.instrumentos[0])} className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl text-xs cursor-pointer transition">🟢 Puedo</button>
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'tal_vez')} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-xl text-xs cursor-pointer transition">🟡 Tal vez</button>
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'no')} className="px-5 py-2.5 bg-rose-500 hover:bg-rose-400 text-white font-black rounded-xl text-xs cursor-pointer transition">🔴 No puedo</button>
                         </div>
                       </div>
                     );
@@ -1279,6 +1331,7 @@ export default function CharangaSaraoApp() {
                                   <button onClick={async () => {
                                     registrarSnapshot();
                                     const nuevosBolos = bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b);
+                                    setBolos(nuevosBolos);
                                     await guardarEnNube(null, nuevosBolos, null);
                                   }} className="text-rose-400 hover:text-rose-300 p-1">
                                     <Trash2 className="w-4 h-4"/>
@@ -1601,7 +1654,7 @@ export default function CharangaSaraoApp() {
                   horaLlegada: horaLlegadaDestino
                 };
                 const nuevosBolos = bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: [...(b.cochesAsignados || []), nuevoCar] } : b);
-                
+                setBolos(nuevosBolos);
                 setOrigenTrayecto(''); setHoraSalidaOrigen('');
                 setParadasIntermedias([{ lugar: '', hora: '' }]);
                 setDestinoTrayecto(''); setHoraLlegadaDestino(''); setVehiculoTrayecto('');
@@ -1721,6 +1774,7 @@ export default function CharangaSaraoApp() {
                   musicosExtras: []
                 };
                 const nuevosBolos = [...bolos, nuevoBolo];
+                setBolos(nuevosBolos);
                 setNuevoLugarBolo(''); setNuevoTituloBolo(''); setNuevaFechaBolo('');
                 setNuevaHoraInicioBolo(''); setNuevaHoraFinBolo('');
                 setNuevoPresupuestoBolo(''); setNuevoConFacturaBolo(false);
