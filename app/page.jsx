@@ -965,17 +965,37 @@ export default function CharangaSaraoApp() {
   const miTotalFacturado = misFacturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
   const totalGeneralFacturado = facturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
 
-  // FECHA DE HOY EN FORMATO YYYY-MM-DD PARA DESCARTAR BOLOS PASADOS DEL CARRUSEL DE PRÓXIMOS BOLOS
-  const fechaHoyObj = new Date();
-  const hoyStr = `${fechaHoyObj.getFullYear()}-${String(fechaHoyObj.getMonth() + 1).padStart(2, '0')}-${String(fechaHoyObj.getDate()).padStart(2, '0')}`;
+  // =========================================================================
+  // COMPROBACIÓN EXACTA DE FECHA: DESCARTA CUALQUIER BOLO CUYO DÍA YA PASÓ
+  // =========================================================================
+  const esBoloVigente = (fechaStr) => {
+    if (!fechaStr) return false;
+    const limpio = String(fechaStr).trim();
+    const partes = limpio.split('-');
+    if (partes.length !== 3) return false;
 
-  // SEPARACIÓN DE BOLOS:
+    const anio = parseInt(partes[0], 10);
+    const mes = parseInt(partes[1], 10) - 1;
+    const dia = parseInt(partes[2], 10);
+
+    const fechaBolo = new Date(anio, mes, dia);
+    fechaBolo.setHours(0, 0, 0, 0);
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    // Solo devuelve true si la fecha del bolo es HOY o FUTURA
+    return fechaBolo.getTime() >= hoy.getTime();
+  };
+
   // 1. Todos los confirmados (para estadísticas e histórico)
   const bolosConfirmados = bolos.filter(b => b.estadoBolo !== 'presupuestado');
-  // 2. Próximos Bolos en la Landing: SOLO CONFIRMADOS Y CON FECHA >= HOY (una vez pasa el día del bolo, desaparece de aquí)
+
+  // 2. Próximos Bolos en la Landing: SOLO CONFIRMADOS Y QUE NO HAYAN PASADO DE FECHA
   const proximosBolosConfirmados = bolos
-    .filter(b => b.estadoBolo !== 'presupuestado' && b.fecha >= hoyStr)
+    .filter(b => b.estadoBolo !== 'presupuestado' && esBoloVigente(b.fecha))
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
   // 3. Bolos presupuestados (en amarillo)
   const bolosPresupuestados = bolos
     .filter(b => b.estadoBolo === 'presupuestado')
@@ -1082,12 +1102,6 @@ export default function CharangaSaraoApp() {
   const totalDiasMes = new Date(mesSeleccionado.anio, mesSeleccionado.mes + 1, 0).getDate();
   const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7;
 
-  // Bolos que pertenecen al mes que se está viendo actualmente en el calendario
-  const prefijoMesActual = `${mesSeleccionado.anio}-${String(mesSeleccionado.mes + 1).padStart(2, '0')}`;
-  const bolosDelMesVisible = bolos
-    .filter(b => b.fecha?.startsWith(prefijoMesActual))
-    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-
   const instrumentosParaExtra = (esAdmin || esGestorBolos) 
     ? INSTRUMENTOS_DISPONIBLES 
     : INSTRUMENTOS_DISPONIBLES.filter(i => i.cuerda === usuarioActual.cuerda);
@@ -1182,18 +1196,18 @@ export default function CharangaSaraoApp() {
               </div>
             </div>
 
-            {/* CARRUSEL DESLIZABLE HORIZONTAL: SOLO PRÓXIMOS BOLOS CONFIRMADOS Y NO VENCIDOS */}
+            {/* CARRUSEL DESLIZABLE HORIZONTAL: SOLO PRÓXIMOS BOLOS CONFIRMADOS Y VIGENTES (HOY O FUTUROS) */}
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5 text-green-400"/> Próximos Bolos Confirmados
+                  <CalendarIcon className="w-5 h-5 text-green-400"/> Próximos Bolos
                 </h3>
                 <span className="text-xs text-zinc-500">Desliza &rarr;</span>
               </div>
 
               {proximosBolosConfirmados.length === 0 ? (
                 <div className="p-6 bg-zinc-900/50 rounded-3xl border border-zinc-800 text-center text-xs text-zinc-500">
-                  No hay próximos bolos confirmados pendientes.
+                  No hay próximos bolos confirmados pendientes a partir de hoy.
                 </div>
               ) : (
                 <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-zinc-700">
@@ -1997,7 +2011,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* CALENDARIO DE BOLOS OPTIMIZADO PARA MÓVIL Y ESCRITORIO */}
+        {/* CALENDARIO DE BOLOS CON VENTANA SCROLLEABLE Y CELDAS GRANDES */}
         {pestañaActiva === 'bolos' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-3.5 sm:p-6">
@@ -2014,6 +2028,7 @@ export default function CharangaSaraoApp() {
                     <span className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Presupuestado
                     </span>
+                    <span className="text-zinc-500">• Desliza dentro del calendario para moverte por las fechas</span>
                   </div>
                 </div>
 
@@ -2047,8 +2062,10 @@ export default function CharangaSaraoApp() {
                 )}
               </div>
 
-              {/* SELECTOR Y CUADRÍCULA ADAPTATIVA MÓVIL/PC */}
-              <div className="bg-black/60 border border-zinc-800 rounded-2xl p-2.5 sm:p-4 mb-5">
+              {/* CONTENEDOR DEL CALENDARIO: OCUPA LA MITAD DE ESPACIO VERTICAL Y ES SCROLLEABLE CON CELDAS GRANDES */}
+              <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 sm:p-4 mb-5">
+                
+                {/* Barra de mes */}
                 <div className="flex justify-between items-center mb-3 gap-2">
                   <div className="flex items-center gap-1.5">
                     <button
@@ -2083,161 +2100,114 @@ export default function CharangaSaraoApp() {
                   </select>
                 </div>
 
-                {/* Cuadrícula de días optimizada para pantalla vertical de móvil */}
-                <div className="grid grid-cols-7 gap-1 text-center text-xs">
-                  {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
-                    <div key={d} className="font-black text-zinc-500 py-1 text-[11px]">{d}</div>
-                  ))}
-
-                  {Array.from({ length: diaSemanaInicio }, (_, i) => (
-                    <div key={`empty-${i}`} className="min-h-[54px] sm:min-h-[85px] rounded-xl bg-zinc-950/20 border border-transparent"></div>
-                  ))}
-
-                  {Array.from({ length: totalDiasMes }, (_, i) => {
-                    const diaNum = i + 1;
-                    const mesFormateado = String(mesSeleccionado.mes + 1).padStart(2, '0');
-                    const diaFormateado = String(diaNum).padStart(2, '0');
-                    const fechaStr = `${mesSeleccionado.anio}-${mesFormateado}-${diaFormateado}`;
-                    const bolosDelDia = bolos.filter(b => b.fecha === fechaStr);
-                    const tieneConfirmado = bolosDelDia.some(b => b.estadoBolo !== 'presupuestado');
-                    const tienePresupuestado = bolosDelDia.some(b => b.estadoBolo === 'presupuestado');
-                    const estaSeleccionadoHoy = bolosDelDia.some(b => b.id === boloSeleccionadoId);
-
-                    return (
-                      <div
-                        key={diaNum}
-                        onClick={() => {
-                          // En móvil, si tocas un día que ya tiene bolo, te abre directamente ese bolo para que sea comodísimo
-                          if (bolosDelDia.length > 0) {
-                            setBoloSeleccionadoId(bolosDelDia[0].id);
-                          } else if (esGestorBolos) {
-                            abrirModalParaFecha(fechaStr);
-                          }
-                        }}
-                        className={`min-h-[56px] sm:min-h-[85px] p-1 sm:p-1.5 rounded-xl border flex flex-col justify-between transition group relative cursor-pointer ${
-                          tieneConfirmado 
-                            ? 'bg-green-500/20 border-green-500' 
-                            : tienePresupuestado
-                              ? 'bg-amber-500/20 border-amber-400'
-                              : 'bg-zinc-950 border-zinc-900 text-zinc-600'
-                        } ${estaSeleccionadoHoy ? 'ring-2 ring-white scale-[1.03] z-10' : ''}`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className={`font-black text-xs sm:text-sm mx-auto sm:mx-0 ${
-                            tieneConfirmado ? 'text-green-300' : tienePresupuestado ? 'text-amber-300' : 'text-zinc-400'
-                          }`}>
-                            {diaNum}
-                          </span>
-                          {esGestorBolos && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                abrirModalParaFecha(fechaStr);
-                              }}
-                              className="hidden sm:inline-block opacity-0 group-hover:opacity-100 text-[10px] text-green-400 bg-green-500/20 rounded px-1 transition font-bold"
-                              title="Añadir bolo en este día"
-                            >
-                              +
-                            </button>
-                          )}
+                {/* VENTANA SCROLLEABLE (Mitad de altura en pantalla, celdas grandes con toda la información clara) */}
+                <div className="max-h-[420px] overflow-auto rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-2 scrollbar-thin scrollbar-thumb-zinc-700">
+                  <div className="min-w-[680px]">
+                    
+                    {/* Cabecera fija de días de la semana al hacer scroll vertical */}
+                    <div className="grid grid-cols-7 gap-2 text-center text-xs sticky top-0 bg-zinc-950/95 backdrop-blur-md z-20 py-2 border-b border-zinc-800 mb-2">
+                      {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(d => (
+                        <div key={d} className="font-black text-zinc-400 uppercase tracking-wider text-[11px]">
+                          {d.slice(0, 3)}
                         </div>
+                      ))}
+                    </div>
 
-                        {/* VISTA MÓVIL VERTICAL: Indicador compacto limpio + texto corto legible */}
-                        {bolosDelDia.length > 0 && (
-                          <div className="sm:hidden flex flex-col items-center justify-center gap-0.5 mt-0.5">
-                            <div className="flex gap-1">
-                              {bolosDelDia.map(b => (
-                                <span
-                                  key={b.id}
-                                  className={`w-2 h-2 rounded-full ${
-                                    b.estadoBolo === 'presupuestado' ? 'bg-amber-400' : 'bg-green-400'
-                                  }`}
-                                ></span>
-                              ))}
-                            </div>
-                            <span className={`text-[9px] font-black leading-none truncate max-w-full px-0.5 ${
-                              tieneConfirmado ? 'text-green-200' : 'text-amber-200'
-                            }`}>
-                              {bolosDelDia[0].lugar.slice(0, 6)}
-                            </span>
-                          </div>
-                        )}
+                    {/* Cuadrícula con CELDAS GRANDES (min-h-[115px]) */}
+                    <div className="grid grid-cols-7 gap-2">
+                      {Array.from({ length: diaSemanaInicio }, (_, i) => (
+                        <div key={`empty-${i}`} className="min-h-[115px] rounded-2xl bg-zinc-900/20 border border-zinc-900/40"></div>
+                      ))}
 
-                        {/* VISTA ESCRITORIO: Etiquetas completas dentro de la casilla */}
-                        <div className="hidden sm:block space-y-1 overflow-y-auto max-h-[55px] mt-1">
-                          {bolosDelDia.map(b => {
-                            const esPres = b.estadoBolo === 'presupuestado';
-                            return (
-                              <div
-                                key={b.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setBoloSeleccionadoId(b.id);
-                                }}
-                                className={`text-[9px] leading-tight font-black p-1 rounded cursor-pointer truncate shadow-sm transition ${
-                                  esPres
-                                    ? 'bg-amber-400 text-black hover:bg-amber-300'
-                                    : 'bg-green-500/40 hover:bg-green-500/70 text-green-200'
-                                }`}
-                                title={`${b.lugar}${b.titulo ? ` - ${b.titulo}` : ''}`}
-                              >
-                                📍 {b.lugar}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      {Array.from({ length: totalDiasMes }, (_, i) => {
+                        const diaNum = i + 1;
+                        const mesFormateado = String(mesSeleccionado.mes + 1).padStart(2, '0');
+                        const diaFormateado = String(diaNum).padStart(2, '0');
+                        const fechaStr = `${mesSeleccionado.anio}-${mesFormateado}-${diaFormateado}`;
+                        const bolosDelDia = bolos.filter(b => b.fecha === fechaStr);
+                        const tieneConfirmado = bolosDelDia.some(b => b.estadoBolo !== 'presupuestado');
+                        const tienePresupuestado = bolosDelDia.some(b => b.estadoBolo === 'presupuestado');
+                        const estaSeleccionadoHoy = bolosDelDia.some(b => b.id === boloSeleccionadoId);
 
-                {/* LISTA DE BOLOS DEL MES (ESPECIALMENTE CÓMODA EN MÓVIL VERTICAL) */}
-                {bolosDelMesVisible.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-zinc-800/90 space-y-2">
-                    <span className="text-[11px] font-black text-zinc-400 uppercase tracking-wider block">
-                      Bolos en {mesSeleccionado.label} (Toca uno para abrirlo):
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {bolosDelMesVisible.map(b => {
-                        const esPres = b.estadoBolo === 'presupuestado';
-                        const activo = boloSeleccionadoId === b.id;
-                        const diaSolo = b.fecha.split('-')[2];
                         return (
                           <div
-                            key={b.id}
-                            onClick={() => setBoloSeleccionadoId(b.id)}
-                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
-                              esPres
-                                ? 'bg-amber-500/10 border-amber-500/40 text-amber-200'
-                                : 'bg-green-500/10 border-green-500/40 text-green-200'
-                            } ${activo ? 'ring-2 ring-white bg-zinc-800' : 'hover:bg-zinc-900'}`}
+                            key={diaNum}
+                            onClick={() => {
+                              if (bolosDelDia.length > 0) {
+                                setBoloSeleccionadoId(bolosDelDia[0].id);
+                              } else if (esGestorBolos) {
+                                abrirModalParaFecha(fechaStr);
+                              }
+                            }}
+                            className={`min-h-[115px] p-2.5 rounded-2xl border flex flex-col justify-between transition group relative cursor-pointer ${
+                              tieneConfirmado 
+                                ? 'bg-green-500/15 border-green-500/80 hover:bg-green-500/25' 
+                                : tienePresupuestado
+                                  ? 'bg-amber-500/15 border-amber-400/80 hover:bg-amber-500/25'
+                                  : 'bg-zinc-900/70 border-zinc-800/80 hover:border-zinc-700'
+                            } ${estaSeleccionadoHoy ? 'ring-2 ring-white scale-[1.01] z-10' : ''}`}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className={`w-9 h-9 rounded-xl flex flex-col items-center justify-center font-black shrink-0 ${
-                                esPres ? 'bg-amber-400 text-black' : 'bg-green-500 text-black'
+                            {/* Número del día grande + botón de añadir */}
+                            <div className="flex justify-between items-center">
+                              <span className={`font-black text-base leading-none ${
+                                tieneConfirmado ? 'text-green-300' : tienePresupuestado ? 'text-amber-300' : 'text-zinc-400'
                               }`}>
-                                <span className="text-xs leading-none">{diaSolo}</span>
-                              </div>
-                              <div className="truncate">
-                                <p className="font-black text-white text-sm truncate">📍 {b.lugar}</p>
-                                <p className="text-[11px] text-zinc-400 truncate">
-                                  {b.titulo || 'Actuación'} • {b.horaInicio || '13:00h'}
-                                </p>
-                              </div>
+                                {diaNum}
+                              </span>
+                              {esGestorBolos && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    abrirModalParaFecha(fechaStr);
+                                  }}
+                                  className="text-[11px] text-green-400 bg-green-500/20 hover:bg-green-500 hover:text-black rounded-lg px-1.5 py-0.5 transition font-black"
+                                  title="Añadir bolo en este día"
+                                >
+                                  +
+                                </button>
+                              )}
                             </div>
 
-                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full shrink-0 ${
-                              esPres ? 'bg-amber-400 text-black' : 'bg-green-500/20 text-green-300 border border-green-500/30'
-                            }`}>
-                              {esPres ? 'Presupuesto' : 'Ver bolo'}
-                            </span>
+                            {/* Tarjetas de bolos dentro de la celda grande con LUGAR, TIPO y HORARIO claros */}
+                            <div className="space-y-1.5 mt-2">
+                              {bolosDelDia.map(b => {
+                                const esPres = b.estadoBolo === 'presupuestado';
+                                return (
+                                  <div
+                                    key={b.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setBoloSeleccionadoId(b.id);
+                                    }}
+                                    className={`p-2 rounded-xl cursor-pointer shadow transition text-left ${
+                                      esPres
+                                        ? 'bg-amber-400 text-black hover:bg-amber-300'
+                                        : 'bg-green-500 text-black hover:bg-green-400'
+                                    }`}
+                                  >
+                                    <p className="text-xs font-black leading-tight break-words">
+                                      📍 {b.lugar}
+                                    </p>
+                                    {b.titulo && (
+                                      <p className="text-[10px] font-bold opacity-85 leading-tight mt-0.5 break-words">
+                                        {b.titulo}
+                                      </p>
+                                    )}
+                                    <p className="text-[10px] font-extrabold mt-1 flex items-center gap-1 bg-black/15 px-1.5 py-0.5 rounded w-fit">
+                                      ⏰ {b.horaInicio || '13:00h'}{b.horaFin ? ` - ${b.horaFin}` : ''}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         );
                       })}
                     </div>
+
                   </div>
-                )}
+                </div>
               </div>
 
               {/* DETALLES DEL BOLO SELECCIONADO */}
@@ -2627,7 +2597,7 @@ export default function CharangaSaraoApp() {
                   );
                 })()
               ) : (
-                <p className="text-xs text-zinc-500 text-center py-6">Toca cualquier día con bolo en el calendario o en la lista del mes para ver sus detalles.</p>
+                <p className="text-xs text-zinc-500 text-center py-6">Pincha en cualquier bolo dentro del calendario scrolleable para abrir su ficha completa.</p>
               )}
 
             </div>
