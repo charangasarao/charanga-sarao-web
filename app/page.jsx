@@ -401,6 +401,13 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  // Abrir modal de añadir bolo directamente pinchando en el día
+  const abrirModalParaFecha = (fechaStr) => {
+    if (!esAdmin) return;
+    setNuevaFechaBolo(fechaStr);
+    setShowModalBolo(true);
+  };
+
   const totalIngresos = movimientosBote.filter(m => m.cantidad > 0).reduce((acc, m) => acc + m.cantidad, 0);
   const totalGastos = movimientosBote.filter(m => m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const saldoTotal = totalIngresos - totalGastos;
@@ -568,7 +575,7 @@ export default function CharangaSaraoApp() {
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
                   {esAdmin 
-                    ? 'Modo Administrador: gestión de bolos, calendario hasta 2028, vestuarios y bote.' 
+                    ? 'Modo Administrador: pincha directamente en cualquier día del calendario para programar un bolo.' 
                     : esJefeCuerda
                       ? `Jefe de cuerda de ${usuarioActual.cuerda}: revisa y gestiona la asistencia de tu sección.`
                       : 'Calendario de bolos, confirmación de asistencia, coches y bote.'}
@@ -621,7 +628,6 @@ export default function CharangaSaraoApp() {
                             )}
                           </div>
 
-                          {/* LUGAR PRINCIPAL Y TÍTULO/TIPO SECUNDARIO */}
                           <h4 className="text-2xl font-black text-white tracking-wide mt-1 line-clamp-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                             {b.lugar}
                           </h4>
@@ -872,9 +878,16 @@ export default function CharangaSaraoApp() {
               
               {/* CABECERA */}
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
-                <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                  CALENDARIO DE BOLOS
-                </h2>
+                <div>
+                  <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    CALENDARIO DE BOLOS
+                  </h2>
+                  {esAdmin && (
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      💡 Consejo: Puedes pinchar directamente sobre cualquier día para crear un bolo en esa fecha.
+                    </p>
+                  )}
+                </div>
                 {esAdmin && (
                   <div className="flex items-center gap-2">
                     <button 
@@ -929,7 +942,7 @@ export default function CharangaSaraoApp() {
                   </select>
                 </div>
 
-                {/* Cuadrícula de días */}
+                {/* Cuadrícula de días: Pinchar en el día abre para añadir bolo si eres Admin */}
                 <div className="grid grid-cols-7 gap-1 text-center text-xs">
                   {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
                     <div key={d} className="font-bold text-zinc-500 py-1">{d}</div>
@@ -949,15 +962,37 @@ export default function CharangaSaraoApp() {
                     return (
                       <div
                         key={diaNum}
-                        className={`min-h-[80px] p-1 rounded-xl border flex flex-col justify-between ${bolosDelDia.length > 0 ? 'bg-green-500/20 border-green-500' : 'bg-zinc-950 border-zinc-900 text-zinc-600'}`}
+                        onClick={() => {
+                          if (esAdmin) {
+                            abrirModalParaFecha(fechaStr);
+                          }
+                        }}
+                        className={`min-h-[85px] p-1.5 rounded-xl border flex flex-col justify-between transition group relative ${
+                          bolosDelDia.length > 0 
+                            ? 'bg-green-500/20 border-green-500' 
+                            : 'bg-zinc-950 border-zinc-900 text-zinc-600'
+                        } ${esAdmin ? 'hover:border-green-400 hover:bg-zinc-900/80 cursor-pointer' : ''}`}
+                        title={esAdmin ? `Pincha para añadir un bolo el ${diaNum} de ${mesSeleccionado.label}` : ''}
                       >
-                        <span className={`font-bold text-xs ${bolosDelDia.length > 0 ? 'text-green-300' : 'text-zinc-500'}`}>{diaNum}</span>
-                        <div className="space-y-1 overflow-y-auto max-h-[50px]">
+                        <div className="flex justify-between items-center">
+                          <span className={`font-bold text-xs ${bolosDelDia.length > 0 ? 'text-green-300' : 'text-zinc-500'}`}>{diaNum}</span>
+                          {esAdmin && (
+                            <span className="opacity-0 group-hover:opacity-100 text-[10px] text-green-400 bg-green-500/20 rounded px-1 transition font-bold" title="Añadir bolo">
+                              +
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Lista de bolos de este día */}
+                        <div className="space-y-1 overflow-y-auto max-h-[55px] mt-1">
                           {bolosDelDia.map(b => (
                             <div
                               key={b.id}
-                              onClick={() => setBoloSeleccionadoId(b.id)}
-                              className="text-[9px] leading-tight text-green-200 font-black bg-green-500/40 p-1 rounded cursor-pointer hover:bg-green-500/60 truncate"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Evitar que abra el modal de nuevo bolo al hacer clic en el bolo existente
+                                setBoloSeleccionadoId(b.id);
+                              }}
+                              className="text-[9px] leading-tight text-green-200 font-black bg-green-500/40 hover:bg-green-500/70 p-1 rounded cursor-pointer truncate shadow-sm transition"
                               title={`${b.lugar}${b.titulo ? ` - ${b.titulo}` : ''}`}
                             >
                               📍 {b.lugar}
@@ -1033,7 +1068,6 @@ export default function CharangaSaraoApp() {
                             Tu estado: <strong className="uppercase">{miDispo.estado.replace('_', ' ')}</strong> {miDispo.instrumento && `(${miDispo.instrumento})`}
                           </span>
 
-                          {/* TITULAR PRINCIPAL: LUGAR // SECUNDARIO: TIPO DE BOLO */}
                           <h3 className="text-4xl tracking-wide text-white mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                             {boloActual.lugar}
                           </h3>
@@ -1418,7 +1452,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL AÑADIR BOLO (LUGAR PRINCIPAL Y TIPO SECUNDARIO) */}
+        {/* MODAL AÑADIR BOLO */}
         {showModalBolo && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-green-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -1460,7 +1494,6 @@ export default function CharangaSaraoApp() {
                   <input type="date" value={nuevaFechaBolo} onChange={e => setNuevaFechaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
                 </div>
 
-                {/* HORARIOS DE ACTUACIÓN */}
                 <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
                   <div>
                     <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Inicio Actuación:</label>
@@ -1472,7 +1505,6 @@ export default function CharangaSaraoApp() {
                   </div>
                 </div>
 
-                {/* PRESUPUESTO Y FACTURA (SOLO ADMIN) */}
                 <div className="pt-2 border-t border-zinc-800 space-y-2">
                   <div>
                     <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto acordado (€):</label>
