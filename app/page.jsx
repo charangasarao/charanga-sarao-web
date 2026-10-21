@@ -41,6 +41,7 @@ const NOMBRES_MESES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
+// Generar lista de meses desde Sep 2026 hasta Dic 2028
 const MESES_PERMITIDOS = [];
 for (let anio = 2026; anio <= 2028; anio++) {
   const mesInicio = anio === 2026 ? 8 : 0;
@@ -67,6 +68,8 @@ export default function CharangaSaraoApp() {
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
+
+  // Inicializar en el mes actual del sistema
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
 
   // Modales Bolos
@@ -108,8 +111,18 @@ export default function CharangaSaraoApp() {
   const [precioLitro, setPrecioLitro] = useState('1.45');
   const [destinoGasolina, setDestinoGasolina] = useState('');
 
-  // 1. SINCRONIZACIÓN EN TIEMPO REAL CON FIREBASE
+  // Sincronización Firebase y cálculo del mes actual
   useEffect(() => {
+    // 1. Calcular índice del mes actual
+    const hoy = new Date();
+    const anioHoy = hoy.getFullYear();
+    const mesHoy = hoy.getMonth();
+    const idxActual = MESES_PERMITIDOS.findIndex(m => m.anio === anioHoy && m.mes === mesHoy);
+    if (idxActual !== -1) {
+      setMesIndexActivo(idxActual);
+    }
+
+    // 2. Conectar a Firestore
     const docRef = doc(db, 'charanga', 'datos_generales');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -355,7 +368,6 @@ export default function CharangaSaraoApp() {
     }
   };
 
-  // AGREGAR MÚSICO EXTRA
   const agregarMusicoExtra = async (e) => {
     e.preventDefault();
     if (!nombreExtra.trim() || !instrumentoExtra) {
@@ -367,7 +379,7 @@ export default function CharangaSaraoApp() {
     const cuerdaExtra = instObj?.cuerda || 'Saxos';
 
     if (!esAdmin && usuarioActual.cuerda !== cuerdaExtra) {
-      alert(`Como jefe de cuerda, solo puedes añadir refuerzos para tu cuerda (${usuarioActual.cuerda}).`);
+      alert(`Solo puedes añadir refuerzos para tu cuerda (${usuarioActual.cuerda}).`);
       return;
     }
 
@@ -398,7 +410,6 @@ export default function CharangaSaraoApp() {
     await guardarEnNube(null, nuevosBolos, null);
   };
 
-  // ELIMINAR MÚSICO EXTRA
   const eliminarMusicoExtra = async (extraId, cuerdaExtra, nombreExtra) => {
     if (!puedeEliminarAsistencia(cuerdaExtra)) {
       alert(`Solo puedes retirar refuerzos de tu cuerda (${usuarioActual.cuerda}).`);
@@ -1112,6 +1123,7 @@ export default function CharangaSaraoApp() {
                 (() => {
                   const miDispo = usuarioActual.disponibilidadBolos?.[boloActual.id];
 
+                  // Si el usuario aún no ha puesto disponibilidad para este bolo: SOLO SE LE MUESTRA LA ENCUESTA
                   if (!miDispo) {
                     return (
                       <div className="bg-black/90 border border-amber-500/50 rounded-2xl p-6 text-center space-y-4">
@@ -1157,6 +1169,7 @@ export default function CharangaSaraoApp() {
                     );
                   }
 
+                  // Si ya puso disponibilidad: SE DESBLOQUEA TODA LA INFORMACIÓN DEL BOLO
                   const dispoPuedo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo');
                   const dispoTalVez = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez');
                   const dispoNo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'no');
@@ -1445,7 +1458,7 @@ export default function CharangaSaraoApp() {
                   );
                 })()
               ) : (
-                <p className="text-xs text-zinc-500 text-center py-6">Haz clic en un día con bolo para ver los detalles, vestuario y confirmaciones.</p>
+                <p className="text-xs text-zinc-500 text-center py-6">Haz clic en un bolo para ver sus detalles o confirmar tu plaza.</p>
               )}
 
             </div>
