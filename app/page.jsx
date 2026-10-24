@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, Car, Users, Wallet, Shield, MapPin, 
-  Plus, Music, Fuel, Check, Key, UserPlus, Trash2, Shirt, Home, 
-  Clock, AlertCircle, ChevronLeft, ChevronRight, BarChart3, Download, 
-  Undo2, FileText, Edit3, Upload, Mail, Eye, Loader2, ClipboardList, 
-  XCircle, UserCheck, LogOut, Award
+  Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, 
+  UserPlus, Trash2, Shirt, ArrowRight, Home, Clock, AlertCircle, 
+  ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText, 
+  Edit3, Upload, Mail, Eye, Loader2, ClipboardList, XCircle, UserCheck, LogOut
 } from 'lucide-react';
 
 import { db } from './firebase';
@@ -42,10 +42,12 @@ const NOMBRES_MESES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
+// Generar lista de meses desde Sep 2026 hasta Dic 2028
 const MESES_PERMITIDOS = [];
 for (let anio = 2026; anio <= 2028; anio++) {
   const mesInicio = anio === 2026 ? 8 : 0;
-  for (let mes = mesInicio; mes <= 11; mes++) {
+  const mesFin = 11;
+  for (let mes = mesInicio; mes <= mesFin; mes++) {
     MESES_PERMITIDOS.push({ anio, mes, label: `${NOMBRES_MESES[mes]} ${anio}` });
   }
 }
@@ -73,14 +75,14 @@ export default function CharangaSaraoApp() {
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
 
-  // Modales Bolos
+  // Modales Bolos (Añadir, Editar, Eliminar)
   const [showModalBolo, setShowModalBolo] = useState(false);
-  const [tipoCreacionEvento, setTipoCreacionEvento] = useState('confirmado');
+  const [tipoCreacionEvento, setTipoCreacionEvento] = useState('confirmado'); // 'confirmado' | 'presupuestado' | 'ensayo'
   const [showModalEditarBolos, setShowModalEditarBolos] = useState(false);
   const [boloEditandoId, setBoloEditandoId] = useState(null);
   const [showModalEliminarBolos, setShowModalEliminarBolos] = useState(false);
 
-  // Modal Ensayos
+  // Modal específico para Crear / Editar Ensayos
   const [showModalEnsayo, setShowModalEnsayo] = useState(false);
   const [ensayoEditandoId, setEnsayoEditandoId] = useState(null);
   const [lugarEnsayo, setLugarEnsayo] = useState('');
@@ -88,7 +90,7 @@ export default function CharangaSaraoApp() {
   const [horaEnsayo, setHoraEnsayo] = useState('');
   const [repertorioEnsayo, setRepertorioEnsayo] = useState('');
 
-  // Modal Confirmación Presupuesto
+  // Modal de Confirmación de Presupuesto
   const [showModalConfirmarPresupuesto, setShowModalConfirmarPresupuesto] = useState(false);
   const [presupuestoAConfirmarId, setPresupuestoAConfirmarId] = useState(null);
 
@@ -101,7 +103,7 @@ export default function CharangaSaraoApp() {
   const [nuevoConFacturaBolo, setNuevoConFacturaBolo] = useState(false);
   const [nuevoRepertorioEnsayo, setNuevoRepertorioEnsayo] = useState('');
 
-  // Estados Edición
+  // Estados de Edición / Confirmación de Bolo
   const [editLugarBolo, setEditLugarBolo] = useState('');
   const [editTituloBolo, setEditTituloBolo] = useState('');
   const [editFechaBolo, setEditFechaBolo] = useState('');
@@ -151,10 +153,15 @@ export default function CharangaSaraoApp() {
   const [enviandoFactura, setEnviandoFactura] = useState(false);
   const [mensajeAnalisis, setMensajeAnalisis] = useState('');
 
+  // Sincronización Firebase y cálculo del mes actual
   useEffect(() => {
     const hoy = new Date();
-    const idxActual = MESES_PERMITIDOS.findIndex(m => m.anio === hoy.getFullYear() && m.mes === hoy.getMonth());
-    if (idxActual !== -1) setMesIndexActivo(idxActual);
+    const anioHoy = hoy.getFullYear();
+    const mesHoy = hoy.getMonth();
+    const idxActual = MESES_PERMITIDOS.findIndex(m => m.anio === anioHoy && m.mes === mesHoy);
+    if (idxActual !== -1) {
+      setMesIndexActivo(idxActual);
+    }
 
     let usuarioLocal = null;
     try {
@@ -164,7 +171,9 @@ export default function CharangaSaraoApp() {
         setUsuarioActual(usuarioLocal);
         setAutenticado(true);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
 
     const docRef = doc(db, 'charanga', 'datos_generales');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -193,8 +202,7 @@ export default function CharangaSaraoApp() {
             conFactura: true,
             estadoBolo: 'confirmado',
             cochesAsignados: [],
-            musicosExtras: [],
-            pagosMiembros: {}
+            musicosExtras: []
           }],
           movimientosBote: [{ id: 1, concepto: 'Fondo inicial caja Sarao', cantidad: 0, fecha: 'Inicio', tipo: 'ingreso', autor: 'Admin', verificado: true }],
           facturas: [],
@@ -255,10 +263,14 @@ export default function CharangaSaraoApp() {
   };
 
   const deshacerUltimoCambio = async () => {
-    if (historialEstados.length === 0) return;
+    if (historialEstados.length === 0) {
+      alert('No hay acciones previas para deshacer.');
+      return;
+    }
     const anterior = historialEstados[historialEstados.length - 1];
     setHistorialEstados(prev => prev.slice(0, -1));
     await guardarEnNube(anterior.miembros, anterior.bolos, anterior.movimientosBote, anterior.facturas);
+    alert('Acción revertida correctamente en todos los dispositivos.');
   };
 
   // ROLES Y PERMISOS
@@ -270,13 +282,19 @@ export default function CharangaSaraoApp() {
   const esFacturador = usuarioActual?.roles?.includes('facturador') || esAdmin;
   const esJefeCuerda = usuarioActual?.roles?.includes('jefe_cuerda');
   const puedeGestionarExtras = esAdmin || esJefeCuerda;
-  const puedeEditarPagosBolo = esAdmin || esTesorero || esGestorBolos;
 
   const handleLogin = async (e) => {
     e.preventDefault();
     const pass = passwordInput.trim();
-    if (pass !== PASSWORD_CHARANGA && pass !== PASSWORD_ADMIN) return alert('Contraseña incorrecta.');
-    if (!nombreRegistro.trim()) return alert('Introduce tu nombre.');
+
+    if (pass !== PASSWORD_CHARANGA && pass !== PASSWORD_ADMIN) {
+      alert('Contraseña incorrecta.');
+      return;
+    }
+    if (!nombreRegistro.trim()) {
+      alert('Introduce tu nombre.');
+      return;
+    }
 
     const instPrincipal = instrumentosSeleccionados[0];
     const matchCuerda = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === instPrincipal)?.cuerda || 'Saxos';
@@ -335,13 +353,17 @@ export default function CharangaSaraoApp() {
 
   const setDisponibilidadBolo = async (boloId, estado, instrumentoElegido = null) => {
     registrarSnapshot();
+
     const datosDisp = estado === 'puedo' 
       ? { estado, instrumento: instrumentoElegido || usuarioActual.instrumentos?.[0] || 'Saxo alto' } 
       : (estado ? { estado } : null);
 
     const nuevaDispUsuario = { ...(usuarioActual.disponibilidadBolos || {}) };
-    if (datosDisp) nuevaDispUsuario[boloId] = datosDisp;
-    else delete nuevaDispUsuario[boloId];
+    if (datosDisp) {
+      nuevaDispUsuario[boloId] = datosDisp;
+    } else {
+      delete nuevaDispUsuario[boloId];
+    }
 
     const usuarioActualizado = { ...usuarioActual, disponibilidadBolos: nuevaDispUsuario };
     setUsuarioActual(usuarioActualizado);
@@ -351,8 +373,12 @@ export default function CharangaSaraoApp() {
     const index = listaActualizada.findIndex(
       m => m.id === usuarioActual.id || m.nombre?.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase()
     );
-    if (index !== -1) listaActualizada[index] = usuarioActualizado;
-    else listaActualizada.push(usuarioActualizado);
+
+    if (index !== -1) {
+      listaActualizada[index] = usuarioActualizado;
+    } else {
+      listaActualizada.push(usuarioActualizado);
+    }
 
     setMiembros(listaActualizada);
     await guardarEnNube(listaActualizada, null, null);
@@ -387,51 +413,7 @@ export default function CharangaSaraoApp() {
   };
 
   // =========================================================================
-  // GESTIÓN DE PAGOS POR BOLO (MÚSICA, COCHE, KM, GASOLINA Y ESTADO COBRADO)
-  // =========================================================================
-
-  const actualizarPagoMiembroEnBolo = async (boloId, miembroId, cambios) => {
-    if (!puedeEditarPagosBolo) return;
-    const nuevosBolos = bolos.map(b => {
-      if (b.id !== boloId) return b;
-      const pagosActuales = b.pagosMiembros || {};
-      const pagoPrevio = pagosActuales[miembroId] || { musica: 0, llevaCoche: false, km: 0, gasolina: 0, pagado: false };
-      const nuevoPago = { ...pagoPrevio, ...cambios };
-
-      // Si cambia km o llevaCoche, recalcular gasolina automáticamente a 0.20 €/km
-      if ('km' in cambios || 'llevaCoche' in cambios) {
-        const kmNum = parseFloat(nuevoPago.km) || 0;
-        nuevoPago.gasolina = nuevoPago.llevaCoche ? parseFloat((kmNum * TARIFA_KM).toFixed(2)) : 0;
-      }
-
-      return {
-        ...b,
-        pagosMiembros: {
-          ...pagosActuales,
-          [miembroId]: nuevoPago
-        }
-      };
-    });
-    setBolos(nuevosBolos);
-    await guardarEnNube(null, nuevosBolos, null);
-  };
-
-  const actualizarPagoExtraEnBolo = async (boloId, extraId, cambios) => {
-    if (!puedeEditarPagosBolo) return;
-    const nuevosBolos = bolos.map(b => {
-      if (b.id !== boloId) return b;
-      const nuevosExtras = (b.musicosExtras || []).map(ex => {
-        if (ex.id !== extraId) return ex;
-        return { ...ex, ...cambios };
-      });
-      return { ...b, musicosExtras: nuevosExtras };
-    });
-    setBolos(nuevosBolos);
-    await guardarEnNube(null, nuevosBolos, null);
-  };
-
-  // =========================================================================
-  // UNIRSE / SALIR DE LA RUTA DE UN CONDUCTOR
+  // UNIRSE / SALIR DE LA RUTA DE UN CONDUCTOR (CONTROL DE PLAZAS LIBRES)
   // =========================================================================
 
   const toggleUnirseRutaCoche = async (boloId, cocheId) => {
@@ -440,25 +422,39 @@ export default function CharangaSaraoApp() {
 
     const nuevosBolos = bolos.map(b => {
       if (b.id !== boloId) return b;
+
       const cocheObjetivo = (b.cochesAsignados || []).find(c => c.id === cocheId);
       if (!cocheObjetivo) return b;
 
       const pasajerosActuales = cocheObjetivo.pasajeros || [];
-      const yaEstoy = pasajerosActuales.some(p => p.trim().toLowerCase() === miNombre.toLowerCase());
+      const yaEstoyEnEsteCoche = pasajerosActuales.some(
+        p => p.trim().toLowerCase() === miNombre.toLowerCase()
+      );
       const plazasTotales = typeof cocheObjetivo.plazasTotales === 'number' ? cocheObjetivo.plazasTotales : 4;
       const huecosLibres = plazasTotales - pasajerosActuales.length;
 
-      if (!yaEstoy && huecosLibres <= 0) {
+      if (!yaEstoyEnEsteCoche && huecosLibres <= 0) {
         alert('Este coche ya no tiene plazas libres.');
         return b;
       }
 
       const nuevosCoches = (b.cochesAsignados || []).map(c => {
-        const sinMi = (c.pasajeros || []).filter(p => p.trim().toLowerCase() !== miNombre.toLowerCase());
+        const listaPasajeros = c.pasajeros || [];
+        // Si el usuario se une a este coche, lo quitamos de cualquier otro coche de este mismo bolo para no duplicarlo
+        const sinMi = listaPasajeros.filter(
+          p => p.trim().toLowerCase() !== miNombre.toLowerCase()
+        );
+
         if (c.id === cocheId) {
-          return { ...c, pasajeros: yaEstoy ? sinMi : [...sinMi, miNombre] };
+          return {
+            ...c,
+            pasajeros: yaEstoyEnEsteCoche ? sinMi : [...sinMi, miNombre]
+          };
         }
-        return { ...c, pasajeros: sinMi };
+        return {
+          ...c,
+          pasajeros: sinMi
+        };
       });
 
       return { ...b, cochesAsignados: nuevosCoches };
@@ -468,16 +464,21 @@ export default function CharangaSaraoApp() {
     await guardarEnNube(null, nuevosBolos, null);
   };
 
+  // Permitir al conductor o admin bajar a un pasajero concreto de su coche
   const quitarPasajeroDeCoche = async (boloId, cocheId, nombrePasajero) => {
     registrarSnapshot();
     const nuevosBolos = bolos.map(b => {
       if (b.id !== boloId) return b;
       const nuevosCoches = (b.cochesAsignados || []).map(c => {
         if (c.id !== cocheId) return c;
-        return { ...c, pasajeros: (c.pasajeros || []).filter(p => p !== nombrePasajero) };
+        return {
+          ...c,
+          pasajeros: (c.pasajeros || []).filter(p => p !== nombrePasajero)
+        };
       });
       return { ...b, cochesAsignados: nuevosCoches };
     });
+
     setBolos(nuevosBolos);
     await guardarEnNube(null, nuevosBolos, null);
   };
@@ -497,7 +498,10 @@ export default function CharangaSaraoApp() {
   const guardarEdicionBolo = async (e) => {
     e.preventDefault();
     if (!esGestorBolos || !boloEditandoId) return;
-    if (!editLugarBolo.trim() || !editFechaBolo) return alert('El lugar y la fecha son obligatorios.');
+    if (!editLugarBolo.trim() || !editFechaBolo) {
+      alert('El lugar y la fecha son obligatorios.');
+      return;
+    }
 
     registrarSnapshot();
     const nuevosBolos = bolos.map(b => {
@@ -525,13 +529,16 @@ export default function CharangaSaraoApp() {
   };
 
   // =========================================================================
-  // FUNCIONES DE ENSAYOS Y PRESUPUESTOS
+  // FUNCIONES DE ENSAYOS
   // =========================================================================
 
   const abrirModalNuevoEnsayo = () => {
     if (!esGestorBolos) return;
     setEnsayoEditandoId(null);
-    setLugarEnsayo(''); setFechaEnsayo(''); setHoraEnsayo(''); setRepertorioEnsayo('');
+    setLugarEnsayo('');
+    setFechaEnsayo('');
+    setHoraEnsayo('');
+    setRepertorioEnsayo('');
     setShowModalEnsayo(true);
   };
 
@@ -548,30 +555,61 @@ export default function CharangaSaraoApp() {
   const guardarEnsayo = async (e) => {
     e.preventDefault();
     if (!esGestorBolos) return;
-    if (!lugarEnsayo.trim() || !fechaEnsayo || !horaEnsayo.trim()) return alert('Indica lugar, día y hora.');
+    if (!lugarEnsayo.trim() || !fechaEnsayo || !horaEnsayo.trim()) {
+      alert('Por favor indica el lugar, el día y la hora del ensayo.');
+      return;
+    }
 
     registrarSnapshot();
-    const nuevosBolos = ensayoEditandoId
-      ? bolos.map(b => b.id === ensayoEditandoId ? {
-          ...b, titulo: 'Ensayo', lugar: lugarEnsayo.trim(), fecha: fechaEnsayo,
-          horaInicio: horaEnsayo.trim(), repertorio: repertorioEnsayo.trim(), estadoBolo: 'ensayo'
-        } : b)
-      : [...bolos, {
-          id: Date.now(), titulo: 'Ensayo', lugar: lugarEnsayo.trim(), fecha: fechaEnsayo,
-          horaInicio: horaEnsayo.trim(), horaFin: '', repertorio: repertorioEnsayo.trim(),
-          vestuario: 'Por definir', presupuesto: 0, conFactura: false, estadoBolo: 'ensayo',
-          cochesAsignados: [], musicosExtras: [], pagosMiembros: {}
-        }];
+    let nuevosBolos;
+
+    if (ensayoEditandoId) {
+      nuevosBolos = bolos.map(b => {
+        if (b.id === ensayoEditandoId) {
+          return {
+            ...b,
+            titulo: 'Ensayo',
+            lugar: lugarEnsayo.trim(),
+            fecha: fechaEnsayo,
+            horaInicio: horaEnsayo.trim(),
+            repertorio: repertorioEnsayo.trim(),
+            estadoBolo: 'ensayo'
+          };
+        }
+        return b;
+      });
+    } else {
+      const nuevoEnsayoObj = {
+        id: Date.now(),
+        titulo: 'Ensayo',
+        lugar: lugarEnsayo.trim(),
+        fecha: fechaEnsayo,
+        horaInicio: horaEnsayo.trim(),
+        horaFin: '',
+        repertorio: repertorioEnsayo.trim(),
+        vestuario: 'Por definir',
+        presupuesto: 0,
+        conFactura: false,
+        estadoBolo: 'ensayo',
+        cochesAsignados: [],
+        musicosExtras: []
+      };
+      nuevosBolos = [...bolos, nuevoEnsayoObj];
+    }
 
     setBolos(nuevosBolos);
     setShowModalEnsayo(false);
     setEnsayoEditandoId(null);
+    setLugarEnsayo('');
+    setFechaEnsayo('');
+    setHoraEnsayo('');
+    setRepertorioEnsayo('');
     await guardarEnNube(null, nuevosBolos, null);
   };
 
   const eliminarEnsayo = async (ensayoId, ensayoLugar, ensayoFecha) => {
     if (!esGestorBolos) return;
-    if (confirm(`¿Eliminar el ensayo en "${ensayoLugar}" (${ensayoFecha})?`)) {
+    if (confirm(`¿Eliminar el ensayo en "${ensayoLugar}" del día ${ensayoFecha}? Desaparecerá de la lista y del calendario.`)) {
       registrarSnapshot();
       const nuevosBolos = bolos.filter(b => b.id !== ensayoId);
       const nuevosMiembros = miembros.map(m => {
@@ -585,6 +623,10 @@ export default function CharangaSaraoApp() {
       await guardarEnNube(nuevosMiembros, nuevosBolos, null);
     }
   };
+
+  // =========================================================================
+  // FUNCIONES DE BOLOS PRESUPUESTADOS
+  // =========================================================================
 
   const abrirModalConfirmarPresupuesto = (bolo) => {
     if (!esGestorBolos) return;
@@ -602,28 +644,39 @@ export default function CharangaSaraoApp() {
   const confirmarBoloPresupuestadoDefinitivo = async (e) => {
     e.preventDefault();
     if (!esGestorBolos || !presupuestoAConfirmarId) return;
+    if (!editLugarBolo.trim() || !editFechaBolo) {
+      alert('El lugar y la fecha son obligatorios.');
+      return;
+    }
+
     registrarSnapshot();
-    const nuevosBolos = bolos.map(b => b.id === presupuestoAConfirmarId ? {
-      ...b,
-      lugar: editLugarBolo.trim(),
-      titulo: editTituloBolo.trim() || 'Actuación',
-      fecha: editFechaBolo,
-      horaInicio: editHoraInicioBolo,
-      horaFin: editHoraFinBolo,
-      presupuesto: parseFloat(editPresupuestoBolo) || 0,
-      conFactura: editConFacturaBolo,
-      estadoBolo: 'confirmado'
-    } : b);
+    const nuevosBolos = bolos.map(b => {
+      if (b.id === presupuestoAConfirmarId) {
+        return {
+          ...b,
+          lugar: editLugarBolo.trim(),
+          titulo: editTituloBolo.trim() || 'Actuación',
+          fecha: editFechaBolo,
+          horaInicio: editHoraInicioBolo,
+          horaFin: editHoraFinBolo,
+          presupuesto: parseFloat(editPresupuestoBolo) || 0,
+          conFactura: editConFacturaBolo,
+          estadoBolo: 'confirmado'
+        };
+      }
+      return b;
+    });
 
     setBolos(nuevosBolos);
     setShowModalConfirmarPresupuesto(false);
     setPresupuestoAConfirmarId(null);
     await guardarEnNube(null, nuevosBolos, null);
+    alert(`¡Bolo en ${editLugarBolo.trim()} confirmado! Ya aparece en color verde en el calendario oficial y en Próximos Bolos.`);
   };
 
   const rechazarBoloPresupuestado = async (boloId, boloLugar) => {
     if (!esGestorBolos) return;
-    if (confirm(`¿Rechazar y descartar el presupuesto de "${boloLugar}"?`)) {
+    if (confirm(`¿Rechazar y descartar el presupuesto de "${boloLugar}"? Desaparecerá del listado y del calendario.`)) {
       registrarSnapshot();
       const nuevosBolos = bolos.filter(b => b.id !== boloId);
       if (boloSeleccionadoId === boloId) setBoloSeleccionadoId(null);
@@ -656,7 +709,10 @@ export default function CharangaSaraoApp() {
   };
 
   const eliminarDisponibilidadMiembro = async (miembroId, cuerdaMiembro, nombreMiembro) => {
-    if (!puedeEliminarAsistencia(cuerdaMiembro)) return;
+    if (!puedeEliminarAsistencia(cuerdaMiembro)) {
+      alert(`Como jefe de cuerda, solo puedes descartar músicos de tu cuerda (${usuarioActual.cuerda}).`);
+      return;
+    }
     if (confirm(`¿Descartar a ${nombreMiembro} de este evento?`)) {
       registrarSnapshot();
       const nuevaLista = miembros.map(m => {
@@ -679,12 +735,17 @@ export default function CharangaSaraoApp() {
 
   const agregarMusicoExtra = async (e) => {
     e.preventDefault();
-    if (!nombreExtra.trim() || !instrumentoExtra) return;
+    if (!nombreExtra.trim() || !instrumentoExtra) {
+      alert('Introduce el nombre del músico y su instrumento.');
+      return;
+    }
+
     const instObj = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === instrumentoExtra);
     const cuerdaExtra = instObj?.cuerda || 'Saxos';
 
     if (!esAdmin && !esGestorBolos && usuarioActual.cuerda !== cuerdaExtra) {
-      return alert(`Solo puedes añadir refuerzos para tu cuerda (${usuarioActual.cuerda}).`);
+      alert(`Solo puedes añadir refuerzos para tu cuerda (${usuarioActual.cuerda}).`);
+      return;
     }
 
     registrarSnapshot();
@@ -694,28 +755,44 @@ export default function CharangaSaraoApp() {
       charanga: charangaExtra.trim() || 'Independiente',
       instrumento: instrumentoExtra,
       cuerda: cuerdaExtra,
-      agregadoPor: usuarioActual.nombre,
-      musica: 0,
-      pagado: false
+      agregadoPor: usuarioActual.nombre
     };
 
-    const nuevosBolos = bolos.map(b => b.id === boloSeleccionadoId ? {
-      ...b, musicosExtras: [...(b.musicosExtras || []), nuevoExtra]
-    } : b);
+    const nuevosBolos = bolos.map(b => {
+      if (b.id === boloSeleccionadoId) {
+        return {
+          ...b,
+          musicosExtras: [...(b.musicosExtras || []), nuevoExtra]
+        };
+      }
+      return b;
+    });
 
     setBolos(nuevosBolos);
-    setNombreExtra(''); setCharangaExtra(''); setInstrumentoExtra('');
+    setNombreExtra('');
+    setCharangaExtra('');
+    setInstrumentoExtra('');
     setShowModalExtra(false);
     await guardarEnNube(null, nuevosBolos, null);
   };
 
   const eliminarMusicoExtra = async (extraId, cuerdaExtra, nombreExtra) => {
-    if (!puedeEliminarAsistencia(cuerdaExtra)) return;
+    if (!puedeEliminarAsistencia(cuerdaExtra)) {
+      alert(`Solo puedes retirar refuerzos de tu cuerda (${usuarioActual.cuerda}).`);
+      return;
+    }
+
     if (confirm(`¿Retirar al refuerzo ${nombreExtra} de este bolo?`)) {
       registrarSnapshot();
-      const nuevosBolos = bolos.map(b => b.id === boloSeleccionadoId ? {
-        ...b, musicosExtras: (b.musicosExtras || []).filter(ex => ex.id !== extraId)
-      } : b);
+      const nuevosBolos = bolos.map(b => {
+        if (b.id === boloSeleccionadoId) {
+          return {
+            ...b,
+            musicosExtras: (b.musicosExtras || []).filter(ex => ex.id !== extraId)
+          };
+        }
+        return b;
+      });
       setBolos(nuevosBolos);
       await guardarEnNube(null, nuevosBolos, null);
     }
@@ -731,20 +808,20 @@ export default function CharangaSaraoApp() {
     }
   };
 
-  // =========================================================================
-  // BOTE Y FACTURAS
-  // =========================================================================
-
   const agregarMovimientoGeneralBote = async (e) => {
     e.preventDefault();
     if (!esTesorero) return;
     const imp = parseFloat(importeBote);
-    if (isNaN(imp) || imp <= 0 || !conceptoBote.trim()) return;
+    if (isNaN(imp) || imp <= 0 || !conceptoBote.trim()) {
+      alert('Introduce un concepto e importe válidos.');
+      return;
+    }
     registrarSnapshot();
+    const cantidadReal = tipoMovimientoBote === 'ingreso' ? imp : -imp;
     const nuevoMov = {
       id: Date.now(),
       concepto: conceptoBote.trim(),
-      cantidad: tipoMovimientoBote === 'ingreso' ? imp : -imp,
+      cantidad: cantidadReal,
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
       tipo: tipoMovimientoBote,
       autor: usuarioActual.nombre,
@@ -752,7 +829,8 @@ export default function CharangaSaraoApp() {
     };
     const nuevoBote = [nuevoMov, ...movimientosBote];
     setMovimientosBote(nuevoBote);
-    setConceptoBote(''); setImporteBote('');
+    setConceptoBote('');
+    setImporteBote('');
     setShowModalMovimientoBote(false);
     await guardarEnNube(null, null, nuevoBote);
   };
@@ -761,21 +839,29 @@ export default function CharangaSaraoApp() {
     e.preventDefault();
     if (!esConductor) return;
     const km = parseFloat(kmGasolina);
-    if (isNaN(km) || km <= 0) return;
+
+    if (isNaN(km) || km <= 0) {
+      alert('Introduce un número de kilómetros válido.');
+      return;
+    }
 
     const requiereNombreManual = esAdmin && !tieneRolConductor;
     const personaGasto = requiereNombreManual 
       ? conductorGasolinaNombre.trim() 
       : (conductorGasolinaNombre.trim() || usuarioActual.nombre);
 
-    if (!personaGasto) return alert('Indica el conductor.');
+    if (!personaGasto) {
+      alert('Indica el nombre de la persona a la que pertenece este gasto de gasolina.');
+      return;
+    }
 
     const gastoCalculado = parseFloat((km * TARIFA_KM).toFixed(2));
     registrarSnapshot();
 
+    const conceptoTexto = `Gasolina de ${personaGasto} (${km} km × 0,20€/km${destinoGasolina.trim() ? ` - ${destinoGasolina.trim()}` : ''})`;
     const nuevoGasto = {
       id: Date.now(),
-      concepto: `Gasolina de ${personaGasto} (${km} km × 0,20€/km${destinoGasolina.trim() ? ` - ${destinoGasolina.trim()}` : ''})`,
+      concepto: conceptoTexto,
       cantidad: -gastoCalculado,
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
       tipo: 'gasto',
@@ -787,22 +873,34 @@ export default function CharangaSaraoApp() {
 
     const nuevoBote = [nuevoGasto, ...movimientosBote];
     setMovimientosBote(nuevoBote);
-    setKmGasolina(''); setDestinoGasolina(''); setConductorGasolinaNombre('');
+    setKmGasolina('');
+    setDestinoGasolina('');
+    setConductorGasolinaNombre('');
     setShowModalGasolina(false);
     await guardarEnNube(null, null, nuevoBote);
+    alert(`Gasto de gasolina de ${personaGasto} (${gastoCalculado.toFixed(2)} €) apuntado. Se restará del bote cuando se verifique el pago con el tick ✓.`);
   };
 
   const toggleVerificarMovimientoBote = async (movId) => {
-    if (!esTesorero) return;
+    if (!esTesorero) {
+      alert('Solo el Tesorero o el Administrador pueden verificar pagos del bote.');
+      return;
+    }
     registrarSnapshot();
-    const nuevoBote = movimientosBote.map(m => m.id === movId ? { ...m, verificado: !(m.verificado !== false) } : m);
+    const nuevoBote = movimientosBote.map(m => {
+      if (m.id === movId) {
+        const estadoActual = m.verificado !== false;
+        return { ...m, verificado: !estadoActual };
+      }
+      return m;
+    });
     setMovimientosBote(nuevoBote);
     await guardarEnNube(null, null, nuevoBote);
   };
 
   const eliminarMovimientoBote = async (movId) => {
     if (!esTesorero) return;
-    if (confirm('¿Eliminar este movimiento del bote?')) {
+    if (confirm('¿Deseas eliminar este movimiento del bote?')) {
       registrarSnapshot();
       const nuevoBote = movimientosBote.filter(m => m.id !== movId);
       setMovimientosBote(nuevoBote);
@@ -810,33 +908,48 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  // =========================================================================
+  // FUNCIONES DE FACTURACIÓN
+  // =========================================================================
+
   const extraerImporteDeTexto = (texto) => {
     if (!texto) return null;
     let candidatos = [];
+
     const regexClave = /(?:total|importe|pagar|base|cuota|neto|factura|eur|€)[^0-9]*([0-9]{1,5}(?:[.,][0-9]{1,2})?)/gi;
     let match;
     while ((match = regexClave.exec(texto)) !== null) {
       const val = parseFloat(match[1].replace(',', '.'));
       if (!isNaN(val) && val > 0 && val < 50000) candidatos.push(val);
     }
+
     if (candidatos.length === 0) {
       const regexMoneda = /\b([0-9]{1,4}[.,][0-9]{2})\b/g;
       while ((match = regexMoneda.exec(texto)) !== null) {
         const val = parseFloat(match[1].replace(',', '.'));
-        if (!isNaN(val) && val > 0.5 && val < 25000 && val !== 20.26 && val !== 20.27) candidatos.push(val);
+        if (!isNaN(val) && val > 0.5 && val < 25000 && val !== 20.26 && val !== 20.27) {
+          candidatos.push(val);
+        }
       }
     }
-    return candidatos.length > 0 ? Math.max(...candidatos).toFixed(2) : null;
+
+    if (candidatos.length > 0) {
+      return Math.max(...candidatos).toFixed(2);
+    }
+    return null;
   };
 
   const manejarSeleccionArchivoFactura = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     setArchivoFactura(file);
     setNombreArchivoFactura(file.name);
-    if (!conceptoFactura) setConceptoFactura(file.name.replace(/\.[^/.]+$/, ""));
+    if (!conceptoFactura) {
+      setConceptoFactura(file.name.replace(/\.[^/.]+$/, ""));
+    }
     setAnalizandoFactura(true);
-    setMensajeAnalisis('Analizando documento...');
+    setMensajeAnalisis('Analizando documento para detectar el importe...');
 
     const readerDataUrl = new FileReader();
     readerDataUrl.onload = (ev) => {
@@ -847,18 +960,25 @@ export default function CharangaSaraoApp() {
           img.onload = () => {
             const canvas = document.createElement('canvas');
             const maxDim = 900;
-            let w = img.width, h = img.height;
+            let w = img.width;
+            let h = img.height;
             if (w > maxDim || h > maxDim) {
               if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
               else { w = Math.round((w * maxDim) / h); h = maxDim; }
             }
-            canvas.width = w; canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
             setPreviewArchivoUrl(canvas.toDataURL('image/jpeg', 0.7));
           };
           img.src = result;
         } else {
-          setPreviewArchivoUrl(file.size < 600000 ? result : '');
+          if (file.size < 600000) {
+            setPreviewArchivoUrl(result);
+          } else {
+            setPreviewArchivoUrl('');
+          }
         }
       }
     };
@@ -866,35 +986,45 @@ export default function CharangaSaraoApp() {
 
     try {
       const importeEnNombre = extraerImporteDeTexto(file.name);
+
       if (file.type === 'application/pdf') {
         const arrayBuffer = await file.arrayBuffer();
-        const rawText = new TextDecoder('iso-8859-1').decode(arrayBuffer);
+        const decoder = new TextDecoder('iso-8859-1');
+        const rawText = decoder.decode(arrayBuffer);
         const bloquesTexto = (rawText.match(/\(([^()]+)\)/g) || []).map(s => s.slice(1, -1)).join(' ');
         const detectado = extraerImporteDeTexto(bloquesTexto) || extraerImporteDeTexto(rawText) || importeEnNombre;
+
         if (detectado) {
           setImporteFacturaDetectado(String(detectado));
-          setMensajeAnalisis(`✓ Importe detectado: ${detectado} €`);
-        } else setMensajeAnalisis('ℹ️ PDF cargado. Confirma el importe abajo.');
+          setMensajeAnalisis(`✓ Importe detectado automáticamente del PDF: ${detectado} € (puedes corregirlo si es necesario).`);
+        } else {
+          setMensajeAnalisis('ℹ️ PDF cargado. Confirma o escribe el importe abajo.');
+        }
       } else if (file.type.startsWith('image/')) {
         if (!window.Tesseract) {
           await new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-            script.onload = resolve; script.onerror = reject;
+            script.onload = resolve;
+            script.onerror = reject;
             document.head.appendChild(script);
           });
         }
+
         if (window.Tesseract) {
           const { data: { text } } = await window.Tesseract.recognize(file, 'spa');
           const detectado = extraerImporteDeTexto(text) || importeEnNombre;
           if (detectado) {
             setImporteFacturaDetectado(String(detectado));
-            setMensajeAnalisis(`✓ Importe detectado por OCR: ${detectado} €`);
-          } else setMensajeAnalisis('ℹ️ Imagen lista. Introduce el importe manualmente.');
+            setMensajeAnalisis(`✓ Importe detectado por escáner óptico (OCR): ${detectado} € (revísalo antes de confirmar).`);
+          } else {
+            setMensajeAnalisis('ℹ️ Imagen analizada. Por favor introduce o verifica el importe manualmente.');
+          }
         }
       }
     } catch (err) {
-      setMensajeAnalisis('ℹ️ Documento listo. Introduce el importe abajo.');
+      console.error("Error analizando documento:", err);
+      setMensajeAnalisis('ℹ️ Documento listo. Introduce el importe total de la factura abajo.');
     } finally {
       setAnalizandoFactura(false);
     }
@@ -903,7 +1033,14 @@ export default function CharangaSaraoApp() {
   const guardarYEnviarFactura = async (e) => {
     e.preventDefault();
     const imp = parseFloat(String(importeFacturaDetectado).replace(',', '.'));
-    if (isNaN(imp) || imp <= 0 || !conceptoFactura.trim()) return;
+    if (isNaN(imp) || imp <= 0) {
+      alert('Por favor introduce un importe de factura válido mayor que 0.');
+      return;
+    }
+    if (!conceptoFactura.trim()) {
+      alert('Indica un concepto o proveedor para la factura.');
+      return;
+    }
 
     setEnviandoFactura(true);
     registrarSnapshot();
@@ -931,24 +1068,48 @@ export default function CharangaSaraoApp() {
         const formData = new FormData();
         formData.append('_subject', `Nueva Factura Charanga Sarao - ${usuarioActual.nombre} (${imp.toFixed(2)} €)`);
         formData.append('Músico', usuarioActual.nombre);
+        formData.append('Cuerda', usuarioActual.cuerda);
         formData.append('Concepto_Factura', conceptoFactura.trim());
         formData.append('Importe_Facturado', `${imp.toFixed(2)} €`);
+        formData.append('Fecha_Subida', nuevaFactura.fecha);
         formData.append('_captcha', 'false');
-        if (archivoFactura) formData.append('attachment', archivoFactura, archivoFactura.name);
-        await fetch(`https://formsubmit.co/${correoFacturacion.trim()}`, { method: 'POST', body: formData });
-      } catch (err) { console.error(err); }
+        if (archivoFactura) {
+          formData.append('attachment', archivoFactura, archivoFactura.name);
+        }
+
+        await fetch(`https://formsubmit.co/${correoFacturacion.trim()}`, {
+          method: 'POST',
+          body: formData
+        });
+      } catch (err) {
+        console.error("Error enviando email automático:", err);
+      }
     }
 
     setEnviandoFactura(false);
-    setArchivoFactura(null); setPreviewArchivoUrl(''); setNombreArchivoFactura('');
-    setConceptoFactura(''); setImporteFacturaDetectado(''); setMensajeAnalisis('');
+    setArchivoFactura(null);
+    setPreviewArchivoUrl('');
+    setNombreArchivoFactura('');
+    setConceptoFactura('');
+    setImporteFacturaDetectado('');
+    setMensajeAnalisis('');
     setShowModalSubirFactura(false);
+
+    if (correoFacturacion) {
+      alert(`Factura de ${imp.toFixed(2)} € registrada y enviada automáticamente a ${correoFacturacion}.`);
+    } else {
+      alert(`Factura de ${imp.toFixed(2)} € registrada correctamente.`);
+    }
   };
 
   const eliminarFactura = async (factura) => {
     const esMia = factura.usuarioId === usuarioActual.id || factura.usuarioNombre?.toLowerCase() === usuarioActual.nombre?.toLowerCase();
-    if (!esMia && !esFacturador && !esAdmin) return;
-    if (confirm(`¿Eliminar la factura "${factura.concepto}"?`)) {
+    if (!esMia && !esFacturador && !esAdmin) {
+      alert('Solo puedes borrar tus propias facturas.');
+      return;
+    }
+
+    if (confirm(`¿Seguro que deseas eliminar la factura "${factura.concepto}" (${factura.importe.toFixed(2)} €)?`)) {
       registrarSnapshot();
       const nuevasFacturas = facturas.filter(f => f.id !== factura.id);
       setFacturas(nuevasFacturas);
@@ -961,7 +1122,7 @@ export default function CharangaSaraoApp() {
     if (!esAdmin) return;
     setCorreoFacturacion(inputCorreoAdmin.trim());
     await guardarEnNube(null, null, null, null, inputCorreoAdmin.trim());
-    alert(`Correo de facturación actualizado.`);
+    alert(`Correo de facturación actualizado a: ${inputCorreoAdmin.trim() || '(Vacío)'}`);
   };
 
   const abrirModalParaFecha = (fechaStr) => {
@@ -971,62 +1132,53 @@ export default function CharangaSaraoApp() {
     setShowModalBolo(true);
   };
 
-  // CÁLCULO DE TOTALES
+  // CÁLCULO DE TOTALES BOTE
   const movimientosContabilizados = movimientosBote.filter(m => m.verificado !== false);
   const totalIngresos = movimientosContabilizados.filter(m => m.cantidad > 0).reduce((acc, m) => acc + m.cantidad, 0);
   const totalGastos = movimientosContabilizados.filter(m => m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const totalPendienteGasolina = movimientosBote.filter(m => m.verificado === false && m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const saldoTotal = totalIngresos - totalGastos;
 
+  // CÁLCULO DE TOTALES DE FACTURAS
   const misFacturas = facturas.filter(
     f => f.usuarioId === usuarioActual?.id || f.usuarioNombre?.trim().toLowerCase() === usuarioActual?.nombre?.trim().toLowerCase()
   );
   const miTotalFacturado = misFacturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
   const totalGeneralFacturado = facturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
 
+  // COMPROBACIÓN EXACTA DE FECHA: DESCARTA CUALQUIER BOLO CUYO DÍA YA PASÓ
   const esBoloVigente = (fechaStr) => {
     if (!fechaStr) return false;
-    const partes = String(fechaStr).trim().split('-');
+    const limpio = String(fechaStr).trim();
+    const partes = limpio.split('-');
     if (partes.length !== 3) return false;
-    const fechaBolo = new Date(parseInt(partes[0], 10), parseInt(partes[1], 10) - 1, parseInt(partes[2], 10));
+
+    const anio = parseInt(partes[0], 10);
+    const mes = parseInt(partes[1], 10) - 1;
+    const dia = parseInt(partes[2], 10);
+
+    const fechaBolo = new Date(anio, mes, dia);
     fechaBolo.setHours(0, 0, 0, 0);
+
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
+
     return fechaBolo.getTime() >= hoy.getTime();
   };
 
-  const bolosConfirmados = bolos
-    .filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo')
+  const bolosConfirmados = bolos.filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo');
+
+  const proximosBolosConfirmados = bolos
+    .filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo' && esBoloVigente(b.fecha))
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-  const proximosBolosConfirmados = bolosConfirmados.filter(b => esBoloVigente(b.fecha));
-  const bolosPresupuestados = bolos.filter(b => b.estadoBolo === 'presupuestado').sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-  const listaEnsayos = bolos.filter(b => b.estadoBolo === 'ensayo').sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  const bolosPresupuestados = bolos
+    .filter(b => b.estadoBolo === 'presupuestado')
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-  // AGRUPACIÓN DE BOLOS HECHOS POR CADA EXTRA (PARA EL ADMIN EN FICHA PERSONAL)
-  const resumenExtrasAdmin = {};
-  bolosConfirmados.forEach(b => {
-    (b.musicosExtras || []).forEach(ex => {
-      const clave = ex.nombre.trim().toLowerCase();
-      if (!resumenExtrasAdmin[clave]) {
-        resumenExtrasAdmin[clave] = {
-          nombre: ex.nombre,
-          charanga: ex.charanga,
-          instrumento: ex.instrumento,
-          cuerda: ex.cuerda,
-          bolosHechos: []
-        };
-      }
-      resumenExtrasAdmin[clave].bolosHechos.push({
-        boloId: b.id,
-        extraId: ex.id,
-        lugar: b.lugar,
-        fecha: b.fecha,
-        musica: parseFloat(ex.musica) || 0,
-        pagado: Boolean(ex.pagado)
-      });
-    });
-  });
+  const listaEnsayos = bolos
+    .filter(b => b.estadoBolo === 'ensayo')
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
   const exportarEstadisticasExcel = () => {
     let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Bolos Confirmados;Total Bolos;Porcentaje (%);Total Facturado (€)\n";
@@ -1041,8 +1193,9 @@ export default function CharangaSaraoApp() {
         .reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
       csvContent += `${m.nombre};${m.instrumentos.join(', ')};${m.cuerda};${dispoCount};${totalBolos};${porcentaje}%;${facturadoM.toFixed(2)}\n`;
     });
+    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("href", encodedUri);
     link.setAttribute("download", "estadisticas_sarao.csv");
     document.body.appendChild(link);
     link.click();
@@ -1060,9 +1213,9 @@ export default function CharangaSaraoApp() {
   if (!autenticado) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-zinc-900 border border-green-500/30 rounded-3xl p-6 shadow-2xl">
+        <div className="max-w-md w-full bg-zinc-900 border border-green-500/30 rounded-3xl p-6 shadow-2xl relative">
           <div className="text-center mb-6">
-            <div className="w-24 h-24 mx-auto mb-3 rounded-2xl overflow-hidden border-2 border-green-500/40 bg-black">
+            <div className="w-24 h-24 mx-auto mb-3 rounded-2xl overflow-hidden border-2 border-green-500/40 shadow-lg bg-black">
               <img src="PEGATINAS.jpg" alt="Logo" className="w-full h-full object-cover" />
             </div>
             <h1 className="text-4xl tracking-wider text-green-400" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
@@ -1112,6 +1265,7 @@ export default function CharangaSaraoApp() {
                 onChange={e => setPasswordInput(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
               />
+              <p className="text-[10px] text-zinc-500 mt-1">Tu sesión se mantendrá guardada para no volver a iniciar sesión.</p>
             </div>
 
             <button type="submit" className="w-full bg-green-500 text-black font-black py-3.5 rounded-2xl text-sm shadow-lg cursor-pointer mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif", fontSize: '1.2rem' }}>
@@ -1124,6 +1278,7 @@ export default function CharangaSaraoApp() {
   }
 
   const boloActual = bolos.find(b => b.id === boloSeleccionadoId);
+
   const mesSeleccionado = MESES_PERMITIDOS[mesIndexActivo] || MESES_PERMITIDOS[0];
   const totalDiasMes = new Date(mesSeleccionado.anio, mesSeleccionado.mes + 1, 0).getDate();
   const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7;
@@ -1134,41 +1289,26 @@ export default function CharangaSaraoApp() {
 
   const listaConductoresPlantilla = miembros.filter(m => m.roles?.includes('conductor'));
 
-  // CÁLCULO DE SUMATORIOS DE LA FICHA PERSONAL DEL USUARIO ACTUAL
-  let sumBolosRealizados = 0;
-  let sumMusicaUsuario = 0;
-  let sumGasolinaUsuario = 0;
-  let sumKmUsuario = 0;
-
-  bolosConfirmados.forEach(b => {
-    const estadoAsist = usuarioActual.disponibilidadBolos?.[b.id]?.estado;
-    const pagoM = b.pagosMiembros?.[usuarioActual.id] || {};
-    if (estadoAsist === 'puedo') sumBolosRealizados += 1;
-    if (estadoAsist !== 'no') {
-      sumMusicaUsuario += parseFloat(pagoM.musica) || 0;
-      sumGasolinaUsuario += parseFloat(pagoM.gasolina) || 0;
-      sumKmUsuario += parseFloat(pagoM.km) || 0;
-    }
-  });
-
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
       
+      {/* BOTÓN DESHACER (SOLO ADMIN) */}
       {esAdmin && historialEstados.length > 0 && (
         <div className="fixed top-20 right-4 z-50">
           <button
             onClick={deshacerUltimoCambio}
             className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-black px-3 py-2 rounded-2xl shadow-2xl text-xs border border-black/40 transition active:scale-95 animate-bounce"
+            title="Deshacer el último cambio realizado"
           >
-            <Undo2 className="w-4 h-4"/> Deshacer ({historialEstados.length})
+            <Undo2 className="w-4 h-4"/> Deshacer acción ({historialEstados.length})
           </button>
         </div>
       )}
 
-      <header className="bg-gradient-to-b from-zinc-900 to-black border-b border-green-500/20 px-4 sm:px-6 py-4 sticky top-0 z-30 backdrop-blur-md bg-opacity-90">
+      <header className="bg-gradient-to-b from-zinc-900 to-black border-b border-green-500/20 px-4 sm:px-6 py-4 sm:py-5 sticky top-0 z-30 backdrop-blur-md bg-opacity-90">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl overflow-hidden border border-green-500/40 bg-black shrink-0">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl overflow-hidden border border-green-500/40 bg-black shrink-0">
               <img src="PEGATINAS.jpg" alt="Logo" className="w-full h-full object-cover" />
             </div>
             <div>
@@ -1179,6 +1319,21 @@ export default function CharangaSaraoApp() {
                 {esAdmin && (
                   <span className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
                     <Shield className="w-3 h-3"/> Admin
+                  </span>
+                )}
+                {!esAdmin && esGestorBolos && (
+                  <span className="bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">
+                    Gestor Bolos
+                  </span>
+                )}
+                {!esAdmin && esFacturador && (
+                  <span className="bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">
+                    Facturador
+                  </span>
+                )}
+                {!esAdmin && esJefeCuerda && (
+                  <span className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">
+                    Jefe {usuarioActual.cuerda}
                   </span>
                 )}
               </div>
@@ -1192,7 +1347,7 @@ export default function CharangaSaraoApp() {
             <button onClick={() => { setPestañaActiva('landing'); setBoloSeleccionadoId(null); }} className={`p-2.5 rounded-xl border transition ${pestañaActiva === 'landing' ? 'bg-green-500 text-black border-green-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800'}`}>
               <Home className="w-4 h-4"/>
             </button>
-            <button onClick={cerrarSesion} className="p-2.5 rounded-xl border border-zinc-800 text-zinc-400 hover:text-rose-400 bg-zinc-900 text-xs font-bold">
+            <button onClick={cerrarSesion} className="p-2.5 rounded-xl border border-zinc-800 text-zinc-400 hover:text-rose-400 bg-zinc-900 text-xs font-bold" title="Cerrar sesión">
               Salir
             </button>
           </div>
@@ -1204,19 +1359,25 @@ export default function CharangaSaraoApp() {
         {/* INICIO / LANDING PAGE */}
         {pestañaActiva === 'landing' && (
           <div className="space-y-6">
-            <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-5 sm:p-8 shadow-2xl">
-              <span className="bg-green-500/20 text-green-400 text-xs font-black px-3 py-1 rounded-full uppercase border border-green-500/30">
-                En directo en la nube ☁️
-              </span>
-              <h2 className="text-3xl sm:text-4xl tracking-wide text-white mt-3" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                Bienvenido a la app de gestión de Sarao
-              </h2>
-              <p className="text-zinc-300 text-sm mt-1 max-w-xl">
-                Consulta tus próximos bolos, apúntate a los coches, revisa los ensayos y lleva al día tus cobros en tu Ficha Personal.
-              </p>
+            <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-5 sm:p-8 relative overflow-hidden shadow-2xl">
+              <div className="relative z-10">
+                <span className="bg-green-500/20 text-green-400 text-xs font-black px-3 py-1 rounded-full uppercase border border-green-500/30">
+                  En directo en la nube ☁️
+                </span>
+                <h2 className="text-3xl sm:text-4xl tracking-wide text-white mt-3" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                  Bienvenido a la app de gestión de Sarao
+                </h2>
+                <p className="text-zinc-300 text-sm mt-1 max-w-xl">
+                  {esAdmin 
+                    ? 'Modo Administrador: control de bolos, ensayos, presupuestos en curso, bote, plantilla y facturación.' 
+                    : esGestorBolos
+                      ? 'Rol Bolos activo: puedes gestionar el calendario, ensayos, vestuario y bolos presupuestados.'
+                      : 'Calendario de bolos, ensayos, confirmación de asistencia, plazas en coches, bote y facturas.'}
+                </p>
+              </div>
             </div>
 
-            {/* CARRUSEL DE PRÓXIMOS BOLOS */}
+            {/* CARRUSEL DESLIZABLE HORIZONTAL: SOLO PRÓXIMOS BOLOS CONFIRMADOS Y VIGENTES */}
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -1239,14 +1400,18 @@ export default function CharangaSaraoApp() {
                     return (
                       <div
                         key={b.id}
-                        onClick={() => { setBoloSeleccionadoId(b.id); setPestañaActiva('bolos'); }}
-                        className="snap-start shrink-0 w-[280px] sm:w-[320px] bg-zinc-900 border border-zinc-800 hover:border-green-500/70 rounded-3xl p-5 cursor-pointer transition shadow-xl flex flex-col justify-between"
+                        onClick={() => {
+                          setBoloSeleccionadoId(b.id);
+                          setPestañaActiva('bolos');
+                        }}
+                        className="snap-start shrink-0 w-[280px] sm:w-[320px] bg-zinc-900 border border-zinc-800 hover:border-green-500/70 rounded-3xl p-5 cursor-pointer transition shadow-xl hover:scale-[1.02] flex flex-col justify-between"
                       >
                         <div>
                           <div className="flex justify-between items-start gap-2 mb-2">
                             <span className="text-xs font-black px-3 py-1 rounded-full border bg-green-500/20 text-green-400 border-green-500/30">
                               📅 {b.fecha}
                             </span>
+
                             {dispMiembro && (
                               <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                                 dispMiembro === 'puedo' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
@@ -1257,10 +1422,16 @@ export default function CharangaSaraoApp() {
                               </span>
                             )}
                           </div>
-                          <h4 className="text-2xl font-black text-white tracking-wide mt-1 truncate" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+
+                          <h4 className="text-2xl font-black text-white tracking-wide mt-1 line-clamp-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                             {b.lugar}
                           </h4>
-                          {b.titulo && <p className="text-xs font-semibold mt-0.5 text-green-300">{b.titulo}</p>}
+                          {b.titulo && (
+                            <p className="text-xs font-semibold mt-0.5 text-green-300">
+                              {b.titulo}
+                            </p>
+                          )}
+
                           <div className="mt-3 pt-3 border-t border-zinc-800/80 space-y-1.5 text-xs text-zinc-300">
                             <p className="flex items-center gap-1.5 text-zinc-400">
                               <Clock className="w-3.5 h-3.5 text-green-400"/> Horario: <strong className="text-white">{b.horaInicio || '13:00h'} - {b.horaFin || '17:00h'}</strong>
@@ -1270,11 +1441,14 @@ export default function CharangaSaraoApp() {
                             </p>
                           </div>
                         </div>
+
                         <div className="mt-4 pt-3 border-t border-zinc-800/80 flex justify-between items-center">
                           <span className="text-[11px] font-bold text-zinc-400">
                             👥 <strong className="text-emerald-400">{numConfirmados}</strong> en plantilla
                           </span>
-                          <span className="text-xs font-bold text-green-400">Ver detalles &rarr;</span>
+                          <span className="text-xs font-bold flex items-center gap-1 text-green-400">
+                            Ver detalles &rarr;
+                          </span>
                         </div>
                       </div>
                     );
@@ -1284,30 +1458,21 @@ export default function CharangaSaraoApp() {
             </div>
 
             {/* ACCESOS DIRECTOS */}
-            <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="p-3 bg-green-500/20 text-green-400 rounded-2xl w-fit mb-3"><CalendarIcon className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Calendario</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Bolos, presupuestos y ensayos.</p>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Calendario General</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Confirmados (verde), presupuestos (amarillo) y ensayos (azul).</p>
                 </div>
-                <span className="text-xs font-bold text-green-400 mt-4 block">&rarr; Abrir calendario</span>
-              </div>
-
-              <div onClick={() => setPestañaActiva('ficha')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-emerald-500/40 hover:border-emerald-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl w-fit mb-3"><Award className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Ficha Personal</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Desglose de tus bolos, música, gasolina y km.</p>
-                </div>
-                <span className="text-xs font-bold text-emerald-400 mt-4 block">&rarr; Generado: {(sumMusicaUsuario + sumGasolinaUsuario).toFixed(2)} €</span>
+                <span className="text-xs font-bold text-green-400 mt-4 block">&rarr; Ver calendario</span>
               </div>
 
               <div onClick={() => setPestañaActiva('ensayos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-cyan-500/30 hover:border-cyan-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-2xl w-fit mb-3"><Music className="w-6 h-6"/></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Ensayos</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Lugar, horario y repertorio.</p>
+                  <p className="text-xs text-zinc-400 mt-1">Lugar, horario y repertorio de los ensayos fijados.</p>
                 </div>
                 <span className="text-xs font-bold text-cyan-400 mt-4 block">&rarr; Ver ensayos ({listaEnsayos.length})</span>
               </div>
@@ -1315,232 +1480,49 @@ export default function CharangaSaraoApp() {
               <div onClick={() => setPestañaActiva('presupuestos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-amber-500/30 hover:border-amber-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><ClipboardList className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Presupuestos</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Bolos pendientes de aceptar.</p>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bolos Presupuestados</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Presupuestos enviados pendientes de confirmar o rechazar.</p>
                 </div>
                 <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Pendientes ({bolosPresupuestados.length})</span>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* ========================================================================= */}
-        {/* NUEVA SECCIÓN: FICHA PERSONAL (TABLA DE BOLOS, COBROS, KM Y EXTRAS ADMIN) */}
-        {/* ========================================================================= */}
-        {pestañaActiva === 'ficha' && (
-          <div className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
-              
-              <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-4">
+              <div onClick={() => setPestañaActiva('miembros')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
-                  <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                    FICHA PERSONAL DE {usuarioActual.nombre.toUpperCase()}
-                  </h2>
-                  <div className="flex items-center gap-4 text-[11px] text-zinc-400 mt-1 flex-wrap">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Bolo Cobrado (Verde)
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-zinc-500 inline-block"></span> Pendiente / Sin confirmar (Normal)
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> No asiste (Rojo tachado)
-                    </span>
-                  </div>
+                  <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Users className="w-6 h-6"/></div>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Plantilla</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Integrantes y asignación de roles.</p>
                 </div>
+                <span className="text-xs font-bold text-fuchsia-400 mt-4 block">&rarr; Ver plantilla ({miembros.length})</span>
               </div>
 
-              {/* TABLA PERSONAL DE BOLOS */}
-              {bolosConfirmados.length === 0 ? (
-                <p className="text-xs text-zinc-500 text-center py-6">No hay bolos confirmados registrados todavía.</p>
-              ) : (
-                <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-black/60">
-                  <table className="w-full text-left text-xs">
-                    <thead className="text-[10px] uppercase text-zinc-400 bg-zinc-950 border-b border-zinc-800">
-                      <tr>
-                        <th className="p-3.5">Bolo / Fecha</th>
-                        <th className="p-3.5">Asistencia / Estado</th>
-                        <th className="p-3.5">Cantidad Música (€)</th>
-                        <th className="p-3.5">¿Lleva Coche?</th>
-                        <th className="p-3.5">Kilómetros (Km)</th>
-                        <th className="p-3.5">Gasolina Cobrada (€)</th>
-                        <th className="p-3.5">Total Bolo (€)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800/70">
-                      {bolosConfirmados.map(b => {
-                        const estadoAsist = usuarioActual.disponibilidadBolos?.[b.id]?.estado;
-                        const noVa = estadoAsist === 'no';
-                        const pago = b.pagosMiembros?.[usuarioActual.id] || { musica: 0, llevaCoche: false, km: 0, gasolina: 0, pagado: false };
-                        const estaCobrado = Boolean(pago.pagado) && !noVa;
-                        const musicaVal = noVa ? 0 : (parseFloat(pago.musica) || 0);
-                        const gasVal = noVa ? 0 : (parseFloat(pago.gasolina) || 0);
-                        const kmVal = noVa ? 0 : (parseFloat(pago.km) || 0);
-
-                        return (
-                          <tr
-                            key={b.id}
-                            className={`transition ${
-                              noVa
-                                ? 'bg-rose-950/30 text-rose-400 line-through decoration-rose-500/80 opacity-75'
-                                : estaCobrado
-                                  ? 'bg-emerald-500/15 text-emerald-200 font-semibold'
-                                  : 'text-zinc-200 hover:bg-zinc-900/60'
-                            }`}
-                          >
-                            <td className="p-3.5">
-                              <p className="font-black text-sm">{b.lugar}</p>
-                              <span className="text-[10px] opacity-80 block">{b.fecha} • {b.titulo || 'Actuación'}</span>
-                            </td>
-                            <td className="p-3.5">
-                              {noVa ? (
-                                <span className="text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full border border-rose-500/40">
-                                  No asiste
-                                </span>
-                              ) : estaCobrado ? (
-                                <span className="text-[10px] font-black uppercase bg-emerald-500 text-black px-2.5 py-0.5 rounded-full">
-                                  ✓ Cobrado
-                                </span>
-                              ) : estadoAsist === 'puedo' ? (
-                                <span className="text-[10px] font-black uppercase bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded-full border border-zinc-700">
-                                  Asiste (Pendiente cobro)
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold text-zinc-400">
-                                  Sin confirmar
-                                </span>
-                              )}
-                            </td>
-                            <td className="p-3.5 font-bold">{musicaVal.toFixed(2)} €</td>
-                            <td className="p-3.5">{!noVa && pago.llevaCoche ? '🚗 Sí' : 'No'}</td>
-                            <td className="p-3.5">{kmVal} km</td>
-                            <td className="p-3.5 font-bold">{gasVal.toFixed(2)} €</td>
-                            <td className="p-3.5 font-black text-sm">{(musicaVal + gasVal).toFixed(2)} €</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    {/* FILA SUMATORIO AL FINAL DE LA LISTA */}
-                    <tfoot className="bg-zinc-950 border-t-2 border-green-500/50 text-white font-black text-xs">
-                      <tr>
-                        <td className="p-4 text-green-400 uppercase">SUMATORIO TOTAL</td>
-                        <td className="p-4 text-emerald-400">{sumBolosRealizados} bolo(s) realizados</td>
-                        <td className="p-4 text-emerald-300">{sumMusicaUsuario.toFixed(2)} € (Música)</td>
-                        <td className="p-4">-</td>
-                        <td className="p-4 text-blue-300">{sumKmUsuario.toFixed(1)} km</td>
-                        <td className="p-4 text-blue-300">{sumGasolinaUsuario.toFixed(2)} € (Gasolina)</td>
-                        <td className="p-4 text-base text-green-400">{(sumMusicaUsuario + sumGasolinaUsuario).toFixed(2)} €</td>
-                      </tr>
-                    </tfoot>
-                  </table>
+              <div onClick={() => setPestañaActiva('bote')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
+                <div>
+                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6"/></div>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bote</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Tesorería y kilometraje (0,20€/km).</p>
                 </div>
-              )}
-
-              {/* TARJETAS RESUMEN DEL SUMATORIO */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase">Bolos Realizados</span>
-                  <p className="text-2xl font-black text-white mt-1">{sumBolosRealizados}</p>
-                </div>
-                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase">Total Música</span>
-                  <p className="text-2xl font-black text-emerald-400 mt-1">{sumMusicaUsuario.toFixed(2)} €</p>
-                </div>
-                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase">Total Gasolina</span>
-                  <p className="text-2xl font-black text-blue-400 mt-1">{sumGasolinaUsuario.toFixed(2)} €</p>
-                </div>
-                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase">Km Recorridos</span>
-                  <p className="text-2xl font-black text-amber-400 mt-1">{sumKmUsuario.toFixed(1)} km</p>
-                </div>
+                <span className="text-xs font-bold text-emerald-400 mt-4 block">&rarr; Saldo ({saldoTotal.toFixed(2)} €)</span>
               </div>
 
-              {/* SECCIÓN EXCLUSIVA PARA EL ADMIN DEBAJO DE SU PERFIL: BOLOS HECHOS POR CADA EXTRA */}
+              <div onClick={() => setPestañaActiva('facturas')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-cyan-500/30 hover:border-cyan-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
+                <div>
+                  <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-2xl w-fit mb-3"><FileText className="w-6 h-6"/></div>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Facturas</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Subir PDFs/fotos y control de facturación.</p>
+                </div>
+                <span className="text-xs font-bold text-cyan-400 mt-4 block">&rarr; Mi total: {miTotalFacturado.toFixed(2)} €</span>
+              </div>
+
               {esAdmin && (
-                <div className="pt-6 border-t border-zinc-800 space-y-4">
+                <div onClick={() => setPestañaActiva('admin')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-rose-500/40 hover:border-rose-500 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                   <div>
-                    <h3 className="text-2xl tracking-wide text-amber-400" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                      CONTROL DE EXTRAS — BOLOS REALIZADOS Y COBROS (SOLO ADMIN)
-                    </h3>
-                    <p className="text-xs text-zinc-400">
-                      Aquí aparece cada músico extra únicamente con los bolos que ha realizado y si los ha cobrado o no.
-                    </p>
+                    <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl w-fit mb-3"><Shield className="w-6 h-6"/></div>
+                    <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Panel Admin</h3>
+                    <p className="text-xs text-zinc-400 mt-1">Estadísticas, roles y correo de facturas.</p>
                   </div>
-
-                  {Object.keys(resumenExtrasAdmin).length === 0 ? (
-                    <div className="p-6 bg-black/40 border border-zinc-800 rounded-2xl text-center text-xs text-zinc-500">
-                      Todavía no hay músicos extras asignados a ningún bolo confirmado.
-                    </div>
-                  ) : (
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      {Object.values(resumenExtrasAdmin).map((extraGroup, idx) => {
-                        const totalExtra = extraGroup.bolosHechos.reduce((acc, item) => acc + item.musica, 0);
-                        return (
-                          <div key={idx} className="bg-black/60 border border-amber-500/30 rounded-2xl p-4 space-y-3">
-                            <div className="flex justify-between items-start border-b border-zinc-800 pb-2.5">
-                              <div>
-                                <span className="text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded">
-                                  Refuerzo • {extraGroup.instrumento}
-                                </span>
-                                <h4 className="text-base font-black text-white mt-1">{extraGroup.nombre}</h4>
-                                <p className="text-[11px] text-zinc-400">Procedencia: {extraGroup.charanga}</p>
-                              </div>
-                              <div className="text-right">
-                                <span className="text-[10px] text-zinc-400 block">Total ({extraGroup.bolosHechos.length} bolos)</span>
-                                <span className="text-base font-black text-amber-400">{totalExtra.toFixed(2)} €</span>
-                              </div>
-                            </div>
-
-                            <div className="space-y-2">
-                              {extraGroup.bolosHechos.map((bh, iBh) => (
-                                <div
-                                  key={iBh}
-                                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs ${
-                                    bh.pagado
-                                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
-                                      : 'bg-zinc-900 border-zinc-800 text-zinc-300'
-                                  }`}
-                                >
-                                  <div>
-                                    <p className="font-bold text-white">📍 {bh.lugar}</p>
-                                    <span className="text-[10px] text-zinc-400">📅 {bh.fecha}</span>
-                                  </div>
-
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="number"
-                                      step="1"
-                                      placeholder="0 €"
-                                      value={bh.musica || ''}
-                                      onChange={e => actualizarPagoExtraEnBolo(bh.boloId, bh.extraId, { musica: parseFloat(e.target.value) || 0 })}
-                                      className="w-16 bg-black border border-zinc-700 rounded-lg px-2 py-1 text-xs text-white font-bold text-right"
-                                      title="Importe del extra en este bolo (€)"
-                                    />
-                                    <span className="text-xs font-bold">€</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => actualizarPagoExtraEnBolo(bh.boloId, bh.extraId, { pagado: !bh.pagado })}
-                                      className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border transition cursor-pointer ${
-                                        bh.pagado
-                                          ? 'bg-emerald-500 text-black border-emerald-400'
-                                          : 'bg-zinc-800 text-amber-300 border-amber-500/40 hover:bg-emerald-500/20'
-                                      }`}
-                                    >
-                                      {bh.pagado ? '✓ Cobrado' : '⏳ Pendiente'}
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <span className="text-xs font-bold text-rose-400 mt-4 block">&rarr; Gestionar</span>
                 </div>
               )}
-
             </div>
           </div>
         )}
@@ -1549,6 +1531,7 @@ export default function CharangaSaraoApp() {
         {pestañaActiva === 'ensayos' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
+              
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
                 <div>
                   <div className="flex items-center gap-2">
@@ -1558,7 +1541,7 @@ export default function CharangaSaraoApp() {
                     </h2>
                   </div>
                   <p className="text-xs text-zinc-400 mt-1">
-                    Aparecen automáticamente en el calendario en color <strong>azul turquesa</strong> bajo el título <strong>"Ensayo"</strong>.
+                    Todos los ensayos fijados aquí se añaden automáticamente al calendario general en color <strong>azul turquesa</strong> bajo el título <strong>"Ensayo"</strong>.
                   </p>
                 </div>
 
@@ -1592,36 +1575,50 @@ export default function CharangaSaraoApp() {
                               🎵 Ensayo
                             </span>
                           </div>
+
                           <h3 className="text-3xl tracking-wide text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                             Ensayo — 📍 {ens.lugar}
                           </h3>
+
                           <div className="mt-3 pt-3 border-t border-cyan-500/20 space-y-1.5 text-xs text-zinc-200">
                             <p className="flex items-center gap-1.5">
                               <Clock className="w-3.5 h-3.5 text-cyan-400"/> Hora: <strong>{ens.horaInicio || 'Por definir'}</strong>
                             </p>
                             <p className="flex items-start gap-1.5">
                               <Music className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5"/> 
-                              <span>Repertorio: <strong className="text-cyan-200">{ens.repertorio || 'General / Por definir'}</strong></span>
+                              <span>Repertorio: <strong className="text-cyan-200">{ens.repertorio ? ens.repertorio : 'General / Por definir'}</strong></span>
                             </p>
                             <p className="text-[11px] text-zinc-400 pt-1">
-                              👥 <strong>{numConfirmados}</strong> confirmado(s)
+                              👥 <strong>{numConfirmados}</strong> músico(s) han confirmado asistencia
                             </p>
                           </div>
                         </div>
 
                         <div className="pt-3 border-t border-cyan-500/20 flex items-center gap-2 flex-wrap">
                           <button
-                            onClick={() => { setBoloSeleccionadoId(ens.id); setPestañaActiva('bolos'); }}
+                            onClick={() => {
+                              setBoloSeleccionadoId(ens.id);
+                              setPestañaActiva('bolos');
+                            }}
                             className="flex-1 bg-cyan-400 hover:bg-cyan-300 text-black font-black py-2 px-3 rounded-xl text-xs text-center transition cursor-pointer"
                           >
-                            Ver en Calendario
+                            Ver en Calendario / Asistencia
                           </button>
+
                           {esGestorBolos && (
                             <>
-                              <button onClick={() => abrirModalEditarEnsayo(ens)} className="bg-zinc-800 hover:bg-zinc-700 text-cyan-300 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1">
+                              <button
+                                onClick={() => abrirModalEditarEnsayo(ens)}
+                                className="bg-zinc-800 hover:bg-zinc-700 text-cyan-300 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1 transition cursor-pointer border border-cyan-500/30"
+                                title="Editar ensayo"
+                              >
                                 <Edit3 className="w-3.5 h-3.5"/> Editar
                               </button>
-                              <button onClick={() => eliminarEnsayo(ens.id, ens.lugar, ens.fecha)} className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1">
+                              <button
+                                onClick={() => eliminarEnsayo(ens.id, ens.lugar, ens.fecha)}
+                                className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1 transition cursor-pointer border border-rose-500/40"
+                                title="Quitar ensayo"
+                              >
                                 <Trash2 className="w-3.5 h-3.5"/> Quitar
                               </button>
                             </>
@@ -1632,40 +1629,100 @@ export default function CharangaSaraoApp() {
                   })}
                 </div>
               )}
+
             </div>
           </div>
         )}
 
-        {/* MODAL ENSAYO */}
+        {/* MODAL PARA AÑADIR / EDITAR ENSAYO */}
         {showModalEnsayo && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-cyan-400/50 rounded-3xl p-6 max-w-md w-full shadow-2xl">
               <div className="flex items-center gap-2 mb-2">
                 <Music className="w-5 h-5 text-cyan-400"/>
-                <h3 className="text-lg font-black text-white">{ensayoEditandoId ? 'Editar Ensayo' : 'Añadir Nuevo Ensayo'}</h3>
+                <h3 className="text-lg font-black text-white">
+                  {ensayoEditandoId ? 'Editar Ensayo' : 'Añadir Nuevo Ensayo'}
+                </h3>
               </div>
+              <p className="text-xs text-zinc-400 mb-4">
+                El ensayo se añadirá al listado y aparecerá en el calendario en color <strong>azul turquesa</strong> con el título fijo <strong>"Ensayo"</strong>.
+              </p>
+
               <form onSubmit={guardarEnsayo} className="space-y-3">
                 <div>
-                  <label className="text-[11px] font-bold text-cyan-400 block mb-1">Lugar del Ensayo:</label>
-                  <input type="text" placeholder="Ej: Local de ensayo..." value={lugarEnsayo} onChange={e => setLugarEnsayo(e.target.value)} className="w-full bg-black border border-cyan-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold" required />
+                  <label className="text-[11px] font-bold text-cyan-300 block mb-1">Título del evento (Fijo):</label>
+                  <input
+                    type="text"
+                    value="Ensayo"
+                    disabled
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-cyan-400 font-black cursor-not-allowed"
+                  />
                 </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-cyan-400 block mb-1">Lugar del Ensayo:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Local de ensayo, Nave, Segovia..."
+                    value={lugarEnsayo}
+                    onChange={e => setLugarEnsayo(e.target.value)}
+                    className="w-full bg-black border border-cyan-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-cyan-400"
+                    required
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Día:</label>
-                    <input type="date" value={fechaEnsayo} onChange={e => setFechaEnsayo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Día del Ensayo:</label>
+                    <input
+                      type="date"
+                      value={fechaEnsayo}
+                      onChange={e => setFechaEnsayo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      required
+                    />
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-zinc-400 block mb-1">Hora:</label>
-                    <input type="text" placeholder="Ej: 19:30h" value={horaEnsayo} onChange={e => setHoraEnsayo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
+                    <input
+                      type="text"
+                      placeholder="Ej: 19:30h"
+                      value={horaEnsayo}
+                      onChange={e => setHoraEnsayo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      required
+                    />
                   </div>
                 </div>
+
                 <div>
                   <label className="text-[11px] font-bold text-zinc-400 block mb-1">Repertorio (Opcional):</label>
-                  <textarea rows={3} placeholder="Ej: Temas nuevos..." value={repertorioEnsayo} onChange={e => setRepertorioEnsayo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white" />
+                  <textarea
+                    rows={3}
+                    placeholder="Ej: Temas nuevos 2027, Popurrí festivo, Pasodobles..."
+                    value={repertorioEnsayo}
+                    onChange={e => setRepertorioEnsayo(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-cyan-400"
+                  />
                 </div>
+
                 <div className="flex gap-2 pt-3">
-                  <button type="submit" className="flex-1 bg-cyan-400 hover:bg-cyan-300 text-black font-black py-2.5 rounded-xl text-sm">Guardar Ensayo</button>
-                  <button type="button" onClick={() => { setShowModalEnsayo(false); setEnsayoEditandoId(null); }} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-cyan-400 hover:bg-cyan-300 text-black font-black py-2.5 rounded-xl text-sm shadow-lg cursor-pointer"
+                  >
+                    {ensayoEditandoId ? 'Guardar Cambios' : 'Guardar Ensayo'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModalEnsayo(false);
+                      setEnsayoEditandoId(null);
+                    }}
+                    className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
+                  >
+                    Cancelar
+                  </button>
                 </div>
               </form>
             </div>
@@ -1676,6 +1733,7 @@ export default function CharangaSaraoApp() {
         {pestañaActiva === 'presupuestos' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
+              
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
                 <div>
                   <div className="flex items-center gap-2">
@@ -1685,7 +1743,7 @@ export default function CharangaSaraoApp() {
                     </h2>
                   </div>
                   <p className="text-xs text-zinc-400 mt-1">
-                    Bolos a los que se ha enviado presupuesto pero aún no han sido aceptados.
+                    Bolos a los que se ha enviado presupuesto pero aún no han sido aceptados. Aparecen en <strong>amarillo</strong> en el calendario general.
                   </p>
                 </div>
 
@@ -1693,12 +1751,16 @@ export default function CharangaSaraoApp() {
                   <button
                     onClick={() => {
                       setTipoCreacionEvento('presupuestado');
-                      setNuevoLugarBolo(''); setNuevoTituloBolo(''); setNuevaFechaBolo('');
-                      setNuevaHoraInicioBolo(''); setNuevaHoraFinBolo(''); setNuevoPresupuestoBolo('');
+                      setNuevoLugarBolo('');
+                      setNuevoTituloBolo('');
+                      setNuevaFechaBolo('');
+                      setNuevaHoraInicioBolo('');
+                      setNuevaHoraFinBolo('');
+                      setNuevoPresupuestoBolo('');
                       setNuevoConFacturaBolo(false);
                       setShowModalBolo(true);
                     }}
-                    className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg"
+                    className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg transition cursor-pointer"
                   >
                     <Plus className="w-4 h-4"/> + Añadir Nuevo Presupuesto
                   </button>
@@ -1720,70 +1782,168 @@ export default function CharangaSaraoApp() {
                             📅 {b.fecha}
                           </span>
                           <span className="text-[10px] font-black uppercase bg-amber-400 text-black px-2.5 py-0.5 rounded-full">
-                            ⏳ Pendiente
+                            ⏳ Pendiente de Aceptar
                           </span>
                         </div>
+
                         <h3 className="text-3xl tracking-wide text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                           📍 {b.lugar}
                         </h3>
-                        {b.titulo && <p className="text-xs font-bold text-amber-300 mt-0.5">{b.titulo}</p>}
+                        {b.titulo && (
+                          <p className="text-xs font-bold text-amber-300 mt-0.5">
+                            {b.titulo}
+                          </p>
+                        )}
+
                         <div className="mt-3 pt-3 border-t border-amber-500/20 space-y-1 text-xs text-zinc-300">
                           <p>⏰ Horario: <strong>{b.horaInicio || 'Por definir'} - {b.horaFin || 'Por definir'}</strong></p>
                           {esGestorBolos && (
                             <p className="text-amber-200 font-bold">
-                              💰 Presupuesto: <strong>{b.presupuesto ? `${b.presupuesto} €` : 'Sin especificar'}</strong> ({b.conFactura ? 'Con Factura' : 'Sin Factura'})
+                              💰 Presupuesto enviado: <strong>{b.presupuesto ? `${b.presupuesto} €` : 'Sin especificar'}</strong> ({b.conFactura ? 'Con Factura' : 'Sin Factura'})
                             </p>
                           )}
                         </div>
                       </div>
 
-                      {esGestorBolos && (
+                      {esGestorBolos ? (
                         <div className="pt-3 border-t border-amber-500/20 flex items-center gap-2">
-                          <button onClick={() => abrirModalConfirmarPresupuesto(b)} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => abrirModalConfirmarPresupuesto(b)}
+                            className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition cursor-pointer"
+                            title="Revisar datos y confirmar bolo"
+                          >
                             <Check className="w-4 h-4"/> ✓ Confirmar Bolo
                           </button>
-                          <button onClick={() => rechazarBoloPresupuestado(b.id, b.lugar)} className="flex-1 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => rechazarBoloPresupuestado(b.id, b.lugar)}
+                            className="flex-1 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                            title="Rechazar presupuesto y borrar del calendario"
+                          >
                             <XCircle className="w-4 h-4"/> ✕ Rechazar
                           </button>
                         </div>
+                      ) : (
+                        <p className="text-[11px] text-zinc-400 italic">
+                          Esperando confirmación del organizador para abrir la lista de asistencia.
+                        </p>
                       )}
                     </div>
                   ))}
                 </div>
               )}
+
             </div>
           </div>
         )}
 
-        {/* MODAL CONFIRMAR PRESUPUESTO */}
+        {/* MODAL DE REVISIÓN AL PULSAR EL TICK DE CONFIRMAR PRESUPUESTO */}
         {showModalConfirmarPresupuesto && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-zinc-900 border border-emerald-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-2">Confirmar Bolo Presupuestado</h3>
+            <div className="bg-zinc-900 border border-emerald-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-2 mb-2">
+                <Check className="w-6 h-6 text-emerald-400"/>
+                <h3 className="text-lg font-black text-white">Confirmar Bolo Presupuestado</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">
+                Revisa o modifica cualquier dato (horario, precio final, fecha...) antes de confirmar. Al confirmar, pasará a color <strong>verde</strong> en el calendario y se abrirán las asistencias.
+              </p>
+
               <form onSubmit={confirmarBoloPresupuestadoDefinitivo} className="space-y-3">
                 <div>
                   <label className="text-[11px] font-bold text-emerald-400 block mb-1">Lugar del Bolo:</label>
-                  <input type="text" value={editLugarBolo} onChange={e => setEditLugarBolo(e.target.value)} className="w-full bg-black border border-emerald-500/50 rounded-xl px-3.5 py-2 text-sm text-white font-bold" required />
+                  <input
+                    type="text"
+                    value={editLugarBolo}
+                    onChange={e => setEditLugarBolo(e.target.value)}
+                    className="w-full bg-black border border-emerald-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-emerald-400"
+                    required
+                  />
                 </div>
+
                 <div>
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo:</label>
-                  <input type="text" value={editTituloBolo} onChange={e => setEditTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-sm text-white" />
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo (Opcional):</label>
+                  <input
+                    type="text"
+                    value={editTituloBolo}
+                    onChange={e => setEditTituloBolo(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                  />
                 </div>
+
                 <div>
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha:</label>
-                  <input type="date" value={editFechaBolo} onChange={e => setEditFechaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha del bolo:</label>
+                  <input
+                    type="date"
+                    value={editFechaBolo}
+                    onChange={e => setEditFechaBolo(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                    required
+                  />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input type="text" placeholder="Inicio (13:00h)" value={editHoraInicioBolo} onChange={e => setEditHoraInicioBolo(e.target.value)} className="bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
-                  <input type="text" placeholder="Fin (17:00h)" value={editHoraFinBolo} onChange={e => setEditHoraFinBolo(e.target.value)} className="bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
+                  <div>
+                    <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Inicio:</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: 13:00h"
+                      value={editHoraInicioBolo}
+                      onChange={e => setEditHoraInicioBolo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Fin:</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: 17:00h"
+                      value={editHoraFinBolo}
+                      onChange={e => setEditHoraFinBolo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto final (€):</label>
-                  <input type="number" step="0.01" value={editPresupuestoBolo} onChange={e => setEditPresupuestoBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white" />
+
+                <div className="pt-2 border-t border-zinc-800 space-y-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto final (€):</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editPresupuestoBolo}
+                      onChange={e => setEditPresupuestoBolo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="confirmFacturaCheck"
+                      checked={editConFacturaBolo}
+                      onChange={e => setEditConFacturaBolo(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
+                    />
+                    <label htmlFor="confirmFacturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-zinc-400"/> Va con Factura oficial
+                    </label>
+                  </div>
                 </div>
+
                 <div className="flex gap-2 pt-3">
-                  <button type="submit" className="flex-1 bg-emerald-500 text-black font-black py-2.5 rounded-xl text-sm">✓ Confirmar Bolo</button>
-                  <button type="button" onClick={() => { setShowModalConfirmarPresupuesto(false); setPresupuestoAConfirmarId(null); }} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
+                  <button type="submit" className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black py-2.5 rounded-xl text-sm shadow-lg cursor-pointer">
+                    ✓ Confirmar Bolo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModalConfirmarPresupuesto(false);
+                      setPresupuestoAConfirmarId(null);
+                    }}
+                    className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
+                  >
+                    Cancelar
+                  </button>
                 </div>
               </form>
             </div>
@@ -1798,85 +1958,110 @@ export default function CharangaSaraoApp() {
                 <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                   PLANTILLA DE MÚSICOS ({miembros.length})
                 </h2>
+                {esAdmin && (
+                  <button onClick={() => setPestañaActiva('admin')} className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                    <BarChart3 className="w-4 h-4"/> Estadísticas y Roles
+                  </button>
+                )}
               </div>
 
-              <div className="space-y-3">
-                {miembros.map(m => {
-                  const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
-                  return (
-                    <div key={m.id} className={`p-4 rounded-2xl border ${conf.bg} ${conf.border} space-y-3`}>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
-                            {m.cuerda}
-                          </span>
-                          <p className="font-bold text-base text-zinc-100 mt-1">{m.nombre}</p>
-                          <p className="text-xs text-zinc-400">Instrumentos: {m.instrumentos?.join(', ')}</p>
-                          <p className="text-[11px] text-zinc-500 mt-0.5">
-                            Roles: <strong className="text-zinc-300 uppercase">{m.roles?.join(', ')}</strong>
-                          </p>
+              {miembros.length === 0 ? (
+                <p className="text-xs text-zinc-500 text-center py-6">Aún no hay ningún músico registrado en la plantilla.</p>
+              ) : (
+                <div className="space-y-3">
+                  {miembros.map(m => {
+                    const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
+                    return (
+                      <div key={m.id} className={`p-4 rounded-2xl border ${conf.bg} ${conf.border} space-y-3`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
+                              {m.cuerda}
+                            </span>
+                            <p className="font-bold text-base text-zinc-100 mt-1">{m.nombre}</p>
+                            <p className="text-xs text-zinc-400">Instrumentos: {m.instrumentos?.join(', ')}</p>
+                            <p className="text-[11px] text-zinc-500 mt-0.5">
+                              Roles: <strong className="text-zinc-300 uppercase">{m.roles?.join(', ')}</strong>
+                            </p>
+                          </div>
+
+                          {esAdmin && m.nombre.toLowerCase() !== 'edgar' && (
+                            <button onClick={() => eliminarMiembroPlantilla(m.id)} className="text-rose-400 hover:bg-rose-500/20 p-2 rounded-xl transition" title="Eliminar de la plantilla">
+                              <Trash2 className="w-4 h-4"/>
+                            </button>
+                          )}
                         </div>
-                        {esAdmin && m.nombre.toLowerCase() !== 'edgar' && (
-                          <button onClick={() => eliminarMiembroPlantilla(m.id)} className="text-rose-400 hover:bg-rose-500/20 p-2 rounded-xl">
-                            <Trash2 className="w-4 h-4"/>
-                          </button>
+
+                        {esAdmin && (
+                          <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
+                              <Key className="w-3 h-3 text-rose-400"/> Asignar rol (solo admin):
+                            </span>
+                            {[
+                              { id: 'bolos', label: 'Bolos' },
+                              { id: 'conductor', label: 'Conductor' },
+                              { id: 'jefe_cuerda', label: 'Jefe Cuerda' },
+                              { id: 'tesorero', label: 'Tesorero' },
+                              { id: 'facturador', label: 'Facturador' },
+                              { id: 'admin', label: 'Admin' }
+                            ].map(r => {
+                              const tiene = m.roles?.includes(r.id);
+                              return (
+                                <button
+                                  key={r.id}
+                                  onClick={() => toggleRolMiembro(m.id, r.id)}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border transition ${
+                                    tiene 
+                                      ? 'bg-zinc-100 text-black border-white shadow-sm' 
+                                      : 'bg-black/40 text-zinc-500 border-zinc-800 hover:text-zinc-300'
+                                  }`}
+                                >
+                                  {r.label} {tiene ? '✓' : '+'}
+                                </button>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
-
-                      {esAdmin && (
-                        <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
-                          <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
-                            <Key className="w-3 h-3"/> Roles:
-                          </span>
-                          {[
-                            { id: 'bolos', label: 'Bolos' },
-                            { id: 'conductor', label: 'Conductor' },
-                            { id: 'jefe_cuerda', label: 'Jefe Cuerda' },
-                            { id: 'tesorero', label: 'Tesorero' },
-                            { id: 'facturador', label: 'Facturador' },
-                            { id: 'admin', label: 'Admin' }
-                          ].map(r => {
-                            const tiene = m.roles?.includes(r.id);
-                            return (
-                              <button
-                                key={r.id}
-                                onClick={() => toggleRolMiembro(m.id, r.id)}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border transition ${
-                                  tiene ? 'bg-zinc-100 text-black border-white' : 'bg-black/40 text-zinc-500 border-zinc-800'
-                                }`}
-                              >
-                                {r.label} {tiene ? '✓' : '+'}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* FACTURAS */}
+        {/* SECCIÓN: FACTURAS */}
         {pestañaActiva === 'facturas' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
+              
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
                 <div>
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                     GESTIÓN DE FACTURAS
                   </h2>
-                  <p className="text-xs text-zinc-400">Sube tus facturas en PDF o foto.</p>
+                  <p className="text-xs text-zinc-400">
+                    Sube tus facturas en PDF o foto. El sistema detecta el importe y lo envía automáticamente al correo de facturación.
+                  </p>
+                  {correoFacturacion && (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-1 rounded-lg mt-2">
+                      <Mail className="w-3.5 h-3.5"/> Envío automático activo a: <strong>{correoFacturacion}</strong>
+                    </span>
+                  )}
                 </div>
+
                 <button
                   onClick={() => {
-                    setArchivoFactura(null); setPreviewArchivoUrl(''); setNombreArchivoFactura('');
-                    setConceptoFactura(''); setImporteFacturaDetectado(''); setMensajeAnalisis('');
+                    setArchivoFactura(null);
+                    setPreviewArchivoUrl('');
+                    setNombreArchivoFactura('');
+                    setConceptoFactura('');
+                    setImporteFacturaDetectado('');
+                    setMensajeAnalisis('');
                     setShowModalSubirFactura(true);
                   }}
-                  className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg"
+                  className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg transition cursor-pointer"
                 >
                   <Upload className="w-4 h-4"/> + Subir Factura (PDF / Foto)
                 </button>
@@ -1885,64 +2070,205 @@ export default function CharangaSaraoApp() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-4">
                   <span className="text-[11px] font-bold text-cyan-300 uppercase">Tu Total Facturado ({usuarioActual.nombre})</span>
-                  <p className="text-3xl font-black text-white mt-1">{miTotalFacturado.toFixed(2)} €</p>
+                  <p className="text-3xl font-black text-white mt-1">
+                    {miTotalFacturado.toFixed(2)} €
+                  </p>
+                  <span className="text-[11px] text-zinc-400">{misFacturas.length} factura(s) subida(s) por ti</span>
                 </div>
+
                 {(esFacturador || esAdmin) && (
                   <div className="bg-black/60 border border-amber-500/30 rounded-2xl p-4">
-                    <span className="text-[11px] font-bold text-amber-300 uppercase">Total Global Facturado</span>
-                    <p className="text-3xl font-black text-amber-400 mt-1">{totalGeneralFacturado.toFixed(2)} €</p>
+                    <span className="text-[11px] font-bold text-amber-300 uppercase">Total Global Facturado (Charanga Sarao)</span>
+                    <p className="text-3xl font-black text-amber-400 mt-1">
+                      {totalGeneralFacturado.toFixed(2)} €
+                    </p>
+                    <span className="text-[11px] text-zinc-400">{facturas.length} factura(s) registrada(s) en total</span>
                   </div>
                 )}
               </div>
 
-              <div className="space-y-2.5 max-h-96 overflow-y-auto">
-                {((esFacturador || esAdmin) ? facturas : misFacturas).map(f => (
-                  <div key={f.id} className="p-3.5 bg-black/70 border border-zinc-800 rounded-2xl flex justify-between items-center gap-3 text-xs">
-                    <div>
-                      <span className="font-black text-white text-sm">{f.concepto}</span>
-                      <span className="ml-2 bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full text-[10px] font-black">{f.usuarioNombre}</span>
-                      <p className="text-[11px] text-zinc-400 mt-0.5">📅 {f.fecha} • {f.nombreArchivo}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-black text-cyan-400">{parseFloat(f.importe).toFixed(2)} €</span>
-                      {f.archivoDataUrl && (
-                        <a href={f.archivoDataUrl} download={f.nombreArchivo || 'factura'} target="_blank" rel="noreferrer" className="p-2 bg-zinc-800 text-cyan-300 rounded-xl">
-                          <Eye className="w-4 h-4"/>
-                        </a>
-                      )}
-                      <button onClick={() => eliminarFactura(f)} className="p-2 bg-rose-500/10 text-rose-400 rounded-xl">
-                        <Trash2 className="w-4 h-4"/>
-                      </button>
-                    </div>
+              {(esFacturador || esAdmin) && (
+                <div className="space-y-3 pt-2 border-t border-zinc-800">
+                  <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4"/> Desglose de Cantidad Facturada por cada Miembro (Vista Facturador / Admin)
+                  </h3>
+                  <div className="overflow-x-auto bg-black/50 rounded-2xl border border-zinc-800">
+                    <table className="w-full text-left text-xs text-zinc-300">
+                      <thead className="text-[10px] uppercase text-zinc-400 bg-zinc-950 border-b border-zinc-800">
+                        <tr>
+                          <th className="p-3">Músico</th>
+                          <th className="p-3">Cuerda</th>
+                          <th className="p-3">Nº Facturas</th>
+                          <th className="p-3">Total Facturado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/60">
+                        {miembros.map(m => {
+                          const facturasMiembro = facturas.filter(
+                            f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase()
+                          );
+                          const sumaMiembro = facturasMiembro.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
+
+                          return (
+                            <tr key={m.id} className="hover:bg-zinc-800/30">
+                              <td className="p-3 font-bold text-white">{m.nombre}</td>
+                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
+                              <td className="p-3">{facturasMiembro.length}</td>
+                              <td className="p-3 font-black text-cyan-400">{sumaMiembro.toFixed(2)} €</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                ))}
+                </div>
+              )}
+
+              <div className="space-y-3 pt-2 border-t border-zinc-800">
+                <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">
+                  {(esFacturador || esAdmin) ? 'Todas las Facturas Subidas' : 'Mis Facturas Subidas'}
+                </h3>
+
+                {((esFacturador || esAdmin) ? facturas : misFacturas).length === 0 ? (
+                  <p className="text-xs text-zinc-500 text-center py-6 bg-black/40 rounded-2xl border border-zinc-800">
+                    No hay facturas registradas todavía.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5 max-h-96 overflow-y-auto">
+                    {((esFacturador || esAdmin) ? facturas : misFacturas).map(f => (
+                      <div key={f.id} className="p-3.5 bg-black/70 border border-zinc-800 hover:border-cyan-500/40 rounded-2xl flex justify-between items-center gap-3 text-xs transition">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-white text-sm">{f.concepto}</span>
+                            <span className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full text-[10px] font-black">
+                              {f.usuarioNombre}
+                            </span>
+                            <span className="text-[10px] text-zinc-500">({f.nombreArchivo})</span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400">
+                            📅 {f.fecha} • Enviada a: <strong className="text-zinc-300">{f.enviadaACorreo}</strong>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-base font-black text-cyan-400">
+                            {parseFloat(f.importe).toFixed(2)} €
+                          </span>
+
+                          {f.archivoDataUrl && (
+                            <a
+                              href={f.archivoDataUrl}
+                              download={f.nombreArchivo || 'factura'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-2 bg-zinc-800 hover:bg-zinc-700 text-cyan-300 rounded-xl transition"
+                              title="Ver / Descargar documento"
+                            >
+                              <Eye className="w-4 h-4"/>
+                            </a>
+                          )}
+
+                          <button
+                            onClick={() => eliminarFactura(f)}
+                            className="p-2 bg-rose-500/10 hover:bg-rose-500/30 text-rose-400 rounded-xl transition"
+                            title="Eliminar factura"
+                          >
+                            <Trash2 className="w-4 h-4"/>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+
             </div>
           </div>
         )}
 
-        {/* MODAL SUBIR FACTURA */}
+        {/* MODAL PARA SUBIR Y ANALIZAR FACTURA */}
         {showModalSubirFactura && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-zinc-900 border border-cyan-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-2">Subir y Analizar Factura</h3>
+            <div className="bg-zinc-900 border border-cyan-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-5 h-5 text-cyan-400"/>
+                <h3 className="text-lg font-black text-white">Subir y Analizar Factura</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">
+                Selecciona un PDF o haz una foto a la factura. Analizaremos el documento para extraer el importe total automáticamente.
+              </p>
+
               <form onSubmit={guardarYEnviarFactura} className="space-y-4">
-                <input type="file" accept="application/pdf,image/*" onChange={manejarSeleccionArchivoFactura} className="w-full text-xs text-zinc-300 bg-black border border-zinc-800 rounded-2xl p-2" required />
+                <div>
+                  <label className="text-xs font-bold text-cyan-300 block mb-1.5">
+                    1. Archivo de la factura (PDF o Imagen):
+                  </label>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/*"
+                    onChange={manejarSeleccionArchivoFactura}
+                    className="w-full text-xs text-zinc-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-cyan-500 file:text-black hover:file:bg-cyan-400 bg-black border border-zinc-800 rounded-2xl p-2 cursor-pointer"
+                    required
+                  />
+                </div>
+
                 {analizandoFactura && (
-                  <div className="p-3 bg-cyan-500/10 rounded-xl flex items-center gap-2 text-xs text-cyan-300">
-                    <Loader2 className="w-4 h-4 animate-spin"/> Analizando documento...
+                  <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-xl flex items-center gap-2 text-xs text-cyan-300">
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0"/>
+                    <span>Analizando factura para detectar el importe...</span>
                   </div>
                 )}
+
                 {!analizandoFactura && mensajeAnalisis && (
-                  <div className="p-3 bg-zinc-950 border border-cyan-500/30 rounded-xl text-[11px] text-cyan-300">{mensajeAnalisis}</div>
+                  <div className="p-3 bg-zinc-950 border border-cyan-500/30 rounded-xl text-[11px] text-cyan-300 font-medium">
+                    {mensajeAnalisis}
+                  </div>
                 )}
-                <input type="text" placeholder="Concepto / Proveedor" value={conceptoFactura} onChange={e => setConceptoFactura(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" required />
-                <input type="number" step="0.01" placeholder="Importe Total (€)" value={importeFacturaDetectado} onChange={e => setImporteFacturaDetectado(e.target.value)} className="w-full bg-black border border-cyan-500/50 rounded-xl px-3.5 py-2.5 text-base font-black text-white" required />
-                <div className="flex gap-2">
-                  <button type="submit" disabled={analizandoFactura || enviandoFactura} className="flex-1 bg-cyan-500 text-black font-black py-2.5 rounded-xl text-sm">
-                    {enviandoFactura ? 'Enviando...' : 'Registrar y Enviar'}
+
+                <div>
+                  <label className="text-xs font-bold text-zinc-400 block mb-1">
+                    2. Concepto / Proveedor:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Factura Autónomo Actuación / Repuestos..."
+                    value={conceptoFactura}
+                    onChange={e => setConceptoFactura(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-cyan-400 block mb-1">
+                    3. Importe Total Detectado (€):
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Ej: 150.00"
+                    value={importeFacturaDetectado}
+                    onChange={e => setImporteFacturaDetectado(e.target.value)}
+                    className="w-full bg-black border border-cyan-500/50 rounded-xl px-3.5 py-2.5 text-base font-black text-white outline-none focus:border-cyan-400"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={analizandoFactura || enviandoFactura}
+                    className="flex-1 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-black py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5"
+                  >
+                    {enviandoFactura ? 'Enviando...' : 'Registrar y Enviar por Correo'}
                   </button>
-                  <button type="button" onClick={() => setShowModalSubirFactura(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
+                  <button
+                    type="button"
+                    onClick={() => setShowModalSubirFactura(false)}
+                    className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
+                  >
+                    Cancelar
+                  </button>
                 </div>
               </form>
             </div>
@@ -1953,31 +2279,134 @@ export default function CharangaSaraoApp() {
         {pestañaActiva === 'admin' && esAdmin && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
+              
               <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
-                <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                  PANEL DE ADMINISTRACIÓN
-                </h2>
-                <button onClick={exportarEstadisticasExcel} className="bg-emerald-500 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5">
-                  <Download className="w-4 h-4"/> Exportar CSV
-                </button>
+                <div>
+                  <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    PANEL DE ADMINISTRACIÓN
+                  </h2>
+                  <p className="text-xs text-zinc-400">Correo de facturación, estadísticas acumuladas y control de deshacer.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {historialEstados.length > 0 && (
+                    <button
+                      onClick={deshacerUltimoCambio}
+                      className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow"
+                    >
+                      <Undo2 className="w-4 h-4"/> Deshacer ({historialEstados.length})
+                    </button>
+                  )}
+                  <button
+                    onClick={exportarEstadisticasExcel}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow"
+                  >
+                    <Download className="w-4 h-4"/> Exportar CSV
+                  </button>
+                </div>
               </div>
 
               <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
-                <h3 className="text-sm font-black text-white uppercase flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-cyan-400"/> Correo de Facturación
-                </h3>
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-cyan-400"/>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    Correo de Facturación
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Introduce el correo electrónico al que se enviarán automáticamente todas las facturas que suban los músicos a la aplicación.
+                </p>
                 <form onSubmit={guardarCorreoFacturacionAdmin} className="flex flex-col sm:flex-row gap-2">
-                  <input type="email" placeholder="ejemplo@charangasarao.com" value={inputCorreoAdmin} onChange={e => setInputCorreoAdmin(e.target.value)} className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2 text-sm text-white font-bold" required />
-                  <button type="submit" className="bg-cyan-500 text-black font-black text-xs px-5 py-2.5 rounded-xl">Guardar Correo</button>
+                  <input
+                    type="email"
+                    placeholder="ejemplo@charangasarao.com"
+                    value={inputCorreoAdmin}
+                    onChange={e => setInputCorreoAdmin(e.target.value)}
+                    className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold outline-none focus:border-cyan-400"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-5 py-2.5 rounded-xl shadow transition shrink-0 cursor-pointer"
+                  >
+                    Guardar Correo
+                  </button>
                 </form>
+                {correoFacturacion && (
+                  <p className="text-[11px] text-emerald-400 font-bold">
+                    ✓ Correo activo actual: {correoFacturacion}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia a Bolos y Facturación acumulada
+                </h3>
+                
+                {miembros.length === 0 ? (
+                  <p className="text-xs text-zinc-500 py-3">No hay miembros para calcular estadísticas.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-zinc-300">
+                      <thead className="text-[10px] uppercase text-zinc-400 bg-black/60 border-b border-zinc-800">
+                        <tr>
+                          <th className="p-3">Músico</th>
+                          <th className="p-3">Cuerda</th>
+                          <th className="p-3">Roles</th>
+                          <th className="p-3">Asistencia Bolos</th>
+                          <th className="p-3">% Confirmado</th>
+                          <th className="p-3">Facturado (€)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
+                        {miembros.map(m => {
+                          const totalBolos = bolosConfirmados.length;
+                          const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
+                          const siVan = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
+                          const talVez = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'tal_vez').length;
+                          const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
+                          const totalFacturadoMiembro = facturas
+                            .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
+                            .reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
+
+                          return (
+                            <tr key={m.id} className="hover:bg-zinc-800/30">
+                              <td className="p-3 font-bold text-white">{m.nombre}</td>
+                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
+                              <td className="p-3">
+                                <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                                  {m.roles?.join(', ')}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> / {totalBolos}
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-20 bg-zinc-800 h-2 rounded-full overflow-hidden">
+                                    <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                                  </div>
+                                  <span className="font-black text-xs text-green-400">{pct}%</span>
+                                </div>
+                              </td>
+                              <td className="p-3 font-black text-cyan-400">
+                                {totalFacturadoMiembro.toFixed(2)} €
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* CALENDARIO DE BOLOS Y DETALLE DEL BOLO CON APARTADO DE PAGO POR MIEMBRO   */}
-        {/* ========================================================================= */}
+        {/* CALENDARIO GENERAL (VERDE = CONFIRMADO, AMARILLO = PRESUPUESTADO, AZUL TURQUESA = ENSAYO) */}
         {pestañaActiva === 'bolos' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-3.5 sm:p-6">
@@ -1988,50 +2417,93 @@ export default function CharangaSaraoApp() {
                     CALENDARIO DE BOLOS Y ENSAYOS
                   </h2>
                   <div className="flex items-center gap-3 text-[11px] text-zinc-400 mt-1 flex-wrap">
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Confirmado</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Presupuestado</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span> Ensayo</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Bolo Confirmado
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Presupuestado
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span> Ensayo (Azul Turquesa)
+                    </span>
                   </div>
                 </div>
 
                 {esGestorBolos && (
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full sm:w-auto">
-                    <button onClick={() => { setTipoCreacionEvento('confirmado'); setShowModalBolo(true); }} className="flex-1 sm:flex-none justify-center bg-green-500 text-black font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1">
+                    <button 
+                      onClick={() => {
+                        setTipoCreacionEvento('confirmado');
+                        setShowModalBolo(true);
+                      }} 
+                      className="flex-1 sm:flex-none justify-center bg-green-500 hover:bg-green-400 text-black font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow transition"
+                    >
                       <Plus className="w-3.5 h-3.5"/> + Añadir
                     </button>
-                    <button onClick={() => { setBoloEditandoId(null); setShowModalEditarBolos(true); }} className="flex-1 sm:flex-none justify-center bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1">
+                    <button 
+                      onClick={() => {
+                        setBoloEditandoId(null);
+                        setShowModalEditarBolos(true);
+                      }} 
+                      className="flex-1 sm:flex-none justify-center bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow transition"
+                    >
                       <Edit3 className="w-3.5 h-3.5"/> ✎ Editar
                     </button>
-                    <button onClick={() => setShowModalEliminarBolos(true)} className="flex-1 sm:flex-none justify-center bg-rose-500/20 border border-rose-500/40 text-rose-300 font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1">
+                    <button 
+                      onClick={() => setShowModalEliminarBolos(true)} 
+                      className="flex-1 sm:flex-none justify-center bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow transition"
+                    >
                       <Trash2 className="w-3.5 h-3.5"/> - Borrar
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* CONTENEDOR DEL CALENDARIO SCROLLEABLE */}
+              {/* CONTENEDOR DEL CALENDARIO SCROLLEABLE CON CELDAS GRANDES */}
               <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 sm:p-4 mb-5">
+                
                 <div className="flex justify-between items-center mb-3 gap-2">
                   <div className="flex items-center gap-1.5">
-                    <button onClick={() => setMesIndexActivo(prev => Math.max(0, prev - 1))} disabled={mesIndexActivo === 0} className="p-2 bg-zinc-800 rounded-xl text-white">
+                    <button
+                      onClick={() => setMesIndexActivo(prev => Math.max(0, prev - 1))}
+                      disabled={mesIndexActivo === 0}
+                      className="p-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
+                      title="Mes anterior"
+                    >
                       <ChevronLeft className="w-4 h-4"/>
                     </button>
-                    <button onClick={() => setMesIndexActivo(prev => Math.min(MESES_PERMITIDOS.length - 1, prev + 1))} disabled={mesIndexActivo === MESES_PERMITIDOS.length - 1} className="p-2 bg-zinc-800 rounded-xl text-white">
+                    <button
+                      onClick={() => setMesIndexActivo(prev => Math.min(MESES_PERMITIDOS.length - 1, prev + 1))}
+                      disabled={mesIndexActivo === MESES_PERMITIDOS.length - 1}
+                      className="p-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
+                      title="Mes siguiente"
+                    >
                       <ChevronRight className="w-4 h-4"/>
                     </button>
-                    <h3 className="text-base sm:text-lg font-black text-white ml-1">{mesSeleccionado.label}</h3>
+                    <h3 className="text-base sm:text-lg font-black text-white ml-1">
+                      {mesSeleccionado.label}
+                    </h3>
                   </div>
 
-                  <select value={mesIndexActivo} onChange={e => setMesIndexActivo(parseInt(e.target.value))} className="bg-zinc-900 border border-zinc-700 text-xs text-green-300 font-bold rounded-xl px-2.5 py-2">
-                    {MESES_PERMITIDOS.map((m, idx) => <option key={idx} value={idx}>{m.label}</option>)}
+                  <select
+                    value={mesIndexActivo}
+                    onChange={e => setMesIndexActivo(parseInt(e.target.value))}
+                    className="bg-zinc-900 border border-zinc-700 text-xs text-green-300 font-bold rounded-xl px-2.5 py-2 outline-none focus:border-green-500"
+                  >
+                    {MESES_PERMITIDOS.map((m, idx) => (
+                      <option key={idx} value={idx}>{m.label}</option>
+                    ))}
                   </select>
                 </div>
 
-                <div className="max-h-[420px] overflow-auto rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-2">
+                <div className="max-h-[420px] overflow-auto rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-2 scrollbar-thin scrollbar-thumb-zinc-700">
                   <div className="min-w-[680px]">
-                    <div className="grid grid-cols-7 gap-2 text-center text-xs sticky top-0 bg-zinc-950/95 z-20 py-2 border-b border-zinc-800 mb-2">
-                      {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
-                        <div key={d} className="font-black text-zinc-400 uppercase text-[11px]">{d}</div>
+                    
+                    <div className="grid grid-cols-7 gap-2 text-center text-xs sticky top-0 bg-zinc-950/95 backdrop-blur-md z-20 py-2 border-b border-zinc-800 mb-2">
+                      {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(d => (
+                        <div key={d} className="font-black text-zinc-400 uppercase tracking-wider text-[11px]">
+                          {d.slice(0, 3)}
+                        </div>
                       ))}
                     </div>
 
@@ -2042,7 +2514,9 @@ export default function CharangaSaraoApp() {
 
                       {Array.from({ length: totalDiasMes }, (_, i) => {
                         const diaNum = i + 1;
-                        const fechaStr = `${mesSeleccionado.anio}-${String(mesSeleccionado.mes + 1).padStart(2, '0')}-${String(diaNum).padStart(2, '0')}`;
+                        const mesFormateado = String(mesSeleccionado.mes + 1).padStart(2, '0');
+                        const diaFormateado = String(diaNum).padStart(2, '0');
+                        const fechaStr = `${mesSeleccionado.anio}-${mesFormateado}-${diaFormateado}`;
                         const bolosDelDia = bolos.filter(b => b.fecha === fechaStr);
                         const tieneConfirmado = bolosDelDia.some(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo');
                         const tienePresupuestado = bolosDelDia.some(b => b.estadoBolo === 'presupuestado');
@@ -2053,23 +2527,37 @@ export default function CharangaSaraoApp() {
                           <div
                             key={diaNum}
                             onClick={() => {
-                              if (bolosDelDia.length > 0) setBoloSeleccionadoId(bolosDelDia[0].id);
-                              else if (esGestorBolos) abrirModalParaFecha(fechaStr);
+                              if (bolosDelDia.length > 0) {
+                                setBoloSeleccionadoId(bolosDelDia[0].id);
+                              } else if (esGestorBolos) {
+                                abrirModalParaFecha(fechaStr);
+                              }
                             }}
-                            className={`min-h-[115px] p-2.5 rounded-2xl border flex flex-col justify-between transition cursor-pointer ${
-                              tieneConfirmado ? 'bg-green-500/15 border-green-500/80' :
-                              tienePresupuestado ? 'bg-amber-500/15 border-amber-400/80' :
-                              tieneEnsayo ? 'bg-cyan-500/15 border-cyan-400/80' :
-                              'bg-zinc-900/70 border-zinc-800/80'
-                            } ${estaSeleccionadoHoy ? 'ring-2 ring-white z-10' : ''}`}
+                            className={`min-h-[115px] p-2.5 rounded-2xl border flex flex-col justify-between transition group relative cursor-pointer ${
+                              tieneConfirmado 
+                                ? 'bg-green-500/15 border-green-500/80 hover:bg-green-500/25' 
+                                : tienePresupuestado
+                                  ? 'bg-amber-500/15 border-amber-400/80 hover:bg-amber-500/25'
+                                  : tieneEnsayo
+                                    ? 'bg-cyan-500/15 border-cyan-400/80 hover:bg-cyan-500/25'
+                                    : 'bg-zinc-900/70 border-zinc-800/80 hover:border-zinc-700'
+                            } ${estaSeleccionadoHoy ? 'ring-2 ring-white scale-[1.01] z-10' : ''}`}
                           >
                             <div className="flex justify-between items-center">
-                              <span className="font-black text-base text-zinc-200">{diaNum}</span>
+                              <span className={`font-black text-base leading-none ${
+                                tieneConfirmado ? 'text-green-300' : tienePresupuestado ? 'text-amber-300' : tieneEnsayo ? 'text-cyan-300' : 'text-zinc-400'
+                              }`}>
+                                {diaNum}
+                              </span>
                               {esGestorBolos && (
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); abrirModalParaFecha(fechaStr); }}
-                                  className="text-[11px] text-green-400 bg-green-500/20 rounded-lg px-1.5 py-0.5 font-black"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    abrirModalParaFecha(fechaStr);
+                                  }}
+                                  className="text-[11px] text-green-400 bg-green-500/20 hover:bg-green-500 hover:text-black rounded-lg px-1.5 py-0.5 transition font-black"
+                                  title="Añadir en este día"
                                 >
                                   +
                                 </button>
@@ -2083,18 +2571,40 @@ export default function CharangaSaraoApp() {
                                 return (
                                   <div
                                     key={b.id}
-                                    onClick={(e) => { e.stopPropagation(); setBoloSeleccionadoId(b.id); }}
-                                    className={`p-2 rounded-xl cursor-pointer shadow text-left ${
-                                      esEns ? 'bg-cyan-400 text-black' : esPres ? 'bg-amber-400 text-black' : 'bg-green-500 text-black'
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setBoloSeleccionadoId(b.id);
+                                    }}
+                                    className={`p-2 rounded-xl cursor-pointer shadow transition text-left ${
+                                      esEns
+                                        ? 'bg-cyan-400 text-black hover:bg-cyan-300'
+                                        : esPres
+                                          ? 'bg-amber-400 text-black hover:bg-amber-300'
+                                          : 'bg-green-500 text-black hover:bg-green-400'
                                     }`}
                                   >
-                                    <p className="text-xs font-black leading-tight break-words">
-                                      {esEns ? '🎵 Ensayo' : `📍 ${b.lugar}`}
-                                    </p>
-                                    <p className="text-[10px] font-bold opacity-90 leading-tight mt-0.5 break-words">
-                                      {esEns ? `📍 ${b.lugar}` : b.titulo}
-                                    </p>
-                                    <p className="text-[10px] font-extrabold mt-1 bg-black/15 px-1.5 py-0.5 rounded w-fit">
+                                    {esEns ? (
+                                      <>
+                                        <p className="text-xs font-black leading-tight break-words">
+                                          🎵 Ensayo
+                                        </p>
+                                        <p className="text-[10px] font-bold opacity-90 leading-tight mt-0.5 break-words">
+                                          📍 {b.lugar}
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="text-xs font-black leading-tight break-words">
+                                          📍 {b.lugar}
+                                        </p>
+                                        {b.titulo && (
+                                          <p className="text-[10px] font-bold opacity-85 leading-tight mt-0.5 break-words">
+                                            {b.titulo}
+                                          </p>
+                                        )}
+                                      </>
+                                    )}
+                                    <p className="text-[10px] font-extrabold mt-1 flex items-center gap-1 bg-black/15 px-1.5 py-0.5 rounded w-fit">
                                       ⏰ {b.horaInicio || '13:00h'}{!esEns && b.horaFin ? ` - ${b.horaFin}` : ''}
                                     </p>
                                   </div>
@@ -2105,6 +2615,7 @@ export default function CharangaSaraoApp() {
                         );
                       })}
                     </div>
+
                   </div>
                 </div>
               </div>
@@ -2116,30 +2627,50 @@ export default function CharangaSaraoApp() {
 
                   if (boloActual.estadoBolo === 'presupuestado') {
                     return (
-                      <div className="bg-amber-500/10 border border-amber-400/50 rounded-2xl p-5 space-y-4">
+                      <div className="bg-amber-500/10 border border-amber-400/50 rounded-2xl p-5 sm:p-6 space-y-4">
                         <div className="flex justify-between items-start flex-wrap gap-3">
                           <div>
                             <span className="text-[10px] font-black uppercase bg-amber-400 text-black px-2.5 py-1 rounded-full">
-                              ⏳ Bolo Presupuestado
+                              ⏳ Bolo Presupuestado (Pendiente de confirmación)
                             </span>
                             <h3 className="text-4xl tracking-wide text-white mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                               📍 {boloActual.lugar}
                             </h3>
+                            {boloActual.titulo && (
+                              <p className="text-sm font-bold text-amber-300 mt-0.5">
+                                {boloActual.titulo}
+                              </p>
+                            )}
                             <p className="text-xs text-zinc-300 mt-2">
-                              📅 Fecha: <strong>{boloActual.fecha}</strong> • ⏰ Horario: <strong>{boloActual.horaInicio || 'Por definir'} a {boloActual.horaFin || 'Por definir'}</strong>
+                              📅 Fecha: <strong>{boloActual.fecha}</strong> • ⏰ Horario previsto: <strong>{boloActual.horaInicio || 'Por definir'} a {boloActual.horaFin || 'Por definir'}</strong>
                             </p>
+                            {esGestorBolos && (
+                              <p className="text-xs text-amber-200 font-bold mt-1">
+                                💰 Presupuesto: {boloActual.presupuesto ? `${boloActual.presupuesto} €` : 'No indicado'} • {boloActual.conFactura ? 'Con Factura' : 'Sin Factura'}
+                              </p>
+                            )}
                           </div>
+
                           {esGestorBolos && (
-                            <div className="flex items-center gap-2">
-                              <button onClick={() => abrirModalConfirmarPresupuesto(boloActual)} className="bg-emerald-500 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                              <button
+                                onClick={() => abrirModalConfirmarPresupuesto(boloActual)}
+                                className="flex-1 sm:flex-none justify-center bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow cursor-pointer"
+                              >
                                 <Check className="w-4 h-4"/> ✓ Confirmar Bolo
                               </button>
-                              <button onClick={() => rechazarBoloPresupuestado(boloActual.id, boloActual.lugar)} className="bg-rose-500/20 text-rose-300 border border-rose-500/40 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5">
+                              <button
+                                onClick={() => rechazarBoloPresupuestado(boloActual.id, boloActual.lugar)}
+                                className="flex-1 sm:flex-none justify-center bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                              >
                                 <XCircle className="w-4 h-4"/> ✕ Rechazar
                               </button>
                             </div>
                           )}
                         </div>
+                        <p className="text-xs text-zinc-400 border-t border-amber-500/20 pt-3">
+                          Este bolo aún no ha sido aceptado. En cuanto se confirme con el tick (✓), pasará a color verde y se habilitará la votación de asistencia, coches y vestuario.
+                        </p>
                       </div>
                     );
                   }
@@ -2148,25 +2679,55 @@ export default function CharangaSaraoApp() {
 
                   if (!miDispo) {
                     return (
-                      <div className="bg-black/90 border border-amber-500/50 rounded-2xl p-5 text-center space-y-4">
-                        <h3 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                          {esEnsayoActual ? `Ensayo — ${boloActual.lugar}` : boloActual.lugar}
-                        </h3>
-                        <p className="text-xs text-zinc-400">
-                          ⏰ Hora: {boloActual.horaInicio || '13:00h'}{!esEnsayoActual && boloActual.horaFin ? ` a ${boloActual.horaFin}` : ''}
-                        </p>
+                      <div className={`bg-black/90 border rounded-2xl p-5 sm:p-6 text-center space-y-4 ${
+                        esEnsayoActual ? 'border-cyan-400/50' : 'border-amber-500/50'
+                      }`}>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
+                          esEnsayoActual ? 'bg-cyan-500/20 text-cyan-400' : 'bg-amber-500/20 text-amber-400'
+                        }`}>
+                          {esEnsayoActual ? <Music className="w-6 h-6"/> : <AlertCircle className="w-6 h-6"/>}
+                        </div>
+                        <div>
+                          <p className={`text-xs font-bold uppercase tracking-wider ${esEnsayoActual ? 'text-cyan-400' : 'text-amber-400'}`}>
+                            {esEnsayoActual ? 'Confirmación de asistencia al Ensayo' : 'Confirmación de asistencia'}
+                          </p>
+                          <h3 className="text-3xl tracking-wide text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                            {esEnsayoActual ? `Ensayo — ${boloActual.lugar}` : boloActual.lugar}
+                          </h3>
+                          {!esEnsayoActual && boloActual.titulo && (
+                            <p className="text-xs text-green-300 font-bold mt-0.5">
+                              {boloActual.titulo}
+                            </p>
+                          )}
+                          <p className="text-xs text-zinc-400 mt-1">
+                            ⏰ Hora: {boloActual.horaInicio || '19:00h'}{!esEnsayoActual && boloActual.horaFin ? ` a ${boloActual.horaFin}` : ''}
+                          </p>
+                          {esEnsayoActual && boloActual.repertorio && (
+                            <p className="text-xs text-cyan-300 font-bold mt-1">
+                              🎼 Repertorio: {boloActual.repertorio}
+                            </p>
+                          )}
+                        </div>
+                        
                         {usuarioActual.instrumentos?.length > 1 && (
                           <div className="max-w-xs mx-auto text-left">
                             <label className="text-xs text-zinc-400 block mb-1 font-bold">¿Con qué instrumento tocarás?</label>
-                            <select value={instrumentoElegidoBolo || usuarioActual.instrumentos[0]} onChange={e => setInstrumentoElegidoBolo(e.target.value)} className="w-full bg-black border border-green-500 text-green-300 rounded-xl p-2.5 text-xs font-bold">
-                              {usuarioActual.instrumentos.map(inst => <option key={inst} value={inst}>{inst}</option>)}
+                            <select
+                              value={instrumentoElegidoBolo || usuarioActual.instrumentos[0]}
+                              onChange={e => setInstrumentoElegidoBolo(e.target.value)}
+                              className="w-full bg-black border border-green-500 text-green-300 rounded-xl p-2.5 text-xs font-bold"
+                            >
+                              {usuarioActual.instrumentos.map(inst => (
+                                <option key={inst} value={inst}>{inst}</option>
+                              ))}
                             </select>
                           </div>
                         )}
-                        <div className="flex justify-center gap-2 pt-2">
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'puedo', instrumentoElegidoBolo || usuarioActual.instrumentos[0])} className="px-4 py-2.5 bg-emerald-500 text-black font-black rounded-xl text-xs">🟢 Puedo</button>
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'tal_vez')} className="px-4 py-2.5 bg-amber-500 text-black font-black rounded-xl text-xs">🟡 Tal vez</button>
-                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'no')} className="px-4 py-2.5 bg-rose-500 text-white font-black rounded-xl text-xs">🔴 No puedo</button>
+
+                        <div className="flex justify-center gap-2 sm:gap-3 pt-2">
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'puedo', instrumentoElegidoBolo || usuarioActual.instrumentos[0])} className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl text-xs cursor-pointer transition">🟢 Puedo</button>
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'tal_vez')} className="flex-1 sm:flex-none px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-xl text-xs cursor-pointer transition">🟡 Tal vez</button>
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, 'no')} className="flex-1 sm:flex-none px-4 py-2.5 bg-rose-500 hover:bg-rose-400 text-white font-black rounded-xl text-xs cursor-pointer transition">🔴 No puedo</button>
                         </div>
                       </div>
                     );
@@ -2183,32 +2744,85 @@ export default function CharangaSaraoApp() {
                       
                       <div className="flex justify-between items-start flex-wrap gap-4">
                         <div>
-                          <span className="text-xs font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-full uppercase">
-                            Tu estado: <strong>{miDispo.estado.replace('_', ' ')}</strong> {miDispo.instrumento && `(${miDispo.instrumento})`}
-                          </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {esEnsayoActual && (
+                              <span className="text-[10px] font-black uppercase bg-cyan-400 text-black px-2.5 py-1 rounded-full">
+                                🎵 Ensayo Oficial
+                              </span>
+                            )}
+                            <span className="text-xs font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-full uppercase">
+                              Tu estado: <strong className="uppercase">{miDispo.estado.replace('_', ' ')}</strong> {miDispo.instrumento && `(${miDispo.instrumento})`}
+                            </span>
+                          </div>
+
                           <h3 className="text-4xl tracking-wide text-white mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                             {esEnsayoActual ? `Ensayo — 📍 ${boloActual.lugar}` : boloActual.lugar}
                           </h3>
+                          {!esEnsayoActual && boloActual.titulo && (
+                            <p className="text-sm font-black text-green-400 tracking-wide mt-0.5">
+                              {boloActual.titulo}
+                            </p>
+                          )}
+
                           <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 mt-2">
                             <span>📅 <strong>{boloActual.fecha}</strong></span>
                             <span>⏰ Hora: <strong>{boloActual.horaInicio || '13:00h'}{!esEnsayoActual && boloActual.horaFin ? ` - ${boloActual.horaFin}` : ''}</strong></span>
+                            {!esEnsayoActual && esGestorBolos && (
+                              <span className="text-[11px] font-bold bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
+                                💰 {boloActual.presupuesto ? `${boloActual.presupuesto} €` : 'Sin presupuesto'} • {boloActual.conFactura ? 'Factura Sí' : 'Sin factura'}
+                              </span>
+                            )}
                           </div>
+
+                          {esEnsayoActual && (
+                            <div className="mt-3 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-xs text-cyan-200">
+                              🎼 <strong>Repertorio del ensayo:</strong> {boloActual.repertorio ? boloActual.repertorio : 'General / Sin especificar'}
+                            </div>
+                          )}
                         </div>
 
-                        <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl">
-                          🔄 Cambiar asistencia
-                        </button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {esEnsayoActual && esGestorBolos && (
+                            <>
+                              <button
+                                onClick={() => abrirModalEditarEnsayo(boloActual)}
+                                className="text-xs bg-cyan-500/20 hover:bg-cyan-400 text-cyan-300 hover:text-black border border-cyan-500/40 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1"
+                              >
+                                <Edit3 className="w-3.5 h-3.5"/> Editar Ensayo
+                              </button>
+                              <button
+                                onClick={() => eliminarEnsayo(boloActual.id, boloActual.lugar, boloActual.fecha)}
+                                className="text-xs bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1"
+                              >
+                                <Trash2 className="w-3.5 h-3.5"/> Quitar Ensayo
+                              </button>
+                            </>
+                          )}
+                          <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl transition">
+                            🔄 Cambiar asistencia
+                          </button>
+                        </div>
                       </div>
 
                       {!esEnsayoActual && puedeGestionarExtras && (
                         <div className="bg-gradient-to-r from-amber-500/10 to-zinc-900 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3">
                           <div>
-                            <h4 className="text-sm font-black text-amber-400 uppercase flex items-center gap-1.5">
+                            <h4 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                               <UserPlus className="w-4 h-4"/> Refuerzos y Músicos Extras
                             </h4>
-                            <p className="text-xs text-zinc-400 mt-0.5">Añade refuerzos externos para este bolo.</p>
+                            <p className="text-xs text-zinc-400 mt-0.5">
+                              {esAdmin 
+                                ? 'Puedes añadir músicos extras de cualquier instrumento para reforzar este bolo.' 
+                                : `Puedes añadir músicos extras de refuerzo para tu cuerda (${usuarioActual.cuerda}).`}
+                            </p>
                           </div>
-                          <button onClick={() => { setInstrumentoExtra(instrumentosParaExtra[0]?.nombre || 'Saxo alto'); setShowModalExtra(true); }} className="bg-amber-500 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              setInstrumentoExtra(instrumentosParaExtra[0]?.nombre || 'Saxo alto');
+                              setShowModalExtra(true);
+                            }}
+                            className="w-full sm:w-auto justify-center bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 transition"
+                          >
                             <Plus className="w-4 h-4"/> + Añadir Músico Extra
                           </button>
                         </div>
@@ -2216,14 +2830,25 @@ export default function CharangaSaraoApp() {
 
                       {!esEnsayoActual && (
                         <>
-                          {/* CARAVANA DE COCHES Y PLAZAS LIBRES */}
+                          {/* CARAVANA DE COCHES Y RUTAS CON HUECOS LIBRES Y BOTÓN DE UNIRSE */}
                           <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 space-y-3">
                             <div className="flex justify-between items-center flex-wrap gap-2">
-                              <h4 className="font-bold text-zinc-200 text-xs uppercase flex items-center gap-1.5">
-                                <Car className="w-4 h-4 text-blue-400"/> Caravana de Coches y Plazas Libres
-                              </h4>
+                              <div>
+                                <h4 className="font-bold text-zinc-200 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                  <Car className="w-4 h-4 text-blue-400"/> Caravana de Coches y Plazas Libres
+                                </h4>
+                                <p className="text-[11px] text-zinc-400 mt-0.5">
+                                  Únete al coche de cualquier conductor que tenga plazas libres.
+                                </p>
+                              </div>
                               {esConductor && (
-                                <button onClick={() => { setPlazasTrayecto('4'); setShowModalTrayectoBolo(true); }} className="bg-blue-500 text-black font-black text-[11px] px-3 py-2 rounded-xl">
+                                <button
+                                  onClick={() => {
+                                    setPlazasTrayecto('4');
+                                    setShowModalTrayectoBolo(true);
+                                  }}
+                                  className="bg-blue-500 hover:bg-blue-400 text-black font-black text-[11px] px-3 py-2 rounded-xl shadow cursor-pointer"
+                                >
                                   + Añadir mi Coche y Plazas
                                 </button>
                               )}
@@ -2236,61 +2861,110 @@ export default function CharangaSaraoApp() {
                                   const plazasTotales = typeof car.plazasTotales === 'number' ? car.plazasTotales : 4;
                                   const huecosLibres = Math.max(0, plazasTotales - pasajeros.length);
                                   const soyConductorDeEsteCoche = car.conductor?.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase();
-                                  const estoyUnidoAEsteCoche = pasajeros.some(p => p.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase());
+                                  const estoyUnidoAEsteCoche = pasajeros.some(
+                                    p => p.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase()
+                                  );
 
                                   return (
                                     <div key={car.id} className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800 space-y-3 text-xs">
                                       <div className="flex justify-between items-start gap-2 flex-wrap">
-                                        <div>
+                                        <div className="space-y-1">
                                           <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-black text-blue-400 text-sm">🚗 {car.conductor}</span>
-                                            <span className="text-[10px] bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded">{car.vehiculo}</span>
+                                            <span className="text-[10px] bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">
+                                              {car.vehiculo}
+                                            </span>
+                                            {/* Indicador de huecos libres */}
                                             <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
-                                              huecosLibres > 0 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                              huecosLibres > 0
+                                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                                : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                                             }`}>
-                                              {huecosLibres > 0 ? `${huecosLibres} hueco(s) libre(s)` : 'Completo'}
+                                              {huecosLibres > 0 
+                                                ? `${huecosLibres} ${huecosLibres === 1 ? 'hueco libre' : 'huecos libres'} (de ${plazasTotales})` 
+                                                : 'Completo (0 huecos)'}
                                             </span>
                                           </div>
-                                          <p className="text-zinc-300 text-[11px] mt-1">
-                                            🚩 {car.origen} ({car.horaSalida || '--'}) &rarr; 🏁 {car.destino} ({car.horaLlegada || '--'})
-                                          </p>
+
+                                          <div className="text-zinc-300 text-[11px] space-y-0.5 pt-1">
+                                            <p>🚩 Salida: <strong className="text-white">{car.origen}</strong> {car.horaSalida && <span className="text-blue-300 font-semibold">({car.horaSalida})</span>}</p>
+                                            {car.paradas && car.paradas.length > 0 && (
+                                              <div className="pl-3 border-l border-zinc-700 space-y-0.5 my-1">
+                                                {car.paradas.map((p, pIdx) => (
+                                                  <p key={pIdx} className="text-zinc-400">
+                                                    ↳ Parada: <strong className="text-zinc-200">{p.lugar}</strong> {p.hora && <span className="text-amber-300 font-semibold">({p.hora})</span>}
+                                                  </p>
+                                                ))}
+                                              </div>
+                                            )}
+                                            <p>🏁 Llegada: <strong className="text-white">{car.destino}</strong> {car.horaLlegada && <span className="text-emerald-300 font-semibold">({car.horaLlegada})</span>}</p>
+                                          </div>
                                         </div>
 
                                         <div className="flex items-center gap-2">
+                                          {/* Botón para unirse o salir de la ruta (para todos los usuarios salvo el propio conductor) */}
                                           {!soyConductorDeEsteCoche && (
                                             estoyUnidoAEsteCoche ? (
-                                              <button onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)} className="bg-rose-500/20 text-rose-300 border border-rose-500/40 font-black px-3 py-1.5 rounded-xl text-xs flex items-center gap-1">
-                                                <LogOut className="w-3.5 h-3.5"/> Salir
+                                              <button
+                                                onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
+                                                className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition cursor-pointer"
+                                              >
+                                                <LogOut className="w-3.5 h-3.5"/> Salir del coche
                                               </button>
-                                            ) : huecosLibres > 0 && (
-                                              <button onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)} className="bg-emerald-500 text-black font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1">
+                                            ) : huecosLibres > 0 ? (
+                                              <button
+                                                onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
+                                                className="bg-emerald-500 hover:bg-emerald-400 text-black font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow transition cursor-pointer"
+                                              >
                                                 <UserCheck className="w-3.5 h-3.5"/> + Unirse a ruta
                                               </button>
+                                            ) : (
+                                              <span className="text-[10px] font-bold text-zinc-500 bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800">
+                                                Sin plazas
+                                              </span>
                                             )
                                           )}
+
                                           {(esGestorBolos || soyConductorDeEsteCoche) && (
-                                            <button onClick={async () => {
-                                              registrarSnapshot();
-                                              const nuevosBolos = bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b);
-                                              setBolos(nuevosBolos);
-                                              await guardarEnNube(null, nuevosBolos, null);
-                                            }} className="text-rose-400 p-1.5 bg-rose-500/10 rounded-xl">
+                                            <button
+                                              onClick={async () => {
+                                                registrarSnapshot();
+                                                const nuevosBolos = bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b);
+                                                setBolos(nuevosBolos);
+                                                await guardarEnNube(null, nuevosBolos, null);
+                                              }}
+                                              className="text-rose-400 hover:text-rose-300 p-1.5 bg-rose-500/10 rounded-xl"
+                                              title="Eliminar coche"
+                                            >
                                               <Trash2 className="w-4 h-4"/>
                                             </button>
                                           )}
                                         </div>
                                       </div>
 
-                                      <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
-                                        <span className="text-[11px] font-bold text-zinc-400">👥 Pasajeros ({pasajeros.length}/{plazasTotales}):</span>
+                                      {/* Listado de personas que se han unido a la ruta de este conductor */}
+                                      <div className="pt-2.5 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
+                                        <span className="text-[11px] font-bold text-zinc-400">
+                                          👥 Pasajeros unidos ({pasajeros.length}/{plazasTotales}):
+                                        </span>
                                         {pasajeros.length === 0 ? (
-                                          <span className="text-[11px] text-zinc-500 italic">Nadie unido aún</span>
+                                          <span className="text-[11px] text-zinc-500 italic">Nadie se ha unido aún</span>
                                         ) : (
                                           pasajeros.map((nombrePas, idxP) => (
-                                            <span key={idxP} className="bg-blue-500/20 border border-blue-500/40 text-blue-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1">
+                                            <span
+                                              key={idxP}
+                                              className="bg-blue-500/20 border border-blue-500/40 text-blue-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1.5"
+                                            >
                                               {nombrePas}
                                               {(esGestorBolos || soyConductorDeEsteCoche) && (
-                                                <button type="button" onClick={() => quitarPasajeroDeCoche(boloActual.id, car.id, nombrePas)} className="text-rose-400 font-black ml-1">✕</button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => quitarPasajeroDeCoche(boloActual.id, car.id, nombrePas)}
+                                                  className="text-rose-400 hover:text-rose-200 font-black ml-0.5"
+                                                  title={`Quitar a ${nombrePas} del coche`}
+                                                >
+                                                  ✕
+                                                </button>
                                               )}
                                             </span>
                                           ))
@@ -2300,226 +2974,170 @@ export default function CharangaSaraoApp() {
                                   );
                                 })
                               ) : (
-                                <p className="text-xs text-zinc-500">Ningún conductor ha publicado coche todavía.</p>
+                                <p className="text-xs text-zinc-500">Ningún conductor ha publicado trayecto para este bolo todavía.</p>
                               )}
                             </div>
                           </div>
 
-                          {/* VESTUARIO */}
-                          <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          {/* VESTUARIO OFICIAL */}
+                          <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
                             <div className="flex items-center gap-2.5">
-                              <Shirt className="w-5 h-5 text-green-400"/>
-                              <span className="text-sm font-black text-white">Vestuario: {vestuarioActual.label}</span>
+                              <div className="p-2.5 bg-green-500/20 text-green-400 rounded-xl">
+                                <Shirt className="w-5 h-5"/>
+                              </div>
+                              <div>
+                                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Vestuario Oficial</span>
+                                <span className="text-sm font-black text-white">{vestuarioActual.label}</span>
+                              </div>
                             </div>
-                            {esGestorBolos && (
+
+                            {esGestorBolos ? (
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                {OPCIONES_VESTUARIO.map(opt => (
-                                  <button key={opt.id} onClick={() => cambiarVestuarioBolo(boloActual.id, opt.id)} className={`px-3 py-1.5 rounded-xl text-xs font-bold border ${(boloActual.vestuario || 'Por definir') === opt.id ? opt.color + ' ring-2 ring-green-500' : 'bg-black/60 text-zinc-400 border-zinc-800'}`}>
-                                    {opt.label}
-                                  </button>
-                                ))}
+                                <span className="text-[10px] text-zinc-500 font-bold uppercase mr-1">Elegir ropa:</span>
+                                {OPCIONES_VESTUARIO.map(opt => {
+                                  const seleccionado = (boloActual.vestuario || 'Por definir') === opt.id;
+                                  return (
+                                    <button
+                                      key={opt.id}
+                                      onClick={() => cambiarVestuarioBolo(boloActual.id, opt.id)}
+                                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+                                        seleccionado 
+                                          ? opt.color + ' ring-2 ring-green-500' 
+                                          : 'bg-black/60 text-zinc-400 border-zinc-800 hover:text-white'
+                                      }`}
+                                    >
+                                      {opt.label} {seleccionado && '✓'}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className={`px-3 py-1.5 rounded-xl text-xs font-bold border w-fit ${vestuarioActual.color}`}>
+                                {vestuarioActual.label}
                               </div>
                             )}
                           </div>
                         </>
                       )}
 
-                      {/* ========================================================================= */}
-                      {/* LISTA DE CONFIRMADOS CON APARTADO DE PAGO (MÚSICA, COCHE, KM Y GASOLINA)  */}
-                      {/* ========================================================================= */}
+                      {/* PARTICIPANTES: CONFIRMADOS */}
                       <div className="space-y-4">
-                        <h4 className="font-bold text-emerald-400 text-xs uppercase tracking-wider">
-                          🟢 Confirmados y Liquidación del Bolo ({dispoPuedo.length + musicosExtras.length})
-                        </h4>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-bold text-emerald-400 text-xs uppercase tracking-wider">
+                              🟢 Confirmados ({dispoPuedo.length + musicosExtras.length})
+                            </h4>
+                            {esJefeCuerda && !esAdmin && (
+                              <span className="text-[10px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-md">
+                                Puedes gestionar la cuerda de: <strong className="text-emerald-400">{usuarioActual.cuerda}</strong>
+                              </span>
+                            )}
+                          </div>
 
-                        <div className="grid sm:grid-cols-2 gap-3">
-                          {dispoPuedo.map(m => {
-                            const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
-                            const dispM = m.disponibilidadBolos?.[boloActual.id];
-                            const puedeGestionarEste = puedeEliminarAsistencia(m.cuerda);
-                            const pagoM = boloActual.pagosMiembros?.[m.id] || { musica: 0, llevaCoche: false, km: 0, gasolina: 0, pagado: false };
+                          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                            {dispoPuedo.map(m => {
+                              const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
+                              const dispM = m.disponibilidadBolos?.[boloActual.id];
+                              const puedeGestionarEste = puedeEliminarAsistencia(m.cuerda);
 
-                            return (
-                              <div key={m.id} className={`p-4 rounded-2xl border space-y-3 ${pagoM.pagado ? 'bg-emerald-500/15 border-emerald-500/50' : `${conf.bg} ${conf.border}`}`}>
-                                <div className="flex items-center justify-between">
+                              return (
+                                <div key={m.id} className={`p-3 rounded-2xl border flex items-center justify-between ${conf.bg} ${conf.border}`}>
                                   <div>
-                                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
+                                    <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
                                       {m.cuerda}
                                     </span>
                                     <p className="font-bold text-sm text-zinc-100 mt-0.5">{m.nombre}</p>
                                     <p className="text-xs text-emerald-300 font-bold">Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
                                   </div>
-
-                                  <div className="flex items-center gap-1.5">
-                                    {!esEnsayoActual && (
-                                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${pagoM.pagado ? 'bg-emerald-500 text-black' : 'bg-zinc-900 text-zinc-400 border border-zinc-700'}`}>
-                                        {pagoM.pagado ? '✓ Cobrado' : 'Pendiente'}
-                                      </span>
-                                    )}
-                                    {puedeGestionarEste && (
-                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl">
-                                        <Trash2 className="w-4 h-4"/>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* APARTADO DE PAGO INDIVIDUAL EN EL BOLO */}
-                                {!esEnsayoActual && (
-                                  <div className="pt-2.5 border-t border-zinc-800/80 space-y-2 text-xs">
-                                    {puedeEditarPagosBolo ? (
-                                      <>
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <div>
-                                            <label className="text-[10px] text-zinc-400 font-bold block mb-0.5">Cobro Música (€):</label>
-                                            <input
-                                              type="number"
-                                              step="1"
-                                              placeholder="0 €"
-                                              value={pagoM.musica || ''}
-                                              onChange={e => actualizarPagoMiembroEnBolo(boloActual.id, m.id, { musica: parseFloat(e.target.value) || 0 })}
-                                              className="w-full bg-black border border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-bold"
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="text-[10px] text-zinc-400 font-bold block mb-0.5">Estado del Pago:</label>
-                                            <button
-                                              type="button"
-                                              onClick={() => actualizarPagoMiembroEnBolo(boloActual.id, m.id, { pagado: !pagoM.pagado })}
-                                              className={`w-full py-1.5 rounded-lg font-black text-xs border transition cursor-pointer ${
-                                                pagoM.pagado
-                                                  ? 'bg-emerald-500 text-black border-emerald-400'
-                                                  : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:border-emerald-400'
-                                              }`}
-                                            >
-                                              {pagoM.pagado ? '✓ Cobrado' : 'Marcar Cobrado'}
-                                            </button>
-                                          </div>
-                                        </div>
-
-                                        <div className="flex items-center justify-between gap-2 pt-1">
-                                          <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-blue-300">
-                                            <input
-                                              type="checkbox"
-                                              checked={Boolean(pagoM.llevaCoche)}
-                                              onChange={e => actualizarPagoMiembroEnBolo(boloActual.id, m.id, { llevaCoche: e.target.checked })}
-                                              className="accent-blue-500 w-3.5 h-3.5"
-                                            />
-                                            🚗 Llevó coche
-                                          </label>
-
-                                          {pagoM.llevaCoche && (
-                                            <div className="flex items-center gap-1.5">
-                                              <input
-                                                type="number"
-                                                step="1"
-                                                placeholder="Km"
-                                                value={pagoM.km || ''}
-                                                onChange={e => actualizarPagoMiembroEnBolo(boloActual.id, m.id, { km: parseFloat(e.target.value) || 0 })}
-                                                className="w-16 bg-black border border-blue-500/50 rounded-lg px-2 py-1 text-xs text-white font-bold"
-                                              />
-                                              <span className="text-[10px] text-zinc-400">km =</span>
-                                              <span className="text-xs font-black text-blue-400">{(parseFloat(pagoM.gasolina) || 0).toFixed(2)} €</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </>
-                                    ) : (
-                                      <div className="flex justify-between items-center text-[11px] text-zinc-300">
-                                        <span>🎵 Música: <strong>{(parseFloat(pagoM.musica) || 0).toFixed(2)} €</strong></span>
-                                        {pagoM.llevaCoche && (
-                                          <span className="text-blue-300">🚗 Gasolina ({pagoM.km || 0} km): <strong>{(parseFloat(pagoM.gasolina) || 0).toFixed(2)} €</strong></span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-
-                          {/* TARJETAS DE MÚSICOS EXTRAS CON SU APARTADO DE PAGO */}
-                          {musicosExtras.map(ex => {
-                            const conf = CONFIG_CUERDAS[ex.cuerda] || CONFIG_CUERDAS['Saxos'];
-                            const puedeGestionarEste = puedeEliminarAsistencia(ex.cuerda);
-
-                            return (
-                              <div key={ex.id} className={`p-4 rounded-2xl border space-y-3 ${ex.pagado ? 'bg-emerald-500/15 border-emerald-500/50' : `${conf.bg} border-amber-500/50`}`}>
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
-                                        {ex.cuerda}
-                                      </span>
-                                      <span className="text-[9px] font-black uppercase bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">
-                                        Refuerzo
-                                      </span>
-                                    </div>
-                                    <p className="font-bold text-sm text-zinc-100 mt-0.5">{ex.nombre}</p>
-                                    <p className="text-xs text-emerald-300 font-bold">Toca: {ex.instrumento} • De: {ex.charanga}</p>
-                                  </div>
-
+                                  
                                   {puedeGestionarEste && (
-                                    <button onClick={() => eliminarMusicoExtra(ex.id, ex.cuerda, ex.nombre)} className="text-rose-400 p-1.5 rounded-xl">
+                                    <button 
+                                      onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} 
+                                      className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
+                                      title={`Descartar a ${m.nombre}`}
+                                    >
                                       <Trash2 className="w-4 h-4"/>
                                     </button>
                                   )}
                                 </div>
+                              );
+                            })}
 
-                                {!esEnsayoActual && puedeEditarPagosBolo && (
-                                  <div className="pt-2.5 border-t border-zinc-800/80 grid grid-cols-2 gap-2 text-xs">
-                                    <div>
-                                      <label className="text-[10px] text-zinc-400 font-bold block mb-0.5">Pago Extra (€):</label>
-                                      <input
-                                        type="number"
-                                        step="1"
-                                        placeholder="0 €"
-                                        value={ex.musica || ''}
-                                        onChange={e => actualizarPagoExtraEnBolo(boloActual.id, ex.id, { musica: parseFloat(e.target.value) || 0 })}
-                                        className="w-full bg-black border border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-bold"
-                                      />
+                            {musicosExtras.map(ex => {
+                              const conf = CONFIG_CUERDAS[ex.cuerda] || CONFIG_CUERDAS['Saxos'];
+                              const puedeGestionarEste = puedeEliminarAsistencia(ex.cuerda);
+
+                              return (
+                                <div key={ex.id} className={`p-3 rounded-2xl border flex items-center justify-between ${conf.bg} border-amber-500/50 shadow-sm relative overflow-hidden`}>
+                                  <div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
+                                        {ex.cuerda}
+                                      </span>
+                                      <span className="text-[9px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded">
+                                        Refuerzo
+                                      </span>
                                     </div>
-                                    <div>
-                                      <label className="text-[10px] text-zinc-400 font-bold block mb-0.5">Estado:</label>
-                                      <button
-                                        type="button"
-                                        onClick={() => actualizarPagoExtraEnBolo(boloActual.id, ex.id, { pagado: !ex.pagado })}
-                                        className={`w-full py-1.5 rounded-lg font-black text-xs border transition cursor-pointer ${
-                                          ex.pagado ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-zinc-900 text-zinc-300 border-zinc-700'
-                                        }`}
-                                      >
-                                        {ex.pagado ? '✓ Cobrado' : 'Pendiente'}
-                                      </button>
-                                    </div>
+                                    <p className="font-bold text-sm text-zinc-100 mt-0.5">{ex.nombre}</p>
+                                    <p className="text-xs text-emerald-300 font-bold">Toca: {ex.instrumento}</p>
+                                    <p className="text-[10px] text-zinc-400 font-medium">De: {ex.charanga}</p>
                                   </div>
-                                )}
-                              </div>
-                            );
-                          })}
+
+                                  {puedeGestionarEste && (
+                                    <button 
+                                      onClick={() => eliminarMusicoExtra(ex.id, ex.cuerda, ex.nombre)} 
+                                      className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
+                                      title={`Retirar a ${ex.nombre} (${ex.charanga})`}
+                                    >
+                                      <Trash2 className="w-4 h-4"/>
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
 
                         {dispoTalVez.length > 0 && (
                           <div>
-                            <h4 className="font-bold text-amber-400 text-xs uppercase mb-2">🟡 Tal vez ({dispoTalVez.length})</h4>
-                            <div className="grid sm:grid-cols-3 gap-2">
-                              {dispoTalVez.map(m => (
-                                <div key={m.id} className="p-3 rounded-2xl border bg-amber-500/10 border-amber-500/30 flex justify-between">
-                                  <span className="font-bold text-xs">{m.nombre} ({m.cuerda})</span>
-                                </div>
-                              ))}
+                            <h4 className="font-bold text-amber-400 text-xs uppercase tracking-wider mb-2">🟡 Tal vez ({dispoTalVez.length})</h4>
+                            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                              {dispoTalVez.map(m => {
+                                const puedeGestionarEste = puedeEliminarAsistencia(m.cuerda);
+                                return (
+                                  <div key={m.id} className="p-3 rounded-2xl border bg-amber-500/10 border-amber-500/30 flex items-center justify-between">
+                                    <div>
+                                      <span className="text-[9px] font-black uppercase text-amber-300">{m.cuerda}</span>
+                                      <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
+                                    </div>
+                                    {puedeGestionarEste && (
+                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4"/></button>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
 
                         {dispoNo.length > 0 && (
                           <div>
-                            <h4 className="font-bold text-rose-400 text-xs uppercase mb-2">🔴 No pueden ({dispoNo.length})</h4>
-                            <div className="grid sm:grid-cols-3 gap-2">
-                              {dispoNo.map(m => (
-                                <div key={m.id} className="p-3 rounded-2xl border bg-rose-500/10 border-rose-500/30 flex justify-between">
-                                  <span className="font-bold text-xs">{m.nombre} ({m.cuerda})</span>
-                                </div>
-                              ))}
+                            <h4 className="font-bold text-rose-400 text-xs uppercase tracking-wider mb-2">🔴 No pueden ({dispoNo.length})</h4>
+                            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                              {dispoNo.map(m => {
+                                const puedeGestionarEste = puedeEliminarAsistencia(m.cuerda);
+                                return (
+                                  <div key={m.id} className="p-3 rounded-2xl border bg-rose-500/10 border-rose-500/30 flex items-center justify-between">
+                                    <div>
+                                      <span className="text-[9px] font-black uppercase text-rose-300">{m.cuerda}</span>
+                                      <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
+                                    </div>
+                                    {puedeGestionarEste && (
+                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4"/></button>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -2529,99 +3147,318 @@ export default function CharangaSaraoApp() {
                   );
                 })()
               ) : (
-                <p className="text-xs text-zinc-500 text-center py-6">Pincha en cualquier bolo o ensayo del calendario para abrir su ficha y pagos.</p>
+                <p className="text-xs text-zinc-500 text-center py-6">Pincha en cualquier bolo o ensayo dentro del calendario scrolleable para abrir su ficha completa.</p>
               )}
 
             </div>
           </div>
         )}
 
-        {/* MODAL EDITAR BOLOS */}
+        {/* MODAL PARA EDITAR BOLOS O ENSAYOS */}
         {showModalEditarBolos && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-black text-white mb-3">{boloEditandoId ? 'Modificar Datos' : 'Selecciona un Evento para Editar'}</h3>
+              <div className="flex items-center gap-2 mb-3">
+                <Edit3 className="w-5 h-5 text-amber-400"/>
+                <h3 className="text-lg font-black text-white">
+                  {boloEditandoId ? 'Modificar Datos' : 'Selecciona un Evento para Editar'}
+                </h3>
+              </div>
+
               {!boloEditandoId ? (
                 <>
+                  <p className="text-xs text-zinc-400 mb-4">Elige qué bolo o ensayo quieres modificar:</p>
                   <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
-                    {bolos.map(b => (
-                      <div key={b.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex justify-between items-center text-xs">
-                        <div>
-                          <p className="font-black text-white text-base">📍 {b.lugar}</p>
-                          <p className="text-zinc-500 text-[10px]">📅 {b.fecha}</p>
+                    {bolos.length === 0 ? (
+                      <p className="text-xs text-zinc-500 text-center py-4">No hay eventos creados actualmente.</p>
+                    ) : (
+                      bolos.map(b => (
+                        <div key={b.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex justify-between items-center text-xs">
+                          <div>
+                            <p className="font-black text-white text-base" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                              📍 {b.lugar}{' '}
+                              {b.estadoBolo === 'presupuestado' && <span className="text-amber-400 text-[10px] font-sans">(Presupuesto)</span>}
+                              {b.estadoBolo === 'ensayo' && <span className="text-cyan-400 text-[10px] font-sans">(Ensayo)</span>}
+                            </p>
+                            <p className="text-green-300 text-[11px]">{b.estadoBolo === 'ensayo' ? 'Ensayo' : b.titulo}</p>
+                            <p className="text-zinc-500 text-[10px] mt-0.5">📅 {b.fecha} • ⏰ {b.horaInicio || '--'}</p>
+                          </div>
+                          <button
+                            onClick={() => seleccionarBoloParaEditar(b)}
+                            className="bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black font-bold px-3 py-1.5 rounded-xl transition text-xs flex items-center gap-1"
+                          >
+                            <Edit3 className="w-3.5 h-3.5"/> Editar
+                          </button>
                         </div>
-                        <button onClick={() => seleccionarBoloParaEditar(b)} className="bg-amber-500/20 text-amber-300 font-bold px-3 py-1.5 rounded-xl text-xs">Editar</button>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
-                  <button type="button" onClick={() => setShowModalEditarBolos(false)} className="w-full bg-zinc-800 text-zinc-300 font-bold py-2.5 rounded-xl text-sm">Cerrar</button>
+                  <button
+                    type="button"
+                    onClick={() => setShowModalEditarBolos(false)}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-2.5 rounded-xl text-sm"
+                  >
+                    Cerrar
+                  </button>
                 </>
               ) : (
-                <form onSubmit={guardarEdicionBolo} className="space-y-3">
-                  <input type="text" value={editLugarBolo} onChange={e => setEditLugarBolo(e.target.value)} className="w-full bg-black border border-amber-500/50 rounded-xl px-3.5 py-2 text-sm text-white font-bold" required />
-                  <input type="text" value={editTituloBolo} onChange={e => setEditTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-sm text-white" />
-                  <input type="date" value={editFechaBolo} onChange={e => setEditFechaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
-                  <div className="grid grid-cols-2 gap-2">
-                    <input type="text" placeholder="Inicio" value={editHoraInicioBolo} onChange={e => setEditHoraInicioBolo(e.target.value)} className="bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
-                    <input type="text" placeholder="Fin" value={editHoraFinBolo} onChange={e => setEditHoraFinBolo(e.target.value)} className="bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
-                  </div>
-                  <div className="flex gap-2 pt-3">
-                    <button type="submit" className="flex-1 bg-amber-500 text-black font-black py-2.5 rounded-xl text-sm">Guardar Cambios</button>
-                    <button type="button" onClick={() => setBoloEditandoId(null)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Volver</button>
-                  </div>
-                </form>
+                (() => {
+                  const objetoEditando = bolos.find(x => x.id === boloEditandoId);
+                  const esEns = objetoEditando?.estadoBolo === 'ensayo';
+
+                  return (
+                    <form onSubmit={guardarEdicionBolo} className="space-y-3">
+                      <div>
+                        <label className="text-[11px] font-bold text-amber-400 block mb-1">Lugar:</label>
+                        <input
+                          type="text"
+                          value={editLugarBolo}
+                          onChange={e => setEditLugarBolo(e.target.value)}
+                          className="w-full bg-black border border-amber-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-amber-400"
+                          required
+                        />
+                      </div>
+
+                      {!esEns ? (
+                        <div>
+                          <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo / Descripción:</label>
+                          <input
+                            type="text"
+                            value={editTituloBolo}
+                            onChange={e => setEditTituloBolo(e.target.value)}
+                            className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-[11px] font-bold text-cyan-400 block mb-1">Repertorio (Opcional):</label>
+                          <input
+                            type="text"
+                            value={editRepertorioBolo}
+                            onChange={e => setEditRepertorioBolo(e.target.value)}
+                            className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha:</label>
+                        <input
+                          type="date"
+                          value={editFechaBolo}
+                          onChange={e => setEditFechaBolo(e.target.value)}
+                          className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
+                        <div>
+                          <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Inicio:</label>
+                          <input
+                            type="text"
+                            placeholder="Ej: 13:00h"
+                            value={editHoraInicioBolo}
+                            onChange={e => setEditHoraInicioBolo(e.target.value)}
+                            className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                          />
+                        </div>
+                        {!esEns && (
+                          <div>
+                            <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Fin:</label>
+                            <input
+                              type="text"
+                              placeholder="Ej: 17:00h"
+                              value={editHoraFinBolo}
+                              onChange={e => setEditHoraFinBolo(e.target.value)}
+                              className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {!esEns && (
+                        <div className="pt-2 border-t border-zinc-800 space-y-2">
+                          <div>
+                            <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto acordado (€):</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editPresupuestoBolo}
+                              onChange={e => setEditPresupuestoBolo(e.target.value)}
+                              className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <input
+                              type="checkbox"
+                              id="editFacturaCheck"
+                              checked={editConFacturaBolo}
+                              onChange={e => setEditConFacturaBolo(e.target.checked)}
+                              className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                            />
+                            <label htmlFor="editFacturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5 text-zinc-400"/> Se cobra con Factura oficial
+                            </label>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-3">
+                        <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-black py-2.5 rounded-xl text-sm">
+                          Guardar Cambios
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBoloEditandoId(null)}
+                          className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
+                        >
+                          Volver
+                        </button>
+                      </div>
+                    </form>
+                  );
+                })()
               )}
             </div>
           </div>
         )}
 
-        {/* MODAL AÑADIR MÚSICO EXTRA */}
+        {/* MODAL PARA AÑADIR MÚSICO EXTRA */}
         {showModalExtra && boloActual && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-3">Añadir Músico Extra (Refuerzo)</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <UserPlus className="w-5 h-5 text-amber-400"/>
+                <h3 className="text-lg font-black text-white">Añadir Músico Extra (Refuerzo)</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">
+                Introduce los datos del músico de refuerzo para el bolo en <strong>{boloActual.lugar}</strong>.
+              </p>
+
               <form onSubmit={agregarMusicoExtra} className="space-y-3">
-                <input type="text" placeholder="Nombre del Músico" value={nombreExtra} onChange={e => setNombreExtra(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold" required />
-                <input type="text" placeholder="Charanga de procedencia" value={charangaExtra} onChange={e => setCharangaExtra(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" required />
-                <select value={instrumentoExtra} onChange={e => setInstrumentoExtra(e.target.value)} className="w-full bg-black border border-zinc-800 text-white rounded-xl p-2.5 text-xs font-bold" required>
-                  {instrumentosParaExtra.map(inst => <option key={inst.nombre} value={inst.nombre}>{inst.nombre} ({inst.cuerda})</option>)}
-                </select>
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Nombre del Músico:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Marcos, David..."
+                    value={nombreExtra}
+                    onChange={e => setNombreExtra(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-amber-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Charanga / Banda de procedencia:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Charanga El Cubata, Banda Municipal..."
+                    value={charangaExtra}
+                    onChange={e => setCharangaExtra(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Instrumento:</label>
+                  <select
+                    value={instrumentoExtra}
+                    onChange={e => setInstrumentoExtra(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 text-white rounded-xl p-2.5 text-xs font-bold outline-none focus:border-amber-400"
+                    required
+                  >
+                    {instrumentosParaExtra.map(inst => (
+                      <option key={inst.nombre} value={inst.nombre}>
+                        {inst.nombre} ({inst.cuerda})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="flex gap-2 pt-3">
-                  <button type="submit" className="flex-1 bg-amber-500 text-black font-black py-2.5 rounded-xl text-sm">Guardar Extra</button>
-                  <button type="button" onClick={() => setShowModalExtra(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
+                  <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-black py-2.5 rounded-xl text-sm transition">
+                    Guardar Músico Extra
+                  </button>
+                  <button type="button" onClick={() => setShowModalExtra(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                    Cancelar
+                  </button>
                 </div>
               </form>
             </div>
           </div>
         )}
 
-        {/* MODAL ELIMINAR BOLOS */}
+        {/* MODAL ELIMINAR BOLOS O ENSAYOS */}
         {showModalEliminarBolos && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-rose-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-3">Eliminar Evento</h3>
-              <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
-                {bolos.map(b => (
-                  <div key={b.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex justify-between items-center text-xs">
-                    <span>📍 {b.lugar} ({b.fecha})</span>
-                    <button onClick={() => eliminarBolo(b.id, b.lugar)} className="bg-rose-500/20 text-rose-300 font-bold px-3 py-1.5 rounded-xl">Borrar</button>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2 mb-3">
+                <Trash2 className="w-5 h-5 text-rose-400"/>
+                <h3 className="text-lg font-black text-white">Eliminar Evento del Calendario</h3>
               </div>
-              <button type="button" onClick={() => setShowModalEliminarBolos(false)} className="w-full bg-zinc-800 text-zinc-300 font-bold py-2.5 rounded-xl text-sm">Cerrar</button>
+              <p className="text-xs text-zinc-400 mb-4">Selecciona el bolo o ensayo que deseas retirar.</p>
+
+              <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
+                {bolos.length === 0 ? (
+                  <p className="text-xs text-zinc-500 text-center py-4">No hay eventos creados actualmente.</p>
+                ) : (
+                  bolos.map(b => (
+                    <div key={b.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex justify-between items-center text-xs">
+                      <div>
+                        <p className="font-black text-white text-base" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                          📍 {b.lugar}{' '}
+                          {b.estadoBolo === 'ensayo' && <span className="text-cyan-400 text-[10px] font-sans">(Ensayo)</span>}
+                        </p>
+                        <p className="text-green-300 text-[11px]">{b.estadoBolo === 'ensayo' ? 'Ensayo' : b.titulo}</p>
+                        <p className="text-zinc-500 text-[10px] mt-0.5">📅 {b.fecha}</p>
+                      </div>
+                      <button
+                        onClick={() => eliminarBolo(b.id, b.lugar)}
+                        className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black font-bold px-3 py-1.5 rounded-xl transition text-xs flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5"/> Borrar
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModalEliminarBolos(false)}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-2.5 rounded-xl text-sm"
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
           </div>
         )}
 
-        {/* MODAL TRAYECTO CONDUCTOR */}
+        {/* MODAL TRAYECTO CONDUCTOR CON SELECTOR DE PLAZAS LIBRES */}
         {showModalTrayectoBolo && boloActual && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-3">Publicar Coche y Huecos Libres</h3>
+            <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-2 mb-2">
+                <Car className="w-5 h-5 text-blue-400"/>
+                <h3 className="text-lg font-black text-white">Publicar Coche y Huecos Libres</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">
+                Indica cuántos huecos libres tienes en tu coche, la salida y las paradas para que los compañeros puedan unirse.
+              </p>
+
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!origenTrayecto || !destinoTrayecto) return;
-                const numPlazas = parseInt(plazasTrayecto, 10) || 4;
+                const numPlazas = parseInt(plazasTrayecto, 10);
+                if (isNaN(numPlazas) || numPlazas < 1) {
+                  alert('Indica al menos 1 hueco libre.');
+                  return;
+                }
                 registrarSnapshot();
                 const nuevoCar = {
                   id: Date.now(),
@@ -2637,36 +3474,142 @@ export default function CharangaSaraoApp() {
                 };
                 const nuevosBolos = bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: [...(b.cochesAsignados || []), nuevoCar] } : b);
                 setBolos(nuevosBolos);
-                setOrigenTrayecto(''); setHoraSalidaOrigen(''); setDestinoTrayecto(''); setHoraLlegadaDestino('');
+                setOrigenTrayecto(''); setHoraSalidaOrigen('');
+                setParadasIntermedias([{ lugar: '', hora: '' }]);
+                setDestinoTrayecto(''); setHoraLlegadaDestino(''); setVehiculoTrayecto('');
+                setPlazasTrayecto('4');
                 setShowModalTrayectoBolo(false);
                 await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
+                
                 <div className="grid grid-cols-3 gap-2">
-                  <input type="text" placeholder="Vehículo" value={vehiculoTrayecto} onChange={e => setVehiculoTrayecto(e.target.value)} className="col-span-2 bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
-                  <input type="number" min="1" max="15" placeholder="Huecos" value={plazasTrayecto} onChange={e => setPlazasTrayecto(e.target.value)} className="bg-black border border-emerald-500/50 rounded-xl px-3 py-2 text-xs text-white font-black" required />
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Vehículo:</label>
+                    <input type="text" placeholder="Ej: Seat León / Furgoneta" value={vehiculoTrayecto} onChange={e => setVehiculoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-emerald-400 block mb-1">Huecos libres:</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="15"
+                      value={plazasTrayecto}
+                      onChange={e => setPlazasTrayecto(e.target.value)}
+                      className="w-full bg-black border border-emerald-500/50 rounded-xl px-3 py-2 text-xs text-white font-black outline-none focus:border-emerald-400"
+                      required
+                    />
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-3 gap-2">
-                  <input type="text" placeholder="Lugar Salida" value={origenTrayecto} onChange={e => setOrigenTrayecto(e.target.value)} className="col-span-2 bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
-                  <input type="text" placeholder="Hora" value={horaSalidaOrigen} onChange={e => setHoraSalidaOrigen(e.target.value)} className="bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Lugar de Salida:</label>
+                    <input type="text" placeholder="Ej: Segovia" value={origenTrayecto} onChange={e => setOrigenTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Hora Salida:</label>
+                    <input type="text" placeholder="Ej: 11:30h" value={horaSalidaOrigen} onChange={e => setHoraSalidaOrigen(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <input type="text" placeholder="Destino Final" value={destinoTrayecto} onChange={e => setDestinoTrayecto(e.target.value)} className="col-span-2 bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
-                  <input type="text" placeholder="Llegada" value={horaLlegadaDestino} onChange={e => setHoraLlegadaDestino(e.target.value)} className="bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+
+                <div className="space-y-2 pt-1 border-t border-zinc-800">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[11px] font-bold text-amber-400">Puntos Intermedios de recogida:</label>
+                    <button
+                      type="button"
+                      onClick={() => setParadasIntermedias([...paradasIntermedias, { lugar: '', hora: '' }])}
+                      className="text-[10px] text-blue-400 hover:text-blue-300 font-bold"
+                    >
+                      + Añadir parada
+                    </button>
+                  </div>
+
+                  {paradasIntermedias.map((parada, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder={`Parada #${idx + 1}`}
+                        value={parada.lugar}
+                        onChange={e => {
+                          const nuevas = [...paradasIntermedias];
+                          nuevas[idx].lugar = e.target.value;
+                          setParadasIntermedias(nuevas);
+                        }}
+                        className="flex-1 bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Hora"
+                        value={parada.hora}
+                        onChange={e => {
+                          const nuevas = [...paradasIntermedias];
+                          nuevas[idx].hora = e.target.value;
+                          setParadasIntermedias(nuevas);
+                        }}
+                        className="w-20 bg-black border border-zinc-800 rounded-xl px-2 py-2 text-xs text-white"
+                      />
+                      {paradasIntermedias.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setParadasIntermedias(paradasIntermedias.filter((_, i) => i !== idx))}
+                          className="text-rose-400 p-1"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-zinc-800">
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Destino final:</label>
+                    <input type="text" placeholder="Ej: Cuéllar" value={destinoTrayecto} onChange={e => setDestinoTrayecto(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Hora Llegada:</label>
+                    <input type="text" placeholder="Ej: 12:30h" value={horaLlegadaDestino} onChange={e => setHoraLlegadaDestino(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                  </div>
+                </div>
+
                 <div className="flex gap-2 pt-3">
-                  <button type="submit" className="flex-1 bg-blue-500 text-black font-black py-2.5 rounded-xl text-sm">Publicar Trayecto</button>
-                  <button type="button" onClick={() => setShowModalTrayectoBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
+                  <button type="submit" className="flex-1 bg-blue-500 hover:bg-blue-400 text-black font-black py-2.5 rounded-xl text-sm">
+                    Publicar Trayecto
+                  </button>
+                  <button type="button" onClick={() => setShowModalTrayectoBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                    Cancelar
+                  </button>
                 </div>
               </form>
             </div>
           </div>
         )}
 
-        {/* MODAL AÑADIR EVENTO DESDE CALENDARIO */}
+        {/* MODAL AÑADIR DESDE EL CALENDARIO */}
         {showModalBolo && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-zinc-900 border border-green-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-3">Añadir Evento al Calendario</h3>
+            <div className={`bg-zinc-900 border rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto ${
+              tipoCreacionEvento === 'ensayo' 
+                ? 'border-cyan-400/50' 
+                : tipoCreacionEvento === 'presupuestado' 
+                  ? 'border-amber-500/50' 
+                  : 'border-green-500/40'
+            }`}>
+              <h3 className="text-lg font-black text-white mb-1">
+                {tipoCreacionEvento === 'ensayo'
+                  ? 'Añadir Nuevo Ensayo'
+                  : tipoCreacionEvento === 'presupuestado'
+                    ? 'Añadir Nuevo Presupuesto de Bolo'
+                    : 'Añadir Nuevo Bolo'}
+              </h3>
+              <p className="text-xs text-zinc-400 mb-3">
+                {tipoCreacionEvento === 'ensayo'
+                  ? 'El título será siempre "Ensayo" y se mostrará en azul turquesa.'
+                  : tipoCreacionEvento === 'presupuestado' 
+                    ? 'Aparecerá en color amarillo hasta que sea confirmado o rechazado.' 
+                    : 'Se añadirá en color verde como bolo confirmado.'}
+              </p>
+
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!nuevoLugarBolo.trim() || !nuevaFechaBolo) return;
@@ -2685,36 +3628,136 @@ export default function CharangaSaraoApp() {
                   vestuario: 'Por definir',
                   estadoBolo: tipoCreacionEvento,
                   cochesAsignados: [],
-                  musicosExtras: [],
-                  pagosMiembros: {}
+                  musicosExtras: []
                 };
                 const nuevosBolos = [...bolos, nuevoBolo];
                 setBolos(nuevosBolos);
                 setNuevoLugarBolo(''); setNuevoTituloBolo(''); setNuevaFechaBolo('');
+                setNuevaHoraInicioBolo(''); setNuevaHoraFinBolo('');
+                setNuevoPresupuestoBolo(''); setNuevoConFacturaBolo(false);
+                setNuevoRepertorioEnsayo('');
                 setShowModalBolo(false);
                 await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
+
                 <div className="grid grid-cols-3 gap-1.5 p-1 bg-black rounded-xl border border-zinc-800">
-                  <button type="button" onClick={() => setTipoCreacionEvento('confirmado')} className={`py-1.5 rounded-lg text-[11px] font-black ${tipoCreacionEvento === 'confirmado' ? 'bg-green-500 text-black' : 'text-zinc-400'}`}>🟢 Bolo</button>
-                  <button type="button" onClick={() => setTipoCreacionEvento('presupuestado')} className={`py-1.5 rounded-lg text-[11px] font-black ${tipoCreacionEvento === 'presupuestado' ? 'bg-amber-400 text-black' : 'text-zinc-400'}`}>🟡 Presupuesto</button>
-                  <button type="button" onClick={() => setTipoCreacionEvento('ensayo')} className={`py-1.5 rounded-lg text-[11px] font-black ${tipoCreacionEvento === 'ensayo' ? 'bg-cyan-400 text-black' : 'text-zinc-400'}`}>🔵 Ensayo</button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoCreacionEvento('confirmado')}
+                    className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                      tipoCreacionEvento === 'confirmado' ? 'bg-green-500 text-black' : 'text-zinc-400'
+                    }`}
+                  >
+                    🟢 Bolo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoCreacionEvento('presupuestado')}
+                    className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                      tipoCreacionEvento === 'presupuestado' ? 'bg-amber-400 text-black' : 'text-zinc-400'
+                    }`}
+                  >
+                    🟡 Presupuesto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoCreacionEvento('ensayo')}
+                    className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                      tipoCreacionEvento === 'ensayo' ? 'bg-cyan-400 text-black' : 'text-zinc-400'
+                    }`}
+                  >
+                    🔵 Ensayo
+                  </button>
                 </div>
-                <input type="text" placeholder="Lugar" value={nuevoLugarBolo} onChange={e => setNuevoLugarBolo(e.target.value)} className="w-full bg-black border border-green-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold" required />
+                
+                <div>
+                  <label className="text-[11px] font-bold text-green-400 block mb-1">
+                    {tipoCreacionEvento === 'ensayo' ? 'Lugar del Ensayo:' : 'Lugar del Bolo (Titular principal):'}
+                  </label>
+                  <input type="text" placeholder="Ej: Local de ensayo, Cuéllar, Segovia..." value={nuevoLugarBolo} onChange={e => setNuevoLugarBolo(e.target.value)} className="w-full bg-black border border-green-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-green-400" required />
+                </div>
+
                 {tipoCreacionEvento === 'ensayo' ? (
-                  <input type="text" placeholder="Repertorio (Opcional)" value={nuevoRepertorioEnsayo} onChange={e => setNuevoRepertorioEnsayo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
+                  <div>
+                    <label className="text-[11px] font-bold text-cyan-400 block mb-1">Repertorio (Opcional):</label>
+                    <input type="text" placeholder="Ej: Temas nuevos, pasodobles..." value={nuevoRepertorioEnsayo} onChange={e => setNuevoRepertorioEnsayo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
+                  </div>
                 ) : (
-                  <input type="text" placeholder="Tipo de Bolo (Opcional)" value={nuevoTituloBolo} onChange={e => setNuevoTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo (Opcional):</label>
+                    <input type="text" placeholder="Ej: Pasacalles y Vermú, Diana floreada..." value={nuevoTituloBolo} onChange={e => setNuevoTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
+                  </div>
                 )}
-                <input type="date" value={nuevaFechaBolo} onChange={e => setNuevaFechaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
-                <div className="grid grid-cols-2 gap-2">
-                  <input type="text" placeholder="Hora Inicio (13:00h)" value={nuevaHoraInicioBolo} onChange={e => setNuevaHoraInicioBolo(e.target.value)} className="bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Día (Fecha):</label>
+                  <input type="date" value={nuevaFechaBolo} onChange={e => setNuevaFechaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
+                  <div className={tipoCreacionEvento === 'ensayo' ? 'col-span-2' : ''}>
+                    <label className="text-[11px] font-bold text-green-400 block mb-1">
+                      {tipoCreacionEvento === 'ensayo' ? 'Hora del Ensayo:' : 'A qué hora empieza:'}
+                    </label>
+                    <input type="text" placeholder="Ej: 19:30h" value={nuevaHoraInicioBolo} onChange={e => setNuevaHoraInicioBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required={tipoCreacionEvento === 'ensayo'} />
+                  </div>
                   {tipoCreacionEvento !== 'ensayo' && (
-                    <input type="text" placeholder="Hora Fin (17:00h)" value={nuevaHoraFinBolo} onChange={e => setNuevaHoraFinBolo(e.target.value)} className="bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                    <div>
+                      <label className="text-[11px] font-bold text-green-400 block mb-1">A qué hora acaba:</label>
+                      <input type="text" placeholder="Ej: 17:00h" value={nuevaHoraFinBolo} onChange={e => setNuevaHoraFinBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                    </div>
                   )}
                 </div>
+
+                {tipoCreacionEvento !== 'ensayo' && (
+                  <div className="pt-2 border-t border-zinc-800 space-y-2">
+                    <div>
+                      <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto en euros (€):</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Ej: 1200"
+                        value={nuevoPresupuestoBolo}
+                        onChange={e => setNuevoPresupuestoBolo(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="checkbox"
+                        id="facturaCheck"
+                        checked={nuevoConFacturaBolo}
+                        onChange={e => setNuevoConFacturaBolo(e.target.checked)}
+                        className="w-4 h-4 accent-green-500 rounded cursor-pointer"
+                      />
+                      <label htmlFor="facturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-zinc-400"/> Va con Factura oficial
+                      </label>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2 pt-3">
-                  <button type="submit" className="flex-1 bg-green-500 text-black font-black py-2.5 rounded-xl text-sm">Guardar</button>
-                  <button type="button" onClick={() => setShowModalBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
+                  <button
+                    type="submit"
+                    className={`flex-1 text-black font-black py-2.5 rounded-xl text-sm ${
+                      tipoCreacionEvento === 'ensayo'
+                        ? 'bg-cyan-400 hover:bg-cyan-300'
+                        : tipoCreacionEvento === 'presupuestado'
+                          ? 'bg-amber-400 hover:bg-amber-300'
+                          : 'bg-green-500 hover:bg-green-400'
+                    }`}
+                  >
+                    {tipoCreacionEvento === 'ensayo'
+                      ? 'Guardar Ensayo (Azul)'
+                      : tipoCreacionEvento === 'presupuestado'
+                        ? 'Guardar Presupuesto (Amarillo)'
+                        : 'Guardar Bolo Confirmado'}
+                  </button>
+                  <button type="button" onClick={() => setShowModalBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                    Cancelar
+                  </button>
                 </div>
               </form>
             </div>
@@ -2725,22 +3768,35 @@ export default function CharangaSaraoApp() {
         {pestañaActiva === 'bote' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6">
+              
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
                 <div>
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                     BOTE Y FINANZAS SARAO
                   </h2>
-                  <p className="text-xs text-zinc-400">La gasolina queda apuntada y se resta al pulsar el tick de verificación (✓).</p>
+                  <p className="text-xs text-zinc-400">
+                    La gasolina queda apuntada y solo se resta del bote cuando se pulsa el tick de verificación (✓).
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
                   {esConductor && (
-                    <button onClick={() => { setConductorGasolinaNombre(tieneRolConductor ? usuarioActual.nombre : ''); setShowModalGasolina(true); }} className="bg-blue-500 text-black font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5">
+                    <button
+                      onClick={() => {
+                        setConductorGasolinaNombre(tieneRolConductor ? usuarioActual.nombre : '');
+                        setShowModalGasolina(true);
+                      }}
+                      className="bg-blue-500 hover:bg-blue-400 text-black font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
+                    >
                       <Fuel className="w-4 h-4"/> Añadir Kilometraje (0,20€/km)
                     </button>
                   )}
+
                   {esTesorero && (
-                    <button onClick={() => setShowModalMovimientoBote(true)} className="bg-amber-500 text-black font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5">
+                    <button
+                      onClick={() => setShowModalMovimientoBote(true)}
+                      className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow"
+                    >
                       <Plus className="w-4 h-4"/> Añadir Movimiento
                     </button>
                   )}
@@ -2750,48 +3806,109 @@ export default function CharangaSaraoApp() {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
                 <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
                   <span className="text-[11px] font-bold text-zinc-400 uppercase">Saldo Real Bote</span>
-                  <p className={`text-2xl font-black mt-1 ${saldoTotal >= 0 ? 'text-green-400' : 'text-rose-400'}`}>{saldoTotal.toFixed(2)} €</p>
+                  <p className={`text-2xl font-black mt-1 ${saldoTotal >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
+                    {saldoTotal.toFixed(2)} €
+                  </p>
                 </div>
                 <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
                   <span className="text-[11px] font-bold text-zinc-400 uppercase">Ingresos</span>
-                  <p className="text-2xl font-black text-emerald-400 mt-1">+{totalIngresos.toFixed(2)} €</p>
+                  <p className="text-2xl font-black text-emerald-400 mt-1">
+                    +{totalIngresos.toFixed(2)} €
+                  </p>
                 </div>
                 <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
                   <span className="text-[11px] font-bold text-zinc-400 uppercase">Gastos Pagados (✓)</span>
-                  <p className="text-2xl font-black text-rose-400 mt-1">-{totalGastos.toFixed(2)} €</p>
+                  <p className="text-2xl font-black text-rose-400 mt-1">
+                    -{totalGastos.toFixed(2)} €
+                  </p>
                 </div>
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
-                  <span className="text-[11px] font-bold text-amber-300 uppercase">Gasolina Pendiente</span>
-                  <p className="text-2xl font-black text-amber-400 mt-1">{totalPendienteGasolina.toFixed(2)} €</p>
+                  <span className="text-[11px] font-bold text-amber-300 uppercase">Gasolina sin Verificar</span>
+                  <p className="text-2xl font-black text-amber-400 mt-1">
+                    {totalPendienteGasolina.toFixed(2)} €
+                  </p>
                 </div>
               </div>
 
-              <div className="space-y-2 max-h-96 overflow-y-auto bg-black/60 p-3 rounded-2xl border border-zinc-800">
-                {movimientosBote.map(m => {
-                  const estaVerificado = m.verificado !== false;
-                  return (
-                    <div key={m.id} className={`flex justify-between items-center text-xs p-3 rounded-xl border ${estaVerificado ? 'bg-zinc-900/80 border-zinc-800' : 'bg-amber-500/10 border-amber-500/40'}`}>
-                      <div>
-                        <p className="font-bold text-sm text-white">{m.concepto}</p>
-                        <span className="text-[11px] text-zinc-400">{m.fecha} • {m.conductorGasto || m.autor}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`font-black text-sm ${!estaVerificado ? 'text-amber-400 line-through' : m.cantidad >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {m.cantidad >= 0 ? `+${m.cantidad.toFixed(2)}` : m.cantidad.toFixed(2)} €
-                        </span>
-                        {m.cantidad < 0 && esTesorero && (
-                          <button onClick={() => toggleVerificarMovimientoBote(m.id)} className={`px-2.5 py-1.5 rounded-xl font-black text-[11px] flex items-center gap-1 border ${estaVerificado ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-zinc-900 text-zinc-300 border-zinc-700'}`}>
-                            <Check className="w-3.5 h-3.5"/> {estaVerificado ? 'Pagado' : 'Verificar'}
-                          </button>
-                        )}
-                        {esTesorero && (
-                          <button onClick={() => eliminarMovimientoBote(m.id)} className="text-rose-400 p-1"><Trash2 className="w-4 h-4"/></button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Historial de Movimientos y Gasolinas</h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto bg-black/60 p-3 rounded-2xl border border-zinc-800">
+                  {movimientosBote.length === 0 ? (
+                    <p className="text-xs text-zinc-500 text-center py-4">No hay movimientos registrados.</p>
+                  ) : (
+                    movimientosBote.map(m => {
+                      const estaVerificado = m.verificado !== false;
+
+                      return (
+                        <div 
+                          key={m.id} 
+                          className={`flex justify-between items-center text-xs p-3 rounded-xl border transition ${
+                            estaVerificado 
+                              ? 'bg-zinc-900/80 border-zinc-800' 
+                              : 'bg-amber-500/10 border-amber-500/40'
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className={`font-bold text-sm ${estaVerificado ? 'text-white' : 'text-amber-200'}`}>
+                                {m.concepto}
+                              </p>
+                              {!estaVerificado ? (
+                                <span className="text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40">
+                                  ⏳ Pendiente de verificar pago (No restado)
+                                </span>
+                              ) : m.esGasolina && (
+                                <span className="text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40">
+                                  ✓ Pago verificado
+                                </span>
+                              )}
+                            </div>
+
+                            <span className="text-[11px] text-zinc-400 block">
+                              {m.fecha} • {m.conductorGasto ? (
+                                <>Pertenece a: <strong className="text-blue-300">{m.conductorGasto}</strong> (Apuntado por {m.autor})</>
+                              ) : (
+                                <>Registrado por: <strong className="text-zinc-300">{m.autor || 'Admin'}</strong></>
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            <span className={`font-black text-sm ${
+                              !estaVerificado 
+                                ? 'text-amber-400 line-through opacity-80' 
+                                : m.cantidad >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {m.cantidad >= 0 ? `+${m.cantidad.toFixed(2)}` : m.cantidad.toFixed(2)} €
+                            </span>
+
+                            {m.cantidad < 0 && esTesorero && (
+                              <button
+                                onClick={() => toggleVerificarMovimientoBote(m.id)}
+                                className={`px-2.5 py-1.5 rounded-xl font-black text-[11px] flex items-center gap-1 transition cursor-pointer border ${
+                                  estaVerificado
+                                    ? 'bg-emerald-500 text-black border-emerald-400 shadow-md'
+                                    : 'bg-zinc-900 hover:bg-emerald-500/20 text-zinc-300 hover:text-emerald-300 border-zinc-700'
+                                }`}
+                              >
+                                <Check className="w-3.5 h-3.5"/>
+                                {estaVerificado ? 'Pagado' : 'Verificar'}
+                              </button>
+                            )}
+
+                            {esTesorero && (
+                              <button onClick={() => eliminarMovimientoBote(m.id)} className="text-rose-400 hover:text-rose-300 p-1">
+                                <Trash2 className="w-4 h-4"/>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
+
             </div>
           </div>
         )}
@@ -2800,46 +3917,159 @@ export default function CharangaSaraoApp() {
         {showModalGasolina && esConductor && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-3">Apuntar Gasolina (0,20 € / km)</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <Fuel className="w-5 h-5 text-blue-400"/>
+                <h3 className="text-lg font-black text-white">Apuntar Gasolina (0,20 € / km)</h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">
+                El gasto quedará apuntado en la lista y se descontará del bote en cuanto se pulse el tick de verificación (✓).
+              </p>
+
               <form onSubmit={agregarGasolinaConductor} className="space-y-3">
                 {esAdmin && (
-                  <div className="space-y-2">
-                    <div className="flex gap-1.5 flex-wrap">
-                      {listaConductoresPlantilla.map(c => (
-                        <button type="button" key={c.id} onClick={() => setConductorGasolinaNombre(c.nombre)} className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${conductorGasolinaNombre === c.nombre ? 'bg-blue-500 text-black' : 'bg-zinc-900 text-zinc-400 border-zinc-800'}`}>
-                          {c.nombre}
-                        </button>
-                      ))}
-                    </div>
-                    <input type="text" placeholder="Nombre del conductor..." value={conductorGasolinaNombre} onChange={e => setConductorGasolinaNombre(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white font-bold" required />
+                  <div className="p-3 bg-black/60 border border-blue-500/30 rounded-2xl space-y-2">
+                    <label className="text-xs text-blue-300 block font-bold">
+                      ¿A qué conductor pertenece este gasto?
+                    </label>
+                    {listaConductoresPlantilla.length > 0 && (
+                      <div className="flex gap-1.5 flex-wrap mb-1">
+                        {listaConductoresPlantilla.map(c => (
+                          <button
+                            type="button"
+                            key={c.id}
+                            onClick={() => setConductorGasolinaNombre(c.nombre)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
+                              conductorGasolinaNombre === c.nombre
+                                ? 'bg-blue-500 text-black border-blue-400'
+                                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
+                            }`}
+                          >
+                            {c.nombre}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <input
+                      type="text"
+                      placeholder="Escribe o selecciona el nombre del conductor..."
+                      value={conductorGasolinaNombre}
+                      onChange={e => setConductorGasolinaNombre(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white font-bold outline-none focus:border-blue-500"
+                      required
+                    />
                   </div>
                 )}
-                <input type="number" step="0.1" placeholder="Kilómetros realizados" value={kmGasolina} onChange={e => setKmGasolina(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold" required />
-                <input type="text" placeholder="Bolo / Destino (Opcional)" value={destinoGasolina} onChange={e => setDestinoGasolina(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
+
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Kilómetros realizados:</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="Ej: 110"
+                    value={kmGasolina}
+                    onChange={e => setKmGasolina(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Bolo / Destino (Opcional):</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Cuéllar"
+                    value={destinoGasolina}
+                    onChange={e => setDestinoGasolina(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                {kmGasolina && !isNaN(parseFloat(kmGasolina)) && parseFloat(kmGasolina) > 0 && (
+                  <div className="p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-xl text-center">
+                    <span className="text-xs text-zinc-300 block">
+                      Importe para <strong>{esAdmin ? (conductorGasolinaNombre || '...') : usuarioActual.nombre}</strong> ({parseFloat(kmGasolina)} km × 0,20 €):
+                    </span>
+                    <span className="text-lg text-blue-400 font-black">
+                      {(parseFloat(kmGasolina) * TARIFA_KM).toFixed(2)} €
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex gap-2 pt-2">
-                  <button type="submit" className="flex-1 bg-blue-500 text-black font-black py-2.5 rounded-xl text-sm">Apuntar Gasolina</button>
-                  <button type="button" onClick={() => setShowModalGasolina(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
+                  <button type="submit" className="flex-1 bg-blue-500 hover:bg-blue-400 text-black font-black py-2.5 rounded-xl text-sm">
+                    Apuntar Gasto de Gasolina
+                  </button>
+                  <button type="button" onClick={() => setShowModalGasolina(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                    Cancelar
+                  </button>
                 </div>
               </form>
             </div>
           </div>
         )}
 
-        {/* MODAL MOVIMIENTO BOTE */}
+        {/* MODAL INGRESOS Y GASTOS */}
         {showModalMovimientoBote && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-3">Nuevo Movimiento en el Bote</h3>
+              <div className="flex items-center gap-2 mb-3">
+                <Wallet className="w-5 h-5 text-amber-400"/>
+                <h3 className="text-lg font-black text-white">Nuevo Movimiento en el Bote</h3>
+              </div>
+
               <form onSubmit={agregarMovimientoGeneralBote} className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setTipoMovimientoBote('ingreso')} className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'ingreso' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-black border-zinc-800 text-zinc-400'}`}>+ Ingreso</button>
-                  <button type="button" onClick={() => setTipoMovimientoBote('gasto')} className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'gasto' ? 'bg-rose-500/20 border-rose-500 text-rose-300' : 'bg-black border-zinc-800 text-zinc-400'}`}>- Gasto</button>
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Tipo de Movimiento:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTipoMovimientoBote('ingreso')}
+                      className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'ingreso' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-black border-zinc-800 text-zinc-400'}`}
+                    >
+                      + Ingreso (Cobro)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTipoMovimientoBote('gasto')}
+                      className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'gasto' ? 'bg-rose-500/20 border-rose-500 text-rose-300' : 'bg-black border-zinc-800 text-zinc-400'}`}
+                    >
+                      - Gasto
+                    </button>
+                  </div>
                 </div>
-                <input type="text" placeholder="Concepto" value={conceptoBote} onChange={e => setConceptoBote(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" required />
-                <input type="number" step="0.01" placeholder="Importe (€)" value={importeBote} onChange={e => setImporteBote(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" required />
+
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Concepto:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Cobro Pasacalles o Compra Repuestos"
+                    value={conceptoBote}
+                    onChange={e => setConceptoBote(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Importe en Euros (€):</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Ej: 1200"
+                    value={importeBote}
+                    onChange={e => setImporteBote(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                    required
+                  />
+                </div>
+
                 <div className="flex gap-2 pt-2">
-                  <button type="submit" className="flex-1 bg-amber-500 text-black font-black py-2.5 rounded-xl text-sm">Guardar</button>
-                  <button type="button" onClick={() => setShowModalMovimientoBote(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">Cancelar</button>
+                  <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-black py-2.5 rounded-xl text-sm">
+                    Guardar Movimiento
+                  </button>
+                  <button type="button" onClick={() => setShowModalMovimientoBote(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                    Cancelar
+                  </button>
                 </div>
               </form>
             </div>
@@ -2848,12 +4078,11 @@ export default function CharangaSaraoApp() {
 
       </main>
 
-      {/* BARRA INFERIOR CON LA NUEVA PESTAÑA "FICHA PERSONAL" */}
+      {/* BARRA INFERIOR */}
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-2.5 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto">
         {[
           { id: 'landing', label: 'Inicio', icon: Home },
           { id: 'bolos', label: 'Bolos', icon: CalendarIcon },
-          { id: 'ficha', label: 'Ficha Personal', icon: Award },
           { id: 'ensayos', label: 'Ensayos', icon: Music },
           { id: 'presupuestos', label: 'Presupuestos', icon: ClipboardList },
           { id: 'miembros', label: 'Plantilla', icon: Users },
