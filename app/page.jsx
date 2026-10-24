@@ -77,10 +77,18 @@ export default function CharangaSaraoApp() {
 
   // Modales Bolos (Añadir, Editar, Eliminar)
   const [showModalBolo, setShowModalBolo] = useState(false);
-  const [esCreacionPresupuesto, setEsCreacionPresupuesto] = useState(false);
+  const [tipoCreacionEvento, setTipoCreacionEvento] = useState('confirmado'); // 'confirmado' | 'presupuestado' | 'ensayo'
   const [showModalEditarBolos, setShowModalEditarBolos] = useState(false);
   const [boloEditandoId, setBoloEditandoId] = useState(null);
   const [showModalEliminarBolos, setShowModalEliminarBolos] = useState(false);
+
+  // Modal específico para Crear / Editar Ensayos desde la pestaña Ensayos
+  const [showModalEnsayo, setShowModalEnsayo] = useState(false);
+  const [ensayoEditandoId, setEnsayoEditandoId] = useState(null);
+  const [lugarEnsayo, setLugarEnsayo] = useState('');
+  const [fechaEnsayo, setFechaEnsayo] = useState('');
+  const [horaEnsayo, setHoraEnsayo] = useState('');
+  const [repertorioEnsayo, setRepertorioEnsayo] = useState('');
 
   // Modal de Confirmación de Presupuesto
   const [showModalConfirmarPresupuesto, setShowModalConfirmarPresupuesto] = useState(false);
@@ -93,6 +101,7 @@ export default function CharangaSaraoApp() {
   const [nuevaHoraFinBolo, setNuevaHoraFinBolo] = useState('');
   const [nuevoPresupuestoBolo, setNuevoPresupuestoBolo] = useState('');
   const [nuevoConFacturaBolo, setNuevoConFacturaBolo] = useState(false);
+  const [nuevoRepertorioEnsayo, setNuevoRepertorioEnsayo] = useState('');
 
   // Estados de Edición / Confirmación de Bolo
   const [editLugarBolo, setEditLugarBolo] = useState('');
@@ -102,6 +111,7 @@ export default function CharangaSaraoApp() {
   const [editHoraFinBolo, setEditHoraFinBolo] = useState('');
   const [editPresupuestoBolo, setEditPresupuestoBolo] = useState('');
   const [editConFacturaBolo, setEditConFacturaBolo] = useState(false);
+  const [editRepertorioBolo, setEditRepertorioBolo] = useState('');
 
   // Modal Músico Extra
   const [showModalExtra, setShowModalExtra] = useState(false);
@@ -404,12 +414,13 @@ export default function CharangaSaraoApp() {
   const seleccionarBoloParaEditar = (bolo) => {
     setBoloEditandoId(bolo.id);
     setEditLugarBolo(bolo.lugar || '');
-    setEditTituloBolo(bolo.titulo || '');
+    setEditTituloBolo(bolo.estadoBolo === 'ensayo' ? 'Ensayo' : (bolo.titulo || ''));
     setEditFechaBolo(bolo.fecha || '');
     setEditHoraInicioBolo(bolo.horaInicio || '');
     setEditHoraFinBolo(bolo.horaFin || '');
     setEditPresupuestoBolo(bolo.presupuesto ? String(bolo.presupuesto) : '');
     setEditConFacturaBolo(Boolean(bolo.conFactura));
+    setEditRepertorioBolo(bolo.repertorio || '');
   };
 
   const guardarEdicionBolo = async (e) => {
@@ -423,15 +434,17 @@ export default function CharangaSaraoApp() {
     registrarSnapshot();
     const nuevosBolos = bolos.map(b => {
       if (b.id === boloEditandoId) {
+        const esEns = b.estadoBolo === 'ensayo';
         return {
           ...b,
           lugar: editLugarBolo.trim(),
-          titulo: editTituloBolo.trim() || 'Actuación',
+          titulo: esEns ? 'Ensayo' : (editTituloBolo.trim() || 'Actuación'),
           fecha: editFechaBolo,
           horaInicio: editHoraInicioBolo,
-          horaFin: editHoraFinBolo,
-          presupuesto: parseFloat(editPresupuestoBolo) || 0,
-          conFactura: editConFacturaBolo
+          horaFin: esEns ? '' : editHoraFinBolo,
+          presupuesto: esEns ? 0 : (parseFloat(editPresupuestoBolo) || 0),
+          conFactura: esEns ? false : editConFacturaBolo,
+          repertorio: esEns ? editRepertorioBolo.trim() : (b.repertorio || '')
         };
       }
       return b;
@@ -441,6 +454,102 @@ export default function CharangaSaraoApp() {
     setBoloEditandoId(null);
     setShowModalEditarBolos(false);
     await guardarEnNube(null, nuevosBolos, null);
+  };
+
+  // =========================================================================
+  // FUNCIONES DE ENSAYOS (AÑADIR, EDITAR Y QUITAR POR ADMIN Y ROL BOLOS)
+  // =========================================================================
+
+  const abrirModalNuevoEnsayo = () => {
+    if (!esGestorBolos) return;
+    setEnsayoEditandoId(null);
+    setLugarEnsayo('');
+    setFechaEnsayo('');
+    setHoraEnsayo('');
+    setRepertorioEnsayo('');
+    setShowModalEnsayo(true);
+  };
+
+  const abrirModalEditarEnsayo = (ensayo) => {
+    if (!esGestorBolos) return;
+    setEnsayoEditandoId(ensayo.id);
+    setLugarEnsayo(ensayo.lugar || '');
+    setFechaEnsayo(ensayo.fecha || '');
+    setHoraEnsayo(ensayo.horaInicio || '');
+    setRepertorioEnsayo(ensayo.repertorio || '');
+    setShowModalEnsayo(true);
+  };
+
+  const guardarEnsayo = async (e) => {
+    e.preventDefault();
+    if (!esGestorBolos) return;
+    if (!lugarEnsayo.trim() || !fechaEnsayo || !horaEnsayo.trim()) {
+      alert('Por favor indica el lugar, el día y la hora del ensayo.');
+      return;
+    }
+
+    registrarSnapshot();
+    let nuevosBolos;
+
+    if (ensayoEditandoId) {
+      nuevosBolos = bolos.map(b => {
+        if (b.id === ensayoEditandoId) {
+          return {
+            ...b,
+            titulo: 'Ensayo',
+            lugar: lugarEnsayo.trim(),
+            fecha: fechaEnsayo,
+            horaInicio: horaEnsayo.trim(),
+            repertorio: repertorioEnsayo.trim(),
+            estadoBolo: 'ensayo'
+          };
+        }
+        return b;
+      });
+    } else {
+      const nuevoEnsayoObj = {
+        id: Date.now(),
+        titulo: 'Ensayo', // El título siempre es "Ensayo"
+        lugar: lugarEnsayo.trim(),
+        fecha: fechaEnsayo,
+        horaInicio: horaEnsayo.trim(),
+        horaFin: '',
+        repertorio: repertorioEnsayo.trim(),
+        vestuario: 'Por definir',
+        presupuesto: 0,
+        conFactura: false,
+        estadoBolo: 'ensayo', // Identificador azul turquesa en el calendario
+        cochesAsignados: [],
+        musicosExtras: []
+      };
+      nuevosBolos = [...bolos, nuevoEnsayoObj];
+    }
+
+    setBolos(nuevosBolos);
+    setShowModalEnsayo(false);
+    setEnsayoEditandoId(null);
+    setLugarEnsayo('');
+    setFechaEnsayo('');
+    setHoraEnsayo('');
+    setRepertorioEnsayo('');
+    await guardarEnNube(null, nuevosBolos, null);
+  };
+
+  const eliminarEnsayo = async (ensayoId, ensayoLugar, ensayoFecha) => {
+    if (!esGestorBolos) return;
+    if (confirm(`¿Eliminar el ensayo en "${ensayoLugar}" del día ${ensayoFecha}? Desaparecerá de la lista y del calendario.`)) {
+      registrarSnapshot();
+      const nuevosBolos = bolos.filter(b => b.id !== ensayoId);
+      const nuevosMiembros = miembros.map(m => {
+        const disp = { ...m.disponibilidadBolos };
+        delete disp[ensayoId];
+        return { ...m, disponibilidadBolos: disp };
+      });
+      if (boloSeleccionadoId === ensayoId) setBoloSeleccionadoId(null);
+      setBolos(nuevosBolos);
+      setMiembros(nuevosMiembros);
+      await guardarEnNube(nuevosMiembros, nuevosBolos, null);
+    }
   };
 
   // =========================================================================
@@ -506,7 +615,7 @@ export default function CharangaSaraoApp() {
 
   const eliminarBolo = async (boloId, boloLugar) => {
     if (!esGestorBolos) return;
-    if (confirm(`¿Eliminar el bolo de "${boloLugar}" definitivamente?`)) {
+    if (confirm(`¿Eliminar "${boloLugar}" definitivamente del calendario?`)) {
       registrarSnapshot();
       const nuevosBolos = bolos.filter(b => b.id !== boloId);
       const nuevosMiembros = miembros.map(m => {
@@ -532,7 +641,7 @@ export default function CharangaSaraoApp() {
       alert(`Como jefe de cuerda, solo puedes descartar músicos de tu cuerda (${usuarioActual.cuerda}).`);
       return;
     }
-    if (confirm(`¿Descartar a ${nombreMiembro} de este bolo?`)) {
+    if (confirm(`¿Descartar a ${nombreMiembro} de este evento?`)) {
       registrarSnapshot();
       const nuevaLista = miembros.map(m => {
         if (m.id === miembroId) {
@@ -946,7 +1055,7 @@ export default function CharangaSaraoApp() {
 
   const abrirModalParaFecha = (fechaStr) => {
     if (!esGestorBolos) return;
-    setEsCreacionPresupuesto(false);
+    setTipoCreacionEvento('confirmado');
     setNuevaFechaBolo(fechaStr);
     setShowModalBolo(true);
   };
@@ -965,9 +1074,7 @@ export default function CharangaSaraoApp() {
   const miTotalFacturado = misFacturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
   const totalGeneralFacturado = facturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
 
-  // =========================================================================
   // COMPROBACIÓN EXACTA DE FECHA: DESCARTA CUALQUIER BOLO CUYO DÍA YA PASÓ
-  // =========================================================================
   const esBoloVigente = (fechaStr) => {
     if (!fechaStr) return false;
     const limpio = String(fechaStr).trim();
@@ -984,16 +1091,15 @@ export default function CharangaSaraoApp() {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
-    // Solo devuelve true si la fecha del bolo es HOY o FUTURA
     return fechaBolo.getTime() >= hoy.getTime();
   };
 
-  // 1. Todos los confirmados (para estadísticas e histórico)
-  const bolosConfirmados = bolos.filter(b => b.estadoBolo !== 'presupuestado');
+  // 1. Todos los bolos confirmados (excluyendo presupuestados y ensayos)
+  const bolosConfirmados = bolos.filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo');
 
-  // 2. Próximos Bolos en la Landing: SOLO CONFIRMADOS Y QUE NO HAYAN PASADO DE FECHA
+  // 2. Próximos Bolos en la Landing: SOLO BOLOS CONFIRMADOS Y QUE NO HAYAN PASADO DE FECHA
   const proximosBolosConfirmados = bolos
-    .filter(b => b.estadoBolo !== 'presupuestado' && esBoloVigente(b.fecha))
+    .filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo' && esBoloVigente(b.fecha))
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
   // 3. Bolos presupuestados (en amarillo)
@@ -1001,11 +1107,18 @@ export default function CharangaSaraoApp() {
     .filter(b => b.estadoBolo === 'presupuestado')
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
+  // 4. Ensayos fijados (en azul turquesa)
+  const listaEnsayos = bolos
+    .filter(b => b.estadoBolo === 'ensayo')
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
   const exportarEstadisticasExcel = () => {
     let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Bolos Confirmados;Total Bolos;Porcentaje (%);Total Facturado (€)\n";
     miembros.forEach(m => {
       const totalBolos = bolosConfirmados.length;
-      const dispoCount = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'puedo').length;
+      const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
+      const dispoCount = Object.entries(m.disponibilidadBolos || {})
+        .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
       const porcentaje = totalBolos > 0 ? Math.round((dispoCount / totalBolos) * 100) : 0;
       const facturadoM = facturas
         .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
@@ -1188,15 +1301,15 @@ export default function CharangaSaraoApp() {
                 </h2>
                 <p className="text-zinc-300 text-sm mt-1 max-w-xl">
                   {esAdmin 
-                    ? 'Modo Administrador: control de bolos, presupuestos en curso, bote, plantilla y facturación.' 
+                    ? 'Modo Administrador: control de bolos, ensayos, presupuestos en curso, bote, plantilla y facturación.' 
                     : esGestorBolos
-                      ? 'Rol Bolos activo: puedes gestionar el calendario, vestuario y bolos presupuestados.'
-                      : 'Calendario de bolos, confirmación de asistencia, coches, bote y subida de facturas.'}
+                      ? 'Rol Bolos activo: puedes gestionar el calendario, ensayos, vestuario y bolos presupuestados.'
+                      : 'Calendario de bolos, ensayos, confirmación de asistencia, coches, bote y subida de facturas.'}
                 </p>
               </div>
             </div>
 
-            {/* CARRUSEL DESLIZABLE HORIZONTAL: SOLO PRÓXIMOS BOLOS CONFIRMADOS Y VIGENTES (HOY O FUTUROS) */}
+            {/* CARRUSEL DESLIZABLE HORIZONTAL: SOLO PRÓXIMOS BOLOS CONFIRMADOS Y VIGENTES */}
             <div className="space-y-3">
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -1281,10 +1394,19 @@ export default function CharangaSaraoApp() {
               <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="p-3 bg-green-500/20 text-green-400 rounded-2xl w-fit mb-3"><CalendarIcon className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Calendario de Bolos</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Bolos confirmados (verde) y presupuestados (amarillo).</p>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Calendario General</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Confirmados (verde), presupuestos (amarillo) y ensayos (azul).</p>
                 </div>
                 <span className="text-xs font-bold text-green-400 mt-4 block">&rarr; Ver calendario</span>
+              </div>
+
+              <div onClick={() => setPestañaActiva('ensayos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-cyan-500/30 hover:border-cyan-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
+                <div>
+                  <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-2xl w-fit mb-3"><Music className="w-6 h-6"/></div>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Ensayos</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Lugar, horario y repertorio de los ensayos fijados.</p>
+                </div>
+                <span className="text-xs font-bold text-cyan-400 mt-4 block">&rarr; Ver ensayos ({listaEnsayos.length})</span>
               </div>
 
               <div onClick={() => setPestañaActiva('presupuestos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-amber-500/30 hover:border-amber-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
@@ -1337,6 +1459,208 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
+        {/* NUEVA SECCIÓN: ENSAYOS (EN COLUMNA/TARJETAS Y SINCRONIZADOS EN AZUL TURQUESA EN EL CALENDARIO) */}
+        {pestañaActiva === 'ensayos' && (
+          <div className="space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
+              
+              <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-cyan-400 inline-block"></span>
+                    <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                      ENSAYOS PROGRAMADOS ({listaEnsayos.length})
+                    </h2>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Todos los ensayos fijados aquí se añaden automáticamente al calendario general en color <strong>azul turquesa</strong> bajo el título <strong>"Ensayo"</strong>.
+                  </p>
+                </div>
+
+                {esGestorBolos && (
+                  <button
+                    onClick={abrirModalNuevoEnsayo}
+                    className="bg-cyan-400 hover:bg-cyan-300 text-black font-black text-xs px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg transition cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4"/> + Añadir Ensayo
+                  </button>
+                )}
+              </div>
+
+              {listaEnsayos.length === 0 ? (
+                <div className="p-8 bg-black/40 border border-zinc-800 rounded-2xl text-center space-y-2">
+                  <Music className="w-8 h-8 text-cyan-500/50 mx-auto"/>
+                  <p className="text-xs text-zinc-400 font-bold">No hay ningún ensayo programado en este momento.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {listaEnsayos.map(ens => {
+                    const numConfirmados = miembros.filter(m => m.disponibilidadBolos?.[ens.id]?.estado === 'puedo').length;
+                    return (
+                      <div key={ens.id} className="bg-cyan-500/10 border border-cyan-400/40 rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-lg">
+                        <div>
+                          <div className="flex justify-between items-center gap-2 mb-2">
+                            <span className="text-xs font-black bg-cyan-500/20 text-cyan-300 px-3 py-1 rounded-full border border-cyan-500/40">
+                              📅 {ens.fecha}
+                            </span>
+                            <span className="text-[10px] font-black uppercase bg-cyan-400 text-black px-2.5 py-0.5 rounded-full">
+                              🎵 Ensayo
+                            </span>
+                          </div>
+
+                          <h3 className="text-3xl tracking-wide text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                            Ensayo — 📍 {ens.lugar}
+                          </h3>
+
+                          <div className="mt-3 pt-3 border-t border-cyan-500/20 space-y-1.5 text-xs text-zinc-200">
+                            <p className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-cyan-400"/> Hora: <strong>{ens.horaInicio || 'Por definir'}</strong>
+                            </p>
+                            <p className="flex items-start gap-1.5">
+                              <Music className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5"/> 
+                              <span>Repertorio: <strong className="text-cyan-200">{ens.repertorio ? ens.repertorio : 'General / Por definir'}</strong></span>
+                            </p>
+                            <p className="text-[11px] text-zinc-400 pt-1">
+                              👥 <strong>{numConfirmados}</strong> músico(s) han confirmado asistencia
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-cyan-500/20 flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => {
+                              setBoloSeleccionadoId(ens.id);
+                              setPestañaActiva('bolos');
+                            }}
+                            className="flex-1 bg-cyan-400 hover:bg-cyan-300 text-black font-black py-2 px-3 rounded-xl text-xs text-center transition cursor-pointer"
+                          >
+                            Ver en Calendario / Asistencia
+                          </button>
+
+                          {esGestorBolos && (
+                            <>
+                              <button
+                                onClick={() => abrirModalEditarEnsayo(ens)}
+                                className="bg-zinc-800 hover:bg-zinc-700 text-cyan-300 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1 transition cursor-pointer border border-cyan-500/30"
+                                title="Editar ensayo"
+                              >
+                                <Edit3 className="w-3.5 h-3.5"/> Editar
+                              </button>
+                              <button
+                                onClick={() => eliminarEnsayo(ens.id, ens.lugar, ens.fecha)}
+                                className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1 transition cursor-pointer border border-rose-500/40"
+                                title="Quitar ensayo"
+                              >
+                                <Trash2 className="w-3.5 h-3.5"/> Quitar
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
+
+        {/* MODAL PARA AÑADIR / EDITAR ENSAYO (LUGAR, DÍA, HORA Y REPERTORIO OPCIONAL) */}
+        {showModalEnsayo && esGestorBolos && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-zinc-900 border border-cyan-400/50 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+              <div className="flex items-center gap-2 mb-2">
+                <Music className="w-5 h-5 text-cyan-400"/>
+                <h3 className="text-lg font-black text-white">
+                  {ensayoEditandoId ? 'Editar Ensayo' : 'Añadir Nuevo Ensayo'}
+                </h3>
+              </div>
+              <p className="text-xs text-zinc-400 mb-4">
+                El ensayo se añadirá al listado y aparecerá en el calendario en color <strong>azul turquesa</strong> con el título fijo <strong>"Ensayo"</strong>.
+              </p>
+
+              <form onSubmit={guardarEnsayo} className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-bold text-cyan-300 block mb-1">Título del evento (Fijo):</label>
+                  <input
+                    type="text"
+                    value="Ensayo"
+                    disabled
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-cyan-400 font-black cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-cyan-400 block mb-1">Lugar del Ensayo:</label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Local de ensayo, Nave, Segovia..."
+                    value={lugarEnsayo}
+                    onChange={e => setLugarEnsayo(e.target.value)}
+                    className="w-full bg-black border border-cyan-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-cyan-400"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Día del Ensayo:</label>
+                    <input
+                      type="date"
+                      value={fechaEnsayo}
+                      onChange={e => setFechaEnsayo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Hora:</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: 19:30h"
+                      value={horaEnsayo}
+                      onChange={e => setHoraEnsayo(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Repertorio (Opcional):</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Ej: Temas nuevos 2027, Popurrí festivo, Pasodobles..."
+                    value={repertorioEnsayo}
+                    onChange={e => setRepertorioEnsayo(e.target.value)}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-3">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-cyan-400 hover:bg-cyan-300 text-black font-black py-2.5 rounded-xl text-sm shadow-lg cursor-pointer"
+                  >
+                    {ensayoEditandoId ? 'Guardar Cambios' : 'Guardar Ensayo'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModalEnsayo(false);
+                      setEnsayoEditandoId(null);
+                    }}
+                    className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* SECCIÓN: BOLOS PRESUPUESTADOS */}
         {pestañaActiva === 'presupuestos' && (
           <div className="space-y-6">
@@ -1358,7 +1682,7 @@ export default function CharangaSaraoApp() {
                 {esGestorBolos && (
                   <button
                     onClick={() => {
-                      setEsCreacionPresupuesto(true);
+                      setTipoCreacionEvento('presupuestado');
                       setNuevoLugarBolo('');
                       setNuevoTituloBolo('');
                       setNuevaFechaBolo('');
@@ -1948,7 +2272,7 @@ export default function CharangaSaraoApp() {
 
               <div className="space-y-3">
                 <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia y Facturación acumulada de la plantilla
+                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia a Bolos y Facturación acumulada
                 </h3>
                 
                 {miembros.length === 0 ? (
@@ -1961,7 +2285,7 @@ export default function CharangaSaraoApp() {
                           <th className="p-3">Músico</th>
                           <th className="p-3">Cuerda</th>
                           <th className="p-3">Roles</th>
-                          <th className="p-3">Asistencia</th>
+                          <th className="p-3">Asistencia Bolos</th>
                           <th className="p-3">% Confirmado</th>
                           <th className="p-3">Facturado (€)</th>
                         </tr>
@@ -1969,8 +2293,11 @@ export default function CharangaSaraoApp() {
                       <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
                         {miembros.map(m => {
                           const totalBolos = bolosConfirmados.length;
-                          const siVan = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'puedo').length;
-                          const talVez = Object.values(m.disponibilidadBolos || {}).filter(v => v?.estado === 'tal_vez').length;
+                          const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
+                          const siVan = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
+                          const talVez = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'tal_vez').length;
                           const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
                           const totalFacturadoMiembro = facturas
                             .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
@@ -2011,7 +2338,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* CALENDARIO DE BOLOS CON VENTANA SCROLLEABLE Y CELDAS GRANDES */}
+        {/* CALENDARIO GENERAL (VERDE = CONFIRMADO, AMARILLO = PRESUPUESTADO, AZUL TURQUESA = ENSAYO) */}
         {pestañaActiva === 'bolos' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-3.5 sm:p-6">
@@ -2019,16 +2346,18 @@ export default function CharangaSaraoApp() {
               <div className="flex justify-between items-start flex-wrap gap-3 border-b border-zinc-800 pb-4 mb-4">
                 <div>
                   <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                    CALENDARIO DE BOLOS
+                    CALENDARIO DE BOLOS Y ENSAYOS
                   </h2>
                   <div className="flex items-center gap-3 text-[11px] text-zinc-400 mt-1 flex-wrap">
                     <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Confirmado
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> Bolo Confirmado
                     </span>
                     <span className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Presupuestado
                     </span>
-                    <span className="text-zinc-500">• Desliza dentro del calendario para moverte por las fechas</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span> Ensayo (Azul Turquesa)
+                    </span>
                   </div>
                 </div>
 
@@ -2036,7 +2365,7 @@ export default function CharangaSaraoApp() {
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full sm:w-auto">
                     <button 
                       onClick={() => {
-                        setEsCreacionPresupuesto(false);
+                        setTipoCreacionEvento('confirmado');
                         setShowModalBolo(true);
                       }} 
                       className="flex-1 sm:flex-none justify-center bg-green-500 hover:bg-green-400 text-black font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow transition"
@@ -2062,10 +2391,9 @@ export default function CharangaSaraoApp() {
                 )}
               </div>
 
-              {/* CONTENEDOR DEL CALENDARIO: OCUPA LA MITAD DE ESPACIO VERTICAL Y ES SCROLLEABLE CON CELDAS GRANDES */}
+              {/* CONTENEDOR DEL CALENDARIO SCROLLEABLE CON CELDAS GRANDES */}
               <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 sm:p-4 mb-5">
                 
-                {/* Barra de mes */}
                 <div className="flex justify-between items-center mb-3 gap-2">
                   <div className="flex items-center gap-1.5">
                     <button
@@ -2100,11 +2428,9 @@ export default function CharangaSaraoApp() {
                   </select>
                 </div>
 
-                {/* VENTANA SCROLLEABLE (Mitad de altura en pantalla, celdas grandes con toda la información clara) */}
                 <div className="max-h-[420px] overflow-auto rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-2 scrollbar-thin scrollbar-thumb-zinc-700">
                   <div className="min-w-[680px]">
                     
-                    {/* Cabecera fija de días de la semana al hacer scroll vertical */}
                     <div className="grid grid-cols-7 gap-2 text-center text-xs sticky top-0 bg-zinc-950/95 backdrop-blur-md z-20 py-2 border-b border-zinc-800 mb-2">
                       {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(d => (
                         <div key={d} className="font-black text-zinc-400 uppercase tracking-wider text-[11px]">
@@ -2113,7 +2439,6 @@ export default function CharangaSaraoApp() {
                       ))}
                     </div>
 
-                    {/* Cuadrícula con CELDAS GRANDES (min-h-[115px]) */}
                     <div className="grid grid-cols-7 gap-2">
                       {Array.from({ length: diaSemanaInicio }, (_, i) => (
                         <div key={`empty-${i}`} className="min-h-[115px] rounded-2xl bg-zinc-900/20 border border-zinc-900/40"></div>
@@ -2125,8 +2450,9 @@ export default function CharangaSaraoApp() {
                         const diaFormateado = String(diaNum).padStart(2, '0');
                         const fechaStr = `${mesSeleccionado.anio}-${mesFormateado}-${diaFormateado}`;
                         const bolosDelDia = bolos.filter(b => b.fecha === fechaStr);
-                        const tieneConfirmado = bolosDelDia.some(b => b.estadoBolo !== 'presupuestado');
+                        const tieneConfirmado = bolosDelDia.some(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo');
                         const tienePresupuestado = bolosDelDia.some(b => b.estadoBolo === 'presupuestado');
+                        const tieneEnsayo = bolosDelDia.some(b => b.estadoBolo === 'ensayo');
                         const estaSeleccionadoHoy = bolosDelDia.some(b => b.id === boloSeleccionadoId);
 
                         return (
@@ -2144,13 +2470,14 @@ export default function CharangaSaraoApp() {
                                 ? 'bg-green-500/15 border-green-500/80 hover:bg-green-500/25' 
                                 : tienePresupuestado
                                   ? 'bg-amber-500/15 border-amber-400/80 hover:bg-amber-500/25'
-                                  : 'bg-zinc-900/70 border-zinc-800/80 hover:border-zinc-700'
+                                  : tieneEnsayo
+                                    ? 'bg-cyan-500/15 border-cyan-400/80 hover:bg-cyan-500/25'
+                                    : 'bg-zinc-900/70 border-zinc-800/80 hover:border-zinc-700'
                             } ${estaSeleccionadoHoy ? 'ring-2 ring-white scale-[1.01] z-10' : ''}`}
                           >
-                            {/* Número del día grande + botón de añadir */}
                             <div className="flex justify-between items-center">
                               <span className={`font-black text-base leading-none ${
-                                tieneConfirmado ? 'text-green-300' : tienePresupuestado ? 'text-amber-300' : 'text-zinc-400'
+                                tieneConfirmado ? 'text-green-300' : tienePresupuestado ? 'text-amber-300' : tieneEnsayo ? 'text-cyan-300' : 'text-zinc-400'
                               }`}>
                                 {diaNum}
                               </span>
@@ -2162,17 +2489,18 @@ export default function CharangaSaraoApp() {
                                     abrirModalParaFecha(fechaStr);
                                   }}
                                   className="text-[11px] text-green-400 bg-green-500/20 hover:bg-green-500 hover:text-black rounded-lg px-1.5 py-0.5 transition font-black"
-                                  title="Añadir bolo en este día"
+                                  title="Añadir en este día"
                                 >
                                   +
                                 </button>
                               )}
                             </div>
 
-                            {/* Tarjetas de bolos dentro de la celda grande con LUGAR, TIPO y HORARIO claros */}
+                            {/* Tarjetas dentro de la celda: Verde (Bolo), Amarillo (Presupuesto), Azul Turquesa (Ensayo) */}
                             <div className="space-y-1.5 mt-2">
                               {bolosDelDia.map(b => {
                                 const esPres = b.estadoBolo === 'presupuestado';
+                                const esEns = b.estadoBolo === 'ensayo';
                                 return (
                                   <div
                                     key={b.id}
@@ -2181,21 +2509,36 @@ export default function CharangaSaraoApp() {
                                       setBoloSeleccionadoId(b.id);
                                     }}
                                     className={`p-2 rounded-xl cursor-pointer shadow transition text-left ${
-                                      esPres
-                                        ? 'bg-amber-400 text-black hover:bg-amber-300'
-                                        : 'bg-green-500 text-black hover:bg-green-400'
+                                      esEns
+                                        ? 'bg-cyan-400 text-black hover:bg-cyan-300'
+                                        : esPres
+                                          ? 'bg-amber-400 text-black hover:bg-amber-300'
+                                          : 'bg-green-500 text-black hover:bg-green-400'
                                     }`}
                                   >
-                                    <p className="text-xs font-black leading-tight break-words">
-                                      📍 {b.lugar}
-                                    </p>
-                                    {b.titulo && (
-                                      <p className="text-[10px] font-bold opacity-85 leading-tight mt-0.5 break-words">
-                                        {b.titulo}
-                                      </p>
+                                    {esEns ? (
+                                      <>
+                                        <p className="text-xs font-black leading-tight break-words">
+                                          🎵 Ensayo
+                                        </p>
+                                        <p className="text-[10px] font-bold opacity-90 leading-tight mt-0.5 break-words">
+                                          📍 {b.lugar}
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="text-xs font-black leading-tight break-words">
+                                          📍 {b.lugar}
+                                        </p>
+                                        {b.titulo && (
+                                          <p className="text-[10px] font-bold opacity-85 leading-tight mt-0.5 break-words">
+                                            {b.titulo}
+                                          </p>
+                                        )}
+                                      </>
                                     )}
                                     <p className="text-[10px] font-extrabold mt-1 flex items-center gap-1 bg-black/15 px-1.5 py-0.5 rounded w-fit">
-                                      ⏰ {b.horaInicio || '13:00h'}{b.horaFin ? ` - ${b.horaFin}` : ''}
+                                      ⏰ {b.horaInicio || '13:00h'}{!esEns && b.horaFin ? ` - ${b.horaFin}` : ''}
                                     </p>
                                   </div>
                                 );
@@ -2210,9 +2553,11 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
-              {/* DETALLES DEL BOLO SELECCIONADO */}
+              {/* DETALLES DEL EVENTO SELECCIONADO (BOLO, PRESUPUESTO O ENSAYO) */}
               {boloActual ? (
                 (() => {
+                  const esEnsayoActual = boloActual.estadoBolo === 'ensayo';
+
                   if (boloActual.estadoBolo === 'presupuestado') {
                     return (
                       <div className="bg-amber-500/10 border border-amber-400/50 rounded-2xl p-5 sm:p-6 space-y-4">
@@ -2267,23 +2612,34 @@ export default function CharangaSaraoApp() {
 
                   if (!miDispo) {
                     return (
-                      <div className="bg-black/90 border border-amber-500/50 rounded-2xl p-5 sm:p-6 text-center space-y-4">
-                        <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto">
-                          <AlertCircle className="w-6 h-6"/>
+                      <div className={`bg-black/90 border rounded-2xl p-5 sm:p-6 text-center space-y-4 ${
+                        esEnsayoActual ? 'border-cyan-400/50' : 'border-amber-500/50'
+                      }`}>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
+                          esEnsayoActual ? 'bg-cyan-500/20 text-cyan-400' : 'bg-amber-500/20 text-amber-400'
+                        }`}>
+                          {esEnsayoActual ? <Music className="w-6 h-6"/> : <AlertCircle className="w-6 h-6"/>}
                         </div>
                         <div>
-                          <p className="text-xs text-amber-400 font-bold uppercase tracking-wider">Confirmación de asistencia</p>
+                          <p className={`text-xs font-bold uppercase tracking-wider ${esEnsayoActual ? 'text-cyan-400' : 'text-amber-400'}`}>
+                            {esEnsayoActual ? 'Confirmación de asistencia al Ensayo' : 'Confirmación de asistencia'}
+                          </p>
                           <h3 className="text-3xl tracking-wide text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                            {boloActual.lugar}
+                            {esEnsayoActual ? `Ensayo — ${boloActual.lugar}` : boloActual.lugar}
                           </h3>
-                          {boloActual.titulo && (
+                          {!esEnsayoActual && boloActual.titulo && (
                             <p className="text-xs text-green-300 font-bold mt-0.5">
                               {boloActual.titulo}
                             </p>
                           )}
                           <p className="text-xs text-zinc-400 mt-1">
-                            ⏰ Actuación: {boloActual.horaInicio || '13:00h'} a {boloActual.horaFin || '17:00h'}
+                            ⏰ Hora: {boloActual.horaInicio || '19:00h'}{!esEnsayoActual && boloActual.horaFin ? ` a ${boloActual.horaFin}` : ''}
                           </p>
+                          {esEnsayoActual && boloActual.repertorio && (
+                            <p className="text-xs text-cyan-300 font-bold mt-1">
+                              🎼 Repertorio: {boloActual.repertorio}
+                            </p>
+                          )}
                         </div>
                         
                         {usuarioActual.instrumentos?.length > 1 && (
@@ -2321,14 +2677,21 @@ export default function CharangaSaraoApp() {
                       
                       <div className="flex justify-between items-start flex-wrap gap-4">
                         <div>
-                          <span className="text-xs font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-full uppercase">
-                            Tu estado: <strong className="uppercase">{miDispo.estado.replace('_', ' ')}</strong> {miDispo.instrumento && `(${miDispo.instrumento})`}
-                          </span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {esEnsayoActual && (
+                              <span className="text-[10px] font-black uppercase bg-cyan-400 text-black px-2.5 py-1 rounded-full">
+                                🎵 Ensayo Oficial
+                              </span>
+                            )}
+                            <span className="text-xs font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-full uppercase">
+                              Tu estado: <strong className="uppercase">{miDispo.estado.replace('_', ' ')}</strong> {miDispo.instrumento && `(${miDispo.instrumento})`}
+                            </span>
+                          </div>
 
                           <h3 className="text-4xl tracking-wide text-white mt-2" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                            {boloActual.lugar}
+                            {esEnsayoActual ? `Ensayo — 📍 ${boloActual.lugar}` : boloActual.lugar}
                           </h3>
-                          {boloActual.titulo && (
+                          {!esEnsayoActual && boloActual.titulo && (
                             <p className="text-sm font-black text-green-400 tracking-wide mt-0.5">
                               {boloActual.titulo}
                             </p>
@@ -2336,23 +2699,45 @@ export default function CharangaSaraoApp() {
 
                           <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-300 mt-2">
                             <span>📅 <strong>{boloActual.fecha}</strong></span>
-                            <span>🎺 Actuación: <strong>{boloActual.horaInicio || '13:00h'} - {boloActual.horaFin || '17:00h'}</strong></span>
-                            {esGestorBolos && (
+                            <span>⏰ Hora: <strong>{boloActual.horaInicio || '13:00h'}{!esEnsayoActual && boloActual.horaFin ? ` - ${boloActual.horaFin}` : ''}</strong></span>
+                            {!esEnsayoActual && esGestorBolos && (
                               <span className="text-[11px] font-bold bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
                                 💰 {boloActual.presupuesto ? `${boloActual.presupuesto} €` : 'Sin presupuesto'} • {boloActual.conFactura ? 'Factura Sí' : 'Sin factura'}
                               </span>
                             )}
                           </div>
+
+                          {esEnsayoActual && (
+                            <div className="mt-3 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-xs text-cyan-200">
+                              🎼 <strong>Repertorio del ensayo:</strong> {boloActual.repertorio ? boloActual.repertorio : 'General / Sin especificar'}
+                            </div>
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {esEnsayoActual && esGestorBolos && (
+                            <>
+                              <button
+                                onClick={() => abrirModalEditarEnsayo(boloActual)}
+                                className="text-xs bg-cyan-500/20 hover:bg-cyan-400 text-cyan-300 hover:text-black border border-cyan-500/40 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1"
+                              >
+                                <Edit3 className="w-3.5 h-3.5"/> Editar Ensayo
+                              </button>
+                              <button
+                                onClick={() => eliminarEnsayo(boloActual.id, boloActual.lugar, boloActual.fecha)}
+                                className="text-xs bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1"
+                              >
+                                <Trash2 className="w-3.5 h-3.5"/> Quitar Ensayo
+                              </button>
+                            </>
+                          )}
                           <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl transition">
                             🔄 Cambiar asistencia
                           </button>
                         </div>
                       </div>
 
-                      {puedeGestionarExtras && (
+                      {!esEnsayoActual && puedeGestionarExtras && (
                         <div className="bg-gradient-to-r from-amber-500/10 to-zinc-900 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3">
                           <div>
                             <h4 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -2376,99 +2761,103 @@ export default function CharangaSaraoApp() {
                         </div>
                       )}
 
-                      {/* Rutas y Caravanas */}
-                      <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 space-y-3">
-                        <div className="flex justify-between items-center flex-wrap gap-2">
-                          <h4 className="font-bold text-zinc-200 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                            <Car className="w-4 h-4 text-blue-400"/> Caravana de Coches y Rutas
-                          </h4>
-                          {esConductor && (
-                            <button onClick={() => setShowModalTrayectoBolo(true)} className="bg-blue-500 hover:bg-blue-400 text-black font-black text-[11px] px-3 py-1.5 rounded-xl">
-                              + Añadir mi Trayecto
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          {boloActual.cochesAsignados && boloActual.cochesAsignados.length > 0 ? (
-                            boloActual.cochesAsignados.map(car => (
-                              <div key={car.id} className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 flex justify-between items-start text-xs">
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-blue-400">{car.conductor}</span>
-                                    <span className="text-[10px] bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">{car.vehiculo}</span>
-                                  </div>
-                                  <div className="text-zinc-300 text-[11px] space-y-0.5 pt-1">
-                                    <p>🚩 Origen: <strong className="text-white">{car.origen}</strong> {car.horaSalida && <span className="text-blue-300 font-semibold">({car.horaSalida})</span>}</p>
-                                    {car.paradas && car.paradas.length > 0 && (
-                                      <div className="pl-3 border-l border-zinc-700 space-y-0.5 my-1">
-                                        {car.paradas.map((p, pIdx) => (
-                                          <p key={pIdx} className="text-zinc-400">
-                                            ↳ Parada: <strong className="text-zinc-200">{p.lugar}</strong> {p.hora && <span className="text-amber-300 font-semibold">({p.hora})</span>}
-                                          </p>
-                                        ))}
-                                      </div>
-                                    )}
-                                    <p>🏁 Destino: <strong className="text-white">{car.destino}</strong> {car.horaLlegada && <span className="text-emerald-300 font-semibold">({car.horaLlegada})</span>}</p>
-                                  </div>
-                                </div>
-
-                                {(esGestorBolos || car.conductor === usuarioActual.nombre) && (
-                                  <button onClick={async () => {
-                                    registrarSnapshot();
-                                    const nuevosBolos = bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b);
-                                    setBolos(nuevosBolos);
-                                    await guardarEnNube(null, nuevosBolos, null);
-                                  }} className="text-rose-400 hover:text-rose-300 p-1">
-                                    <Trash2 className="w-4 h-4"/>
-                                  </button>
-                                )}
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-xs text-zinc-500">Ningún conductor ha publicado trayecto para este bolo todavía.</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* VESTUARIO OFICIAL */}
-                      <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2.5 bg-green-500/20 text-green-400 rounded-xl">
-                            <Shirt className="w-5 h-5"/>
-                          </div>
-                          <div>
-                            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Vestuario Oficial</span>
-                            <span className="text-sm font-black text-white">{vestuarioActual.label}</span>
-                          </div>
-                        </div>
-
-                        {esGestorBolos ? (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] text-zinc-500 font-bold uppercase mr-1">Elegir ropa:</span>
-                            {OPCIONES_VESTUARIO.map(opt => {
-                              const seleccionado = (boloActual.vestuario || 'Por definir') === opt.id;
-                              return (
-                                <button
-                                  key={opt.id}
-                                  onClick={() => cambiarVestuarioBolo(boloActual.id, opt.id)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
-                                    seleccionado 
-                                      ? opt.color + ' ring-2 ring-green-500' 
-                                      : 'bg-black/60 text-zinc-400 border-zinc-800 hover:text-white'
-                                  }`}
-                                >
-                                  {opt.label} {seleccionado && '✓'}
+                      {!esEnsayoActual && (
+                        <>
+                          {/* Rutas y Caravanas */}
+                          <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4 space-y-3">
+                            <div className="flex justify-between items-center flex-wrap gap-2">
+                              <h4 className="font-bold text-zinc-200 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                <Car className="w-4 h-4 text-blue-400"/> Caravana de Coches y Rutas
+                              </h4>
+                              {esConductor && (
+                                <button onClick={() => setShowModalTrayectoBolo(true)} className="bg-blue-500 hover:bg-blue-400 text-black font-black text-[11px] px-3 py-1.5 rounded-xl">
+                                  + Añadir mi Trayecto
                                 </button>
-                              );
-                            })}
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              {boloActual.cochesAsignados && boloActual.cochesAsignados.length > 0 ? (
+                                boloActual.cochesAsignados.map(car => (
+                                  <div key={car.id} className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 flex justify-between items-start text-xs">
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-blue-400">{car.conductor}</span>
+                                        <span className="text-[10px] bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">{car.vehiculo}</span>
+                                      </div>
+                                      <div className="text-zinc-300 text-[11px] space-y-0.5 pt-1">
+                                        <p>🚩 Origen: <strong className="text-white">{car.origen}</strong> {car.horaSalida && <span className="text-blue-300 font-semibold">({car.horaSalida})</span>}</p>
+                                        {car.paradas && car.paradas.length > 0 && (
+                                          <div className="pl-3 border-l border-zinc-700 space-y-0.5 my-1">
+                                            {car.paradas.map((p, pIdx) => (
+                                              <p key={pIdx} className="text-zinc-400">
+                                                ↳ Parada: <strong className="text-zinc-200">{p.lugar}</strong> {p.hora && <span className="text-amber-300 font-semibold">({p.hora})</span>}
+                                              </p>
+                                            ))}
+                                          </div>
+                                        )}
+                                        <p>🏁 Destino: <strong className="text-white">{car.destino}</strong> {car.horaLlegada && <span className="text-emerald-300 font-semibold">({car.horaLlegada})</span>}</p>
+                                      </div>
+                                    </div>
+
+                                    {(esGestorBolos || car.conductor === usuarioActual.nombre) && (
+                                      <button onClick={async () => {
+                                        registrarSnapshot();
+                                        const nuevosBolos = bolos.map(b => b.id === boloActual.id ? { ...b, cochesAsignados: b.cochesAsignados.filter(x => x.id !== car.id) } : b);
+                                        setBolos(nuevosBolos);
+                                        await guardarEnNube(null, nuevosBolos, null);
+                                      }} className="text-rose-400 hover:text-rose-300 p-1">
+                                        <Trash2 className="w-4 h-4"/>
+                                      </button>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-xs text-zinc-500">Ningún conductor ha publicado trayecto para este bolo todavía.</p>
+                              )}
+                            </div>
                           </div>
-                        ) : (
-                          <div className={`px-3 py-1.5 rounded-xl text-xs font-bold border w-fit ${vestuarioActual.color}`}>
-                            {vestuarioActual.label}
+
+                          {/* VESTUARIO OFICIAL */}
+                          <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                            <div className="flex items-center gap-2.5">
+                              <div className="p-2.5 bg-green-500/20 text-green-400 rounded-xl">
+                                <Shirt className="w-5 h-5"/>
+                              </div>
+                              <div>
+                                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Vestuario Oficial</span>
+                                <span className="text-sm font-black text-white">{vestuarioActual.label}</span>
+                              </div>
+                            </div>
+
+                            {esGestorBolos ? (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] text-zinc-500 font-bold uppercase mr-1">Elegir ropa:</span>
+                                {OPCIONES_VESTUARIO.map(opt => {
+                                  const seleccionado = (boloActual.vestuario || 'Por definir') === opt.id;
+                                  return (
+                                    <button
+                                      key={opt.id}
+                                      onClick={() => cambiarVestuarioBolo(boloActual.id, opt.id)}
+                                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+                                        seleccionado 
+                                          ? opt.color + ' ring-2 ring-green-500' 
+                                          : 'bg-black/60 text-zinc-400 border-zinc-800 hover:text-white'
+                                      }`}
+                                    >
+                                      {opt.label} {seleccionado && '✓'}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className={`px-3 py-1.5 rounded-xl text-xs font-bold border w-fit ${vestuarioActual.color}`}>
+                                {vestuarioActual.label}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </>
+                      )}
 
                       {/* PARTICIPANTES: CONFIRMADOS */}
                       <div className="space-y-4">
@@ -2504,7 +2893,7 @@ export default function CharangaSaraoApp() {
                                     <button 
                                       onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} 
                                       className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
-                                      title={`Descartar a ${m.nombre} de este bolo`}
+                                      title={`Descartar a ${m.nombre}`}
                                     >
                                       <Trash2 className="w-4 h-4"/>
                                     </button>
@@ -2597,39 +2986,41 @@ export default function CharangaSaraoApp() {
                   );
                 })()
               ) : (
-                <p className="text-xs text-zinc-500 text-center py-6">Pincha en cualquier bolo dentro del calendario scrolleable para abrir su ficha completa.</p>
+                <p className="text-xs text-zinc-500 text-center py-6">Pincha en cualquier bolo o ensayo dentro del calendario scrolleable para abrir su ficha completa.</p>
               )}
 
             </div>
           </div>
         )}
 
-        {/* MODAL PARA EDITAR BOLOS (ADMIN Y ROL BOLOS) */}
+        {/* MODAL PARA EDITAR BOLOS O ENSAYOS (ADMIN Y ROL BOLOS) */}
         {showModalEditarBolos && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-amber-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center gap-2 mb-3">
                 <Edit3 className="w-5 h-5 text-amber-400"/>
                 <h3 className="text-lg font-black text-white">
-                  {boloEditandoId ? 'Modificar Datos del Bolo' : 'Selecciona un Bolo para Editar'}
+                  {boloEditandoId ? 'Modificar Datos' : 'Selecciona un Evento para Editar'}
                 </h3>
               </div>
 
               {!boloEditandoId ? (
                 <>
-                  <p className="text-xs text-zinc-400 mb-4">Elige qué bolo quieres modificar (horario, lugar, fecha, presupuesto...):</p>
+                  <p className="text-xs text-zinc-400 mb-4">Elige qué bolo o ensayo quieres modificar:</p>
                   <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
                     {bolos.length === 0 ? (
-                      <p className="text-xs text-zinc-500 text-center py-4">No hay bolos creados actualmente.</p>
+                      <p className="text-xs text-zinc-500 text-center py-4">No hay eventos creados actualmente.</p>
                     ) : (
                       bolos.map(b => (
                         <div key={b.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex justify-between items-center text-xs">
                           <div>
                             <p className="font-black text-white text-base" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                              📍 {b.lugar} {b.estadoBolo === 'presupuestado' && <span className="text-amber-400 text-[10px] font-sans">(Presupuesto)</span>}
+                              📍 {b.lugar}{' '}
+                              {b.estadoBolo === 'presupuestado' && <span className="text-amber-400 text-[10px] font-sans">(Presupuesto)</span>}
+                              {b.estadoBolo === 'ensayo' && <span className="text-cyan-400 text-[10px] font-sans">(Ensayo)</span>}
                             </p>
-                            <p className="text-green-300 text-[11px]">{b.titulo}</p>
-                            <p className="text-zinc-500 text-[10px] mt-0.5">📅 {b.fecha} • ⏰ {b.horaInicio || '--'} - {b.horaFin || '--'}</p>
+                            <p className="text-green-300 text-[11px]">{b.estadoBolo === 'ensayo' ? 'Ensayo' : b.titulo}</p>
+                            <p className="text-zinc-500 text-[10px] mt-0.5">📅 {b.fecha} • ⏰ {b.horaInicio || '--'}</p>
                           </div>
                           <button
                             onClick={() => seleccionarBoloParaEditar(b)}
@@ -2650,101 +3041,124 @@ export default function CharangaSaraoApp() {
                   </button>
                 </>
               ) : (
-                <form onSubmit={guardarEdicionBolo} className="space-y-3">
-                  <div>
-                    <label className="text-[11px] font-bold text-amber-400 block mb-1">Lugar del Bolo (Titular principal):</label>
-                    <input
-                      type="text"
-                      value={editLugarBolo}
-                      onChange={e => setEditLugarBolo(e.target.value)}
-                      className="w-full bg-black border border-amber-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-amber-400"
-                      required
-                    />
-                  </div>
+                (() => {
+                  const objetoEditando = bolos.find(x => x.id === boloEditandoId);
+                  const esEns = objetoEditando?.estadoBolo === 'ensayo';
 
-                  <div>
-                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo / Descripción:</label>
-                    <input
-                      type="text"
-                      value={editTituloBolo}
-                      onChange={e => setEditTituloBolo(e.target.value)}
-                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white"
-                    />
-                  </div>
+                  return (
+                    <form onSubmit={guardarEdicionBolo} className="space-y-3">
+                      <div>
+                        <label className="text-[11px] font-bold text-amber-400 block mb-1">Lugar:</label>
+                        <input
+                          type="text"
+                          value={editLugarBolo}
+                          onChange={e => setEditLugarBolo(e.target.value)}
+                          className="w-full bg-black border border-amber-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-amber-400"
+                          required
+                        />
+                      </div>
 
-                  <div>
-                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha del bolo:</label>
-                    <input
-                      type="date"
-                      value={editFechaBolo}
-                      onChange={e => setEditFechaBolo(e.target.value)}
-                      className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
-                      required
-                    />
-                  </div>
+                      {!esEns ? (
+                        <div>
+                          <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo / Descripción:</label>
+                          <input
+                            type="text"
+                            value={editTituloBolo}
+                            onChange={e => setEditTituloBolo(e.target.value)}
+                            className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-[11px] font-bold text-cyan-400 block mb-1">Repertorio (Opcional):</label>
+                          <input
+                            type="text"
+                            value={editRepertorioBolo}
+                            onChange={e => setEditRepertorioBolo(e.target.value)}
+                            className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white"
+                          />
+                        </div>
+                      )}
 
-                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
-                    <div>
-                      <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Inicio Actuación:</label>
-                      <input
-                        type="text"
-                        placeholder="Ej: 13:00h"
-                        value={editHoraInicioBolo}
-                        onChange={e => setEditHoraInicioBolo(e.target.value)}
-                        className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Fin Actuación:</label>
-                      <input
-                        type="text"
-                        placeholder="Ej: 17:00h"
-                        value={editHoraFinBolo}
-                        onChange={e => setEditHoraFinBolo(e.target.value)}
-                        className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
-                      />
-                    </div>
-                  </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha:</label>
+                        <input
+                          type="date"
+                          value={editFechaBolo}
+                          onChange={e => setEditFechaBolo(e.target.value)}
+                          className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                          required
+                        />
+                      </div>
 
-                  <div className="pt-2 border-t border-zinc-800 space-y-2">
-                    <div>
-                      <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto acordado (€):</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={editPresupuestoBolo}
-                        onChange={e => setEditPresupuestoBolo(e.target.value)}
-                        className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
-                      />
-                    </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
+                        <div>
+                          <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Inicio:</label>
+                          <input
+                            type="text"
+                            placeholder="Ej: 13:00h"
+                            value={editHoraInicioBolo}
+                            onChange={e => setEditHoraInicioBolo(e.target.value)}
+                            className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                          />
+                        </div>
+                        {!esEns && (
+                          <div>
+                            <label className="text-[11px] font-bold text-green-400 block mb-1">Hora Fin:</label>
+                            <input
+                              type="text"
+                              placeholder="Ej: 17:00h"
+                              value={editHoraFinBolo}
+                              onChange={e => setEditHoraFinBolo(e.target.value)}
+                              className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white"
+                            />
+                          </div>
+                        )}
+                      </div>
 
-                    <div className="flex items-center gap-2 pt-1">
-                      <input
-                        type="checkbox"
-                        id="editFacturaCheck"
-                        checked={editConFacturaBolo}
-                        onChange={e => setEditConFacturaBolo(e.target.checked)}
-                        className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
-                      />
-                      <label htmlFor="editFacturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-zinc-400"/> Se cobra con Factura oficial
-                      </label>
-                    </div>
-                  </div>
+                      {!esEns && (
+                        <div className="pt-2 border-t border-zinc-800 space-y-2">
+                          <div>
+                            <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto acordado (€):</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editPresupuestoBolo}
+                              onChange={e => setEditPresupuestoBolo(e.target.value)}
+                              className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                            />
+                          </div>
 
-                  <div className="flex gap-2 pt-3">
-                    <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-black py-2.5 rounded-xl text-sm">
-                      Guardar Cambios
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBoloEditandoId(null)}
-                      className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
-                    >
-                      Volver
-                    </button>
-                  </div>
-                </form>
+                          <div className="flex items-center gap-2 pt-1">
+                            <input
+                              type="checkbox"
+                              id="editFacturaCheck"
+                              checked={editConFacturaBolo}
+                              onChange={e => setEditConFacturaBolo(e.target.checked)}
+                              className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                            />
+                            <label htmlFor="editFacturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5 text-zinc-400"/> Se cobra con Factura oficial
+                            </label>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-3">
+                        <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-black font-black py-2.5 rounded-xl text-sm">
+                          Guardar Cambios
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBoloEditandoId(null)}
+                          className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
+                        >
+                          Volver
+                        </button>
+                      </div>
+                    </form>
+                  );
+                })()
               )}
             </div>
           </div>
@@ -2816,25 +3230,28 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL ELIMINAR BOLOS */}
+        {/* MODAL ELIMINAR BOLOS O ENSAYOS */}
         {showModalEliminarBolos && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-rose-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl">
               <div className="flex items-center gap-2 mb-3">
                 <Trash2 className="w-5 h-5 text-rose-400"/>
-                <h3 className="text-lg font-black text-white">Eliminar Bolo</h3>
+                <h3 className="text-lg font-black text-white">Eliminar Evento del Calendario</h3>
               </div>
-              <p className="text-xs text-zinc-400 mb-4">Selecciona el bolo que deseas retirar del calendario.</p>
+              <p className="text-xs text-zinc-400 mb-4">Selecciona el bolo o ensayo que deseas retirar.</p>
 
               <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
                 {bolos.length === 0 ? (
-                  <p className="text-xs text-zinc-500 text-center py-4">No hay bolos creados actualmente.</p>
+                  <p className="text-xs text-zinc-500 text-center py-4">No hay eventos creados actualmente.</p>
                 ) : (
                   bolos.map(b => (
                     <div key={b.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex justify-between items-center text-xs">
                       <div>
-                        <p className="font-black text-white text-base" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>📍 {b.lugar}</p>
-                        <p className="text-green-300 text-[11px]">{b.titulo}</p>
+                        <p className="font-black text-white text-base" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                          📍 {b.lugar}{' '}
+                          {b.estadoBolo === 'ensayo' && <span className="text-cyan-400 text-[10px] font-sans">(Ensayo)</span>}
+                        </p>
+                        <p className="text-green-300 text-[11px]">{b.estadoBolo === 'ensayo' ? 'Ensayo' : b.titulo}</p>
                         <p className="text-zinc-500 text-[10px] mt-0.5">📅 {b.fecha}</p>
                       </div>
                       <button
@@ -2983,36 +3400,48 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* MODAL AÑADIR BOLO O NUEVO PRESUPUESTO */}
+        {/* MODAL AÑADIR DESDE EL CALENDARIO (PERMITE CREAR BOLO CONFIRMADO, PRESUPUESTO O ENSAYO EN AZUL TURQUESA) */}
         {showModalBolo && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className={`bg-zinc-900 border rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto ${
-              esCreacionPresupuesto ? 'border-amber-500/50' : 'border-green-500/40'
+              tipoCreacionEvento === 'ensayo' 
+                ? 'border-cyan-400/50' 
+                : tipoCreacionEvento === 'presupuestado' 
+                  ? 'border-amber-500/50' 
+                  : 'border-green-500/40'
             }`}>
               <h3 className="text-lg font-black text-white mb-1">
-                {esCreacionPresupuesto ? 'Añadir Nuevo Presupuesto de Bolo' : 'Añadir Nuevo Bolo'}
+                {tipoCreacionEvento === 'ensayo'
+                  ? 'Añadir Nuevo Ensayo'
+                  : tipoCreacionEvento === 'presupuestado'
+                    ? 'Añadir Nuevo Presupuesto de Bolo'
+                    : 'Añadir Nuevo Bolo'}
               </h3>
               <p className="text-xs text-zinc-400 mb-3">
-                {esCreacionPresupuesto 
-                  ? 'Se guardará como bolo presupuestado y aparecerá en color amarillo en el calendario hasta que sea confirmado o rechazado.' 
-                  : 'Crea un bolo confirmado o márcalo como presupuesto pendiente.'}
+                {tipoCreacionEvento === 'ensayo'
+                  ? 'El título será siempre "Ensayo" y se mostrará en azul turquesa.'
+                  : tipoCreacionEvento === 'presupuestado' 
+                    ? 'Aparecerá en color amarillo hasta que sea confirmado o rechazado.' 
+                    : 'Se añadirá en color verde como bolo confirmado.'}
               </p>
 
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!nuevoLugarBolo.trim() || !nuevaFechaBolo) return;
                 registrarSnapshot();
+                const esEns = tipoCreacionEvento === 'ensayo';
                 const nuevoBolo = {
                   id: Date.now(),
                   lugar: nuevoLugarBolo.trim(),
-                  titulo: nuevoTituloBolo.trim() || '',
+                  titulo: esEns ? 'Ensayo' : (nuevoTituloBolo.trim() || ''),
                   fecha: nuevaFechaBolo,
                   horaInicio: nuevaHoraInicioBolo,
-                  horaFin: nuevaHoraFinBolo,
-                  presupuesto: parseFloat(nuevoPresupuestoBolo) || 0,
-                  conFactura: nuevoConFacturaBolo,
+                  horaFin: esEns ? '' : nuevaHoraFinBolo,
+                  repertorio: esEns ? nuevoRepertorioEnsayo.trim() : '',
+                  presupuesto: esEns ? 0 : (parseFloat(nuevoPresupuestoBolo) || 0),
+                  conFactura: esEns ? false : nuevoConFacturaBolo,
                   vestuario: 'Por definir',
-                  estadoBolo: esCreacionPresupuesto ? 'presupuestado' : 'confirmado',
+                  estadoBolo: tipoCreacionEvento,
                   cochesAsignados: [],
                   musicosExtras: []
                 };
@@ -3021,92 +3450,126 @@ export default function CharangaSaraoApp() {
                 setNuevoLugarBolo(''); setNuevoTituloBolo(''); setNuevaFechaBolo('');
                 setNuevaHoraInicioBolo(''); setNuevaHoraFinBolo('');
                 setNuevoPresupuestoBolo(''); setNuevoConFacturaBolo(false);
+                setNuevoRepertorioEnsayo('');
                 setShowModalBolo(false);
                 await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
 
-                <div className="grid grid-cols-2 gap-2 p-1 bg-black rounded-xl border border-zinc-800">
+                {/* Selector de 3 colores: Verde (Confirmado), Amarillo (Presupuesto), Azul Turquesa (Ensayo) */}
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-black rounded-xl border border-zinc-800">
                   <button
                     type="button"
-                    onClick={() => setEsCreacionPresupuesto(false)}
-                    className={`py-1.5 rounded-lg text-xs font-black transition ${
-                      !esCreacionPresupuesto ? 'bg-green-500 text-black' : 'text-zinc-400'
+                    onClick={() => setTipoCreacionEvento('confirmado')}
+                    className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                      tipoCreacionEvento === 'confirmado' ? 'bg-green-500 text-black' : 'text-zinc-400'
                     }`}
                   >
-                    🟢 Bolo Confirmado
+                    🟢 Bolo
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEsCreacionPresupuesto(true)}
-                    className={`py-1.5 rounded-lg text-xs font-black transition ${
-                      esCreacionPresupuesto ? 'bg-amber-400 text-black' : 'text-zinc-400'
+                    onClick={() => setTipoCreacionEvento('presupuestado')}
+                    className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                      tipoCreacionEvento === 'presupuestado' ? 'bg-amber-400 text-black' : 'text-zinc-400'
                     }`}
                   >
-                    🟡 Presupuestado
+                    🟡 Presupuesto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoCreacionEvento('ensayo')}
+                    className={`py-1.5 rounded-lg text-[11px] font-black transition ${
+                      tipoCreacionEvento === 'ensayo' ? 'bg-cyan-400 text-black' : 'text-zinc-400'
+                    }`}
+                  >
+                    🔵 Ensayo
                   </button>
                 </div>
                 
                 <div>
-                  <label className="text-[11px] font-bold text-green-400 block mb-1">Lugar del Bolo (Titular principal):</label>
-                  <input type="text" placeholder="Ej: Cuéllar, Nava de la Asunción, Segovia..." value={nuevoLugarBolo} onChange={e => setNuevoLugarBolo(e.target.value)} className="w-full bg-black border border-green-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-green-400" required />
+                  <label className="text-[11px] font-bold text-green-400 block mb-1">
+                    {tipoCreacionEvento === 'ensayo' ? 'Lugar del Ensayo:' : 'Lugar del Bolo (Titular principal):'}
+                  </label>
+                  <input type="text" placeholder="Ej: Local de ensayo, Cuéllar, Segovia..." value={nuevoLugarBolo} onChange={e => setNuevoLugarBolo(e.target.value)} className="w-full bg-black border border-green-500/50 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-green-400" required />
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo (Opcional):</label>
-                  <input type="text" placeholder="Ej: Pasacalles y Vermú, Diana floreada..." value={nuevoTituloBolo} onChange={e => setNuevoTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
-                </div>
+                {tipoCreacionEvento === 'ensayo' ? (
+                  <div>
+                    <label className="text-[11px] font-bold text-cyan-400 block mb-1">Repertorio (Opcional):</label>
+                    <input type="text" placeholder="Ej: Temas nuevos, pasodobles..." value={nuevoRepertorioEnsayo} onChange={e => setNuevoRepertorioEnsayo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-[11px] font-bold text-zinc-400 block mb-1">Tipo de Bolo (Opcional):</label>
+                    <input type="text" placeholder="Ej: Pasacalles y Vermú, Diana floreada..." value={nuevoTituloBolo} onChange={e => setNuevoTituloBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white" />
+                  </div>
+                )}
 
                 <div>
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Fecha del bolo:</label>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Día (Fecha):</label>
                   <input type="date" value={nuevaFechaBolo} onChange={e => setNuevaFechaBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-800">
-                  <div>
-                    <label className="text-[11px] font-bold text-green-400 block mb-1">A qué hora empieza:</label>
-                    <input type="text" placeholder="Ej: 13:00h" value={nuevaHoraInicioBolo} onChange={e => setNuevaHoraInicioBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-green-400 block mb-1">A qué hora acaba:</label>
-                    <input type="text" placeholder="Ej: 17:00h" value={nuevaHoraFinBolo} onChange={e => setNuevaHoraFinBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-zinc-800 space-y-2">
-                  <div>
-                    <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto en euros (€):</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Ej: 1200"
-                      value={nuevoPresupuestoBolo}
-                      onChange={e => setNuevoPresupuestoBolo(e.target.value)}
-                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1">
-                    <input
-                      type="checkbox"
-                      id="facturaCheck"
-                      checked={nuevoConFacturaBolo}
-                      onChange={e => setNuevoConFacturaBolo(e.target.checked)}
-                      className="w-4 h-4 accent-green-500 rounded cursor-pointer"
-                    />
-                    <label htmlFor="facturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-zinc-400"/> Va con Factura oficial
+                  <div className={tipoCreacionEvento === 'ensayo' ? 'col-span-2' : ''}>
+                    <label className="text-[11px] font-bold text-green-400 block mb-1">
+                      {tipoCreacionEvento === 'ensayo' ? 'Hora del Ensayo:' : 'A qué hora empieza:'}
                     </label>
+                    <input type="text" placeholder="Ej: 19:30h" value={nuevaHoraInicioBolo} onChange={e => setNuevaHoraInicioBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" required={tipoCreacionEvento === 'ensayo'} />
                   </div>
+                  {tipoCreacionEvento !== 'ensayo' && (
+                    <div>
+                      <label className="text-[11px] font-bold text-green-400 block mb-1">A qué hora acaba:</label>
+                      <input type="text" placeholder="Ej: 17:00h" value={nuevaHoraFinBolo} onChange={e => setNuevaHoraFinBolo(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white" />
+                    </div>
+                  )}
                 </div>
+
+                {tipoCreacionEvento !== 'ensayo' && (
+                  <div className="pt-2 border-t border-zinc-800 space-y-2">
+                    <div>
+                      <label className="text-[11px] font-bold text-amber-400 block mb-1">Presupuesto en euros (€):</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Ej: 1200"
+                        value={nuevoPresupuestoBolo}
+                        onChange={e => setNuevoPresupuestoBolo(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="checkbox"
+                        id="facturaCheck"
+                        checked={nuevoConFacturaBolo}
+                        onChange={e => setNuevoConFacturaBolo(e.target.checked)}
+                        className="w-4 h-4 accent-green-500 rounded cursor-pointer"
+                      />
+                      <label htmlFor="facturaCheck" className="text-xs text-zinc-300 font-bold cursor-pointer flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-zinc-400"/> Va con Factura oficial
+                      </label>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex gap-2 pt-3">
                   <button
                     type="submit"
                     className={`flex-1 text-black font-black py-2.5 rounded-xl text-sm ${
-                      esCreacionPresupuesto ? 'bg-amber-400 hover:bg-amber-300' : 'bg-green-500 hover:bg-green-400'
+                      tipoCreacionEvento === 'ensayo'
+                        ? 'bg-cyan-400 hover:bg-cyan-300'
+                        : tipoCreacionEvento === 'presupuestado'
+                          ? 'bg-amber-400 hover:bg-amber-300'
+                          : 'bg-green-500 hover:bg-green-400'
                     }`}
                   >
-                    {esCreacionPresupuesto ? 'Guardar Presupuesto (Amarillo)' : 'Guardar Bolo Confirmado'}
+                    {tipoCreacionEvento === 'ensayo'
+                      ? 'Guardar Ensayo (Azul)'
+                      : tipoCreacionEvento === 'presupuestado'
+                        ? 'Guardar Presupuesto (Amarillo)'
+                        : 'Guardar Bolo Confirmado'}
                   </button>
                   <button type="button" onClick={() => setShowModalBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
                     Cancelar
@@ -3431,11 +3894,12 @@ export default function CharangaSaraoApp() {
 
       </main>
 
-      {/* BARRA INFERIOR */}
+      {/* BARRA INFERIOR CON EL NUEVO APARTADO "ENSAYOS" */}
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-2.5 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto">
         {[
           { id: 'landing', label: 'Inicio', icon: Home },
           { id: 'bolos', label: 'Bolos', icon: CalendarIcon },
+          { id: 'ensayos', label: 'Ensayos', icon: Music },
           { id: 'presupuestos', label: 'Presupuestos', icon: ClipboardList },
           { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
