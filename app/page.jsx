@@ -174,6 +174,7 @@ export default function CharangaSaraoApp() {
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
+  const [boloDisponibilidadAbiertoId, setBoloDisponibilidadAbiertoId] = useState(null);
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
 
   // Modales Bolos (Añadir, Editar, Eliminar)
@@ -483,6 +484,9 @@ export default function CharangaSaraoApp() {
     const usuarioActualizado = { ...usuarioActual, disponibilidadBolos: nuevaDispUsuario };
     setUsuarioActual(usuarioActualizado);
     localStorage.setItem('sarao_usuario_actual', JSON.stringify(usuarioActualizado));
+    if (boloDisponibilidadAbiertoId === boloId) {
+      setBoloDisponibilidadAbiertoId(null);
+    }
 
     let listaActualizada = [...miembros];
     const index = listaActualizada.findIndex(
@@ -1432,6 +1436,24 @@ export default function CharangaSaraoApp() {
   const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7;
 
   const esPerfilExtra = usuarioActual.tipoPerfil === 'extra';
+  const seleccionarBolo = (boloId) => {
+    const bolo = bolos.find(evento => evento.id === boloId);
+    if (!bolo) return;
+
+    const disponibilidad = usuarioActual.disponibilidadBolos?.[boloId];
+    setBoloSeleccionadoId(boloId);
+    setPestañaActiva('bolos');
+    setInstrumentoElegidoBolo(disponibilidad?.instrumento || usuarioActual.instrumentos?.[0] || '');
+    setBoloDisponibilidadAbiertoId(
+      !esAdmin &&
+      !esPerfilExtra &&
+      bolo.estadoBolo !== 'presupuestado' &&
+      disponibilidad?.estado !== 'puedo'
+        ? boloId
+        : null
+    );
+  };
+
   const instrumentosParaExtra = CATALOGO_EXTRAS.filter(extra =>
     esAdmin ||
     (esJefeCuerda && (
@@ -1634,10 +1656,7 @@ export default function CharangaSaraoApp() {
                     return (
                       <div
                         key={b.id}
-                        onClick={() => {
-                          setBoloSeleccionadoId(b.id);
-                          setPestañaActiva('bolos');
-                        }}
+                        onClick={() => seleccionarBolo(b.id)}
                         className="snap-start shrink-0 w-[280px] sm:w-[320px] bg-zinc-900 border border-zinc-800 hover:border-green-500/70 rounded-3xl p-5 cursor-pointer transition shadow-xl hover:scale-[1.02] flex flex-col justify-between"
                       >
                         <div>
@@ -1797,7 +1816,7 @@ export default function CharangaSaraoApp() {
                   const perdido = pago.asistenciaRegistrada && pago.asistio === false;
                   const pagado = pago.asistio === true && pago.pagado === true;
                   return (
-                    <button key={bolo.id} onClick={() => { setBoloSeleccionadoId(bolo.id); setPestañaActiva('bolos'); }} className={`snap-start shrink-0 w-48 text-left p-3.5 rounded-xl border transition ${perdido ? 'bg-rose-500/10 border-rose-500/40 text-rose-300' : pagado ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-black/50 border-zinc-700 text-zinc-100'}`}>
+                    <button key={bolo.id} onClick={() => seleccionarBolo(bolo.id)} className={`snap-start shrink-0 w-48 text-left p-3.5 rounded-xl border transition ${perdido ? 'bg-rose-500/10 border-rose-500/40 text-rose-300' : pagado ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-black/50 border-zinc-700 text-zinc-100'}`}>
                       <span className={`block text-[10px] font-bold ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.fecha}</span>
                       <span className={`block mt-1 font-black truncate ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.lugar}</span>
                       <span className={`block mt-2 text-[10px] font-bold ${perdido ? 'text-rose-300' : pagado ? 'text-emerald-300' : 'text-zinc-400'}`}>
@@ -1931,10 +1950,7 @@ export default function CharangaSaraoApp() {
 
                         <div className="pt-3 border-t border-cyan-500/20 flex items-center gap-2 flex-wrap">
                           <button
-                            onClick={() => {
-                              setBoloSeleccionadoId(ens.id);
-                              setPestañaActiva('bolos');
-                            }}
+                            onClick={() => seleccionarBolo(ens.id)}
                             className="flex-1 bg-cyan-400 hover:bg-cyan-300 text-black font-black py-2 px-3 rounded-xl text-xs text-center transition cursor-pointer"
                           >
                             Ver en Calendario / Asistencia
@@ -2863,7 +2879,7 @@ export default function CharangaSaraoApp() {
                             key={diaNum}
                             onClick={() => {
                               if (bolosDelDia.length > 0) {
-                                setBoloSeleccionadoId(bolosDelDia[0].id);
+                                seleccionarBolo(bolosDelDia[0].id);
                               } else if (esGestorBolos) {
                                 abrirModalParaFecha(fechaStr);
                               }
@@ -2908,7 +2924,7 @@ export default function CharangaSaraoApp() {
                                     key={b.id}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setBoloSeleccionadoId(b.id);
+                                      seleccionarBolo(b.id);
                                     }}
                                     className={`p-2 rounded-xl cursor-pointer shadow transition text-left ${
                                       esEns
@@ -3012,7 +3028,7 @@ export default function CharangaSaraoApp() {
 
                   const miDispo = usuarioActual.disponibilidadBolos?.[boloActual.id];
 
-                  if (!miDispo && !esAdmin) {
+                  if (!miDispo && !esAdmin && boloDisponibilidadAbiertoId !== boloActual.id) {
                     return (
                       <div className={`bg-black/90 border rounded-2xl p-5 sm:p-6 text-center space-y-4 ${
                         esEnsayoActual ? 'border-cyan-400/50' : 'border-amber-500/50'
@@ -3135,8 +3151,14 @@ export default function CharangaSaraoApp() {
                               </button>
                             </>
                           )}
-                          {miDispo && (
-                            <button onClick={() => setDisponibilidadBolo(boloActual.id, null)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl transition">
+                          {miDispo && !esAdmin && !esPerfilExtra && (
+                            <button
+                              onClick={() => {
+                                setInstrumentoElegidoBolo(miDispo.instrumento || usuarioActual.instrumentos?.[0] || '');
+                                setBoloDisponibilidadAbiertoId(boloActual.id);
+                              }}
+                              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl transition"
+                            >
                               🔄 Cambiar asistencia
                             </button>
                           )}
@@ -4403,6 +4425,68 @@ export default function CharangaSaraoApp() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {boloDisponibilidadAbiertoId === boloActual?.id && !esAdmin && !esPerfilExtra && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+            <div className={`bg-zinc-900 border ${boloActual.estadoBolo === 'ensayo' ? 'border-cyan-400/50' : 'border-amber-500/50'} rounded-3xl p-6 max-w-md w-full shadow-2xl`}>
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <p className={`text-[10px] font-black uppercase tracking-wider ${boloActual.estadoBolo === 'ensayo' ? 'text-cyan-400' : 'text-amber-400'}`}>
+                    {boloActual.estadoBolo === 'ensayo' ? 'Asistencia al ensayo' : 'Confirma tu asistencia'}
+                  </p>
+                  <h3 className="text-2xl font-black text-white mt-1">{boloActual.lugar}</h3>
+                  <p className="text-xs text-zinc-400 mt-1">{boloActual.fecha} · {boloActual.horaInicio || 'Hora por definir'}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBoloDisponibilidadAbiertoId(null)}
+                  className="text-zinc-400 hover:text-white p-1"
+                  aria-label="Cerrar confirmación de asistencia"
+                >
+                  <XCircle className="w-5 h-5"/>
+                </button>
+              </div>
+
+              {usuarioActual.instrumentos?.length > 1 && (
+                <div className="mb-4">
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">¿Con qué instrumento tocarás?</label>
+                  <select
+                    value={instrumentoElegidoBolo || usuarioActual.instrumentos[0]}
+                    onChange={e => setInstrumentoElegidoBolo(e.target.value)}
+                    className="w-full bg-black border border-zinc-700 text-white rounded-xl p-2.5 text-xs font-bold"
+                  >
+                    {usuarioActual.instrumentos.map(inst => <option key={inst} value={inst}>{inst}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <p className="text-xs text-zinc-400 mb-3">Indica tu disponibilidad para este evento:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDisponibilidadBolo(boloActual.id, 'puedo', instrumentoElegidoBolo || usuarioActual.instrumentos?.[0])}
+                  className="px-3 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl text-xs transition"
+                >
+                  🟢 Puedo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDisponibilidadBolo(boloActual.id, 'tal_vez')}
+                  className="px-3 py-3 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-xl text-xs transition"
+                >
+                  🟡 Tal vez
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDisponibilidadBolo(boloActual.id, 'no')}
+                  className="px-3 py-3 bg-rose-500 hover:bg-rose-400 text-white font-black rounded-xl text-xs transition"
+                >
+                  🔴 No puedo
+                </button>
+              </div>
             </div>
           </div>
         )}
