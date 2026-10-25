@@ -222,6 +222,7 @@ export default function CharangaSaraoApp() {
   // Trayectos y Plazas de Coches
   const [showModalTrayectoBolo, setShowModalTrayectoBolo] = useState(false);
   const [extraAsignadoTrayectoId, setExtraAsignadoTrayectoId] = useState('');
+  const [puntosRecogidaSeleccionados, setPuntosRecogidaSeleccionados] = useState({});
   const [vehiculoTrayecto, setVehiculoTrayecto] = useState('');
   const [plazasTrayecto, setPlazasTrayecto] = useState('4');
   const [origenTrayecto, setOrigenTrayecto] = useState('');
@@ -562,8 +563,9 @@ export default function CharangaSaraoApp() {
   // UNIRSE / SALIR DE LA RUTA DE UN CONDUCTOR (CONTROL DE PLAZAS LIBRES)
   // =========================================================================
 
-  const toggleUnirseRutaCoche = async (boloId, cocheId) => {
+  const toggleUnirseRutaCoche = async (boloId, cocheId, puntoRecogida) => {
     const miNombre = usuarioActual.nombre.trim();
+    const clavePasajero = miNombre.toLocaleLowerCase('es');
     registrarSnapshot();
 
     const nuevosBolos = bolos.map(b => {
@@ -574,7 +576,7 @@ export default function CharangaSaraoApp() {
 
       const pasajerosActuales = cocheObjetivo.pasajeros || [];
       const yaEstoyEnEsteCoche = pasajerosActuales.some(
-        p => p.trim().toLowerCase() === miNombre.toLowerCase()
+        p => p.trim().toLocaleLowerCase('es') === clavePasajero
       );
       const plazasTotales = typeof cocheObjetivo.plazasTotales === 'number' ? cocheObjetivo.plazasTotales : 4;
       const huecosLibres = plazasTotales - pasajerosActuales.length;
@@ -588,18 +590,27 @@ export default function CharangaSaraoApp() {
         const listaPasajeros = c.pasajeros || [];
         // Si el usuario se une a este coche, lo quitamos de cualquier otro coche de este mismo bolo para no duplicarlo
         const sinMi = listaPasajeros.filter(
-          p => p.trim().toLowerCase() !== miNombre.toLowerCase()
+          p => p.trim().toLocaleLowerCase('es') !== clavePasajero
         );
 
         if (c.id === cocheId) {
           return {
             ...c,
-            pasajeros: yaEstoyEnEsteCoche ? sinMi : [...sinMi, miNombre]
+            pasajeros: yaEstoyEnEsteCoche ? sinMi : [...sinMi, miNombre],
+            recogidasPasajeros: {
+              ...(c.recogidasPasajeros || {}),
+              ...(yaEstoyEnEsteCoche
+                ? Object.fromEntries(Object.entries(c.recogidasPasajeros || {}).filter(([nombre]) => nombre !== clavePasajero))
+                : { [clavePasajero]: puntoRecogida || c.origen || '' })
+            }
           };
         }
         return {
           ...c,
-          pasajeros: sinMi
+          pasajeros: sinMi,
+          recogidasPasajeros: Object.fromEntries(
+            Object.entries(c.recogidasPasajeros || {}).filter(([nombre]) => nombre !== clavePasajero)
+          )
         };
       });
 
@@ -619,7 +630,12 @@ export default function CharangaSaraoApp() {
         if (c.id !== cocheId) return c;
         return {
           ...c,
-          pasajeros: (c.pasajeros || []).filter(p => p !== nombrePasajero)
+          pasajeros: (c.pasajeros || []).filter(p => p !== nombrePasajero),
+          recogidasPasajeros: Object.fromEntries(
+            Object.entries(c.recogidasPasajeros || {}).filter(
+              ([nombre]) => nombre !== nombrePasajero.trim().toLocaleLowerCase('es')
+            )
+          )
         };
       });
       return { ...b, cochesAsignados: nuevosCoches };
@@ -3286,8 +3302,11 @@ export default function CharangaSaraoApp() {
                                     car.creadoPor?.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase();
                                   const puedoGestionarEsteCoche = esGestorBolos || soyConductorDeEsteCoche || soyCreadorDeEstaRuta;
                                   const estoyUnidoAEsteCoche = pasajeros.some(
-                                    p => p.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase()
+                                    p => p.trim().toLocaleLowerCase('es') === usuarioActual.nombre?.trim().toLocaleLowerCase('es')
                                   );
+                                  const puntoRecogidaSeleccionado = puntosRecogidaSeleccionados[car.id] || car.origen || '';
+                                  const claveMiembro = usuarioActual.nombre?.trim().toLocaleLowerCase('es');
+                                  const miPuntoRecogida = car.recogidasPasajeros?.[claveMiembro];
 
                                   return (
                                     <div key={car.id} className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800 space-y-3 text-xs">
@@ -3350,27 +3369,54 @@ export default function CharangaSaraoApp() {
                                       </div>
 
                                       {!soyConductorDeEsteCoche && (!soyCreadorDeEstaRuta || car.extraId) && (
-                                        estoyUnidoAEsteCoche ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
-                                            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-rose-500/50 bg-rose-500/20 px-4 py-3 text-sm font-black text-rose-200 transition hover:bg-rose-500 hover:text-black touch-manipulation"
-                                          >
-                                            <LogOut className="h-4 w-4"/> Salir del coche
-                                          </button>
-                                        ) : huecosLibres > 0 ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
-                                            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black text-black shadow transition hover:bg-emerald-400 touch-manipulation"
-                                          >
-                                            <UserCheck className="h-4 w-4"/> Unirse a esta ruta
-                                          </button>
-                                        ) : (
-                                          <p className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-center text-xs font-bold text-zinc-500">
-                                            Esta ruta ya no tiene plazas libres
-                                          </p>
-                                        )
+                                        <div className="w-full space-y-2">
+                                          {estoyUnidoAEsteCoche && miPuntoRecogida ? (
+                                            <p className="text-[11px] text-zinc-300">
+                                              Te recogemos en: <strong className="text-emerald-300">{miPuntoRecogida}</strong>
+                                            </p>
+                                          ) : !estoyUnidoAEsteCoche && huecosLibres > 0 && (car.paradas || []).length > 0 ? (
+                                            <label className="block text-[11px] font-bold text-zinc-300">
+                                              ¿Dónde te sumas a la ruta?
+                                              <select
+                                                value={puntoRecogidaSeleccionado}
+                                                onChange={e => setPuntosRecogidaSeleccionados(prev => ({
+                                                  ...prev,
+                                                  [car.id]: e.target.value
+                                                }))}
+                                                className="mt-1.5 min-h-11 w-full rounded-xl border border-zinc-700 bg-black px-3 py-2 text-sm text-white"
+                                              >
+                                                <option value={car.origen}>{`Salida: ${car.origen}`}</option>
+                                                {(car.paradas || []).map((parada, index) => (
+                                                  <option key={`${car.id}-${index}`} value={parada.lugar}>
+                                                    {`Parada: ${parada.lugar}${parada.hora ? ` · ${parada.hora}` : ''}`}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </label>
+                                          ) : null}
+
+                                          {estoyUnidoAEsteCoche ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
+                                              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-rose-500/50 bg-rose-500/20 px-4 py-3 text-sm font-black text-rose-200 transition hover:bg-rose-500 hover:text-black touch-manipulation"
+                                            >
+                                              <LogOut className="h-4 w-4"/> Salir del coche
+                                            </button>
+                                          ) : huecosLibres > 0 ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id, puntoRecogidaSeleccionado)}
+                                              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black text-black shadow transition hover:bg-emerald-400 touch-manipulation"
+                                            >
+                                              <UserCheck className="h-4 w-4"/> Unirse a esta ruta
+                                            </button>
+                                          ) : (
+                                            <p className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-center text-xs font-bold text-zinc-500">
+                                              Esta ruta ya no tiene plazas libres
+                                            </p>
+                                          )}
+                                        </div>
                                       )}
 
                                       {/* Listado de personas que se han unido a la ruta de este conductor */}
@@ -3387,6 +3433,11 @@ export default function CharangaSaraoApp() {
                                               className="bg-blue-500/20 border border-blue-500/40 text-blue-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1.5"
                                             >
                                               {nombrePas}
+                                              {car.recogidasPasajeros?.[nombrePas.trim().toLocaleLowerCase('es')] && (
+                                                <span className="font-normal text-blue-100/70">
+                                                  · {car.recogidasPasajeros[nombrePas.trim().toLocaleLowerCase('es')]}
+                                                </span>
+                                              )}
                                               {puedoGestionarEsteCoche && (
                                                 <button
                                                   type="button"
