@@ -3332,29 +3332,6 @@ export default function CharangaSaraoApp() {
                                         </div>
 
                                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                                          {/* Botón para unirse o salir de la ruta (para todos los usuarios salvo el propio conductor) */}
-                                          {!soyConductorDeEsteCoche && !soyCreadorDeEstaRuta && (
-                                            estoyUnidoAEsteCoche ? (
-                                              <button
-                                                onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
-                                                className="min-h-11 w-full sm:w-auto flex-1 sm:flex-none justify-center bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black px-3 py-2 rounded-xl text-xs flex items-center gap-1 transition cursor-pointer touch-manipulation"
-                                              >
-                                                <LogOut className="w-3.5 h-3.5"/> Salir del coche
-                                              </button>
-                                            ) : huecosLibres > 0 ? (
-                                              <button
-                                                onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
-                                                className="min-h-11 w-full sm:w-auto flex-1 sm:flex-none justify-center bg-emerald-500 hover:bg-emerald-400 text-black font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1 shadow transition cursor-pointer touch-manipulation"
-                                              >
-                                                <UserCheck className="w-3.5 h-3.5"/> + Unirse a ruta
-                                              </button>
-                                            ) : (
-                                              <span className="w-full sm:w-auto text-center text-[10px] font-bold text-zinc-500 bg-zinc-950 px-2.5 py-2 rounded-lg border border-zinc-800">
-                                                Sin plazas
-                                              </span>
-                                            )
-                                          )}
-
                                           {puedoGestionarEsteCoche && (
                                             <button
                                               onClick={async () => {
@@ -3371,6 +3348,30 @@ export default function CharangaSaraoApp() {
                                           )}
                                         </div>
                                       </div>
+
+                                      {!soyConductorDeEsteCoche && (!soyCreadorDeEstaRuta || car.extraId) && (
+                                        estoyUnidoAEsteCoche ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
+                                            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-rose-500/50 bg-rose-500/20 px-4 py-3 text-sm font-black text-rose-200 transition hover:bg-rose-500 hover:text-black touch-manipulation"
+                                          >
+                                            <LogOut className="h-4 w-4"/> Salir del coche
+                                          </button>
+                                        ) : huecosLibres > 0 ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
+                                            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black text-black shadow transition hover:bg-emerald-400 touch-manipulation"
+                                          >
+                                            <UserCheck className="h-4 w-4"/> Unirse a esta ruta
+                                          </button>
+                                        ) : (
+                                          <p className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-center text-xs font-bold text-zinc-500">
+                                            Esta ruta ya no tiene plazas libres
+                                          </p>
+                                        )
+                                      )}
 
                                       {/* Listado de personas que se han unido a la ruta de este conductor */}
                                       <div className="pt-2.5 border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
