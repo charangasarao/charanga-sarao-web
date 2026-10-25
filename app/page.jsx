@@ -502,7 +502,30 @@ export default function CharangaSaraoApp() {
     }
 
     setMiembros(listaActualizada);
-    await guardarEnNube(listaActualizada, null, null);
+    let nuevosBolos = bolos;
+    if (estado) {
+      nuevosBolos = bolos.map(b => {
+        if (b.id !== boloId) return b;
+        const clavePago = `miembro-${usuarioActual.id}`;
+        const pagoActual = b.pagosMiembros?.[clavePago] || {};
+        return {
+          ...b,
+          pagosMiembros: {
+            ...(b.pagosMiembros || {}),
+            [clavePago]: {
+              ...pagoActual,
+              personaId: usuarioActual.id,
+              tipo: 'miembro',
+              nombre: usuarioActual.nombre,
+              asistio: estado === 'puedo',
+              asistenciaRegistrada: estado === 'puedo'
+            }
+          }
+        };
+      });
+      setBolos(nuevosBolos);
+    }
+    await guardarEnNube(listaActualizada, estado ? nuevosBolos : null, null);
   };
 
   const guardarPagoMiembro = async (boloId, persona, tipo, campo, valor) => {
@@ -1514,6 +1537,10 @@ export default function CharangaSaraoApp() {
   const renderDetallePago = (persona, tipo) => {
     const clavePago = `${tipo}-${persona.id}`;
     const pago = boloActual?.pagosMiembros?.[clavePago] || {};
+    const disponibilidadPersona = tipo === 'miembro'
+      ? (miembros.find(miembro => miembro.id === persona.id) || (usuarioActual.id === persona.id ? usuarioActual : null))
+        ?.disponibilidadBolos?.[boloActual?.id]
+      : null;
     const guardarImporte = (campo, valor) => {
       const importe = Number.parseFloat(valor);
       guardarPagoMiembro(boloActual.id, persona, tipo, campo, Number.isFinite(importe) ? importe : 0);
@@ -1527,17 +1554,27 @@ export default function CharangaSaraoApp() {
           <span>Coche: <strong className="text-white">{pago.usoCoche ? 'Sí' : 'No'}</strong></span>
           <span>Gasolina: <strong className="text-amber-300">{(Number(pago.gasolina) || 0).toFixed(2)} €</strong></span>
           <span>Km: <strong className="text-white">{Number(pago.kilometros) || 0}</strong></span>
-          <span>Asistencia: <strong className={pago.asistenciaRegistrada ? (pago.asistio ? 'text-emerald-300' : 'text-rose-300') : 'text-zinc-400'}>
-            {pago.asistenciaRegistrada ? (pago.asistio ? 'Realizado' : 'No asistió') : 'Sin confirmar'}
+          <span>Asistencia: <strong className={
+            disponibilidadPersona?.estado === 'no' || (pago.asistenciaRegistrada && !pago.asistio)
+              ? 'text-rose-300'
+              : disponibilidadPersona?.estado === 'tal_vez'
+                ? 'text-amber-300'
+                : pago.asistenciaRegistrada
+                  ? 'text-emerald-300'
+                  : 'text-zinc-400'
+          }>
+            {disponibilidadPersona?.estado === 'no'
+              ? 'No disponible'
+              : disponibilidadPersona?.estado === 'tal_vez'
+                ? 'En duda'
+                : pago.asistenciaRegistrada
+                  ? (pago.asistio ? 'Realizado' : 'No asistió')
+                  : 'Sin confirmar'}
           </strong></span>
           <span className={pago.pagado ? 'text-emerald-300' : 'text-zinc-400'}>{pago.pagado ? 'Pagado' : 'Pendiente de pago'}</span>
         </div>
         {esAdmin && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-            <label className="flex items-center gap-1.5 text-zinc-300">
-              <input type="checkbox" checked={pago.asistio === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', e.target.checked)} />
-              Asistió
-            </label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
             <label className="flex items-center gap-1.5 text-zinc-300">
               <input type="checkbox" checked={pago.pagado === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'pagado', e.target.checked)} />
               Pagado
@@ -1869,14 +1906,15 @@ export default function CharangaSaraoApp() {
                   {pagosPerfil.length === 0 ? (
                     <p className="text-xs text-zinc-500 py-5">Todavía no hay bolos en el calendario.</p>
                   ) : pagosPerfil.map(({ bolo, pago }) => {
-                    const perdido = pago.asistenciaRegistrada && pago.asistio === false;
+                    const disponibilidad = usuarioActual.disponibilidadBolos?.[bolo.id];
+                    const perdido = disponibilidad?.estado === 'no' || (pago.asistenciaRegistrada && pago.asistio === false);
                     const pagado = pago.asistio === true && pago.pagado === true;
                     return (
                       <button key={bolo.id} onClick={() => seleccionarBolo(bolo.id)} className={`snap-start shrink-0 w-48 text-left p-3.5 rounded-xl border transition ${perdido ? 'bg-rose-500/10 border-rose-500/40 text-rose-300' : pagado ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-black/50 border-zinc-700 text-zinc-100'}`}>
                         <span className={`block text-[10px] font-bold ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.fecha}</span>
                         <span className={`block mt-1 font-black truncate ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.lugar}</span>
                         <span className={`block mt-2 text-[10px] font-bold ${perdido ? 'text-rose-300' : pagado ? 'text-emerald-300' : 'text-zinc-400'}`}>
-                          {perdido ? 'No asistió' : pagado ? 'Pagado' : pago.asistio === true ? 'Realizado · pendiente' : 'Sin confirmar'}
+                          {disponibilidad?.estado === 'no' ? 'No disponible' : perdido ? 'No asistió' : pagado ? 'Pagado' : pago.asistio === true ? 'Realizado · pendiente' : disponibilidad?.estado === 'tal_vez' ? 'En duda' : 'Sin confirmar'}
                         </span>
                         {pago.asistio === true && (
                           <span className="block mt-1.5 space-y-0.5 text-[10px] text-zinc-300">
@@ -3616,7 +3654,7 @@ export default function CharangaSaraoApp() {
                                   <div key={m.id} className="p-3 rounded-2xl border bg-rose-500/10 border-rose-500/30 flex items-center justify-between">
                                     <div>
                                       <span className="text-[9px] font-black uppercase text-rose-300">{m.cuerda}</span>
-                                      <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
+                                      <p className="font-bold text-sm text-rose-200 line-through decoration-rose-400/70 decoration-1">{m.nombre}</p>
                                     </div>
                                     {puedeGestionarEste && (
                                       <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4"/></button>
