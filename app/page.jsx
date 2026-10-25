@@ -1900,8 +1900,8 @@ export default function CharangaSaraoApp() {
                   <p className="text-xs text-zinc-500">No hay actuaciones de extras registradas todavía. Márcalas como asistidas desde el detalle del bolo.</p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[560px] text-left text-xs text-zinc-300">
-                      <thead className="text-[10px] uppercase text-zinc-500 border-b border-zinc-800"><tr><th className="py-2 pr-3">Extra</th><th className="py-2 pr-3">Bolo</th><th className="py-2 pr-3">Fecha</th><th className="py-2 pr-3">Música</th><th className="py-2">Pago</th></tr></thead>
+                    <table className="w-full min-w-[760px] text-left text-xs text-zinc-300">
+                      <thead className="text-[10px] uppercase text-zinc-500 border-b border-zinc-800"><tr><th className="py-2 pr-3">Extra</th><th className="py-2 pr-3">Bolo</th><th className="py-2 pr-3">Fecha</th><th className="py-2 pr-3">Música</th><th className="py-2 pr-3">Pago de gasolina</th><th className="py-2 pr-3">Kilometraje</th><th className="py-2">Pago</th></tr></thead>
                       <tbody className="divide-y divide-zinc-800/70">
                         {pagosExtrasRealizados.map((pago, index) => (
                           <tr key={`${pago.personaId}-${pago.bolo.id}-${index}`}>
@@ -1909,6 +1909,8 @@ export default function CharangaSaraoApp() {
                             <td className="py-2.5 pr-3">{pago.bolo.lugar}</td>
                             <td className="py-2.5 pr-3">{pago.bolo.fecha}</td>
                             <td className="py-2.5 pr-3">{(Number(pago.importeMusica) || 0).toFixed(2)} €</td>
+                            <td className="py-2.5 pr-3 text-amber-300">{(Number(pago.gasolina) || 0).toFixed(2)} €</td>
+                            <td className="py-2.5 pr-3">{Number(pago.kilometros) || 0} km</td>
                             <td className={`py-2.5 font-black ${pago.pagado ? 'text-emerald-300' : 'text-amber-300'}`}>{pago.pagado ? 'Pagado' : 'Pendiente'}</td>
                           </tr>
                         ))}
