@@ -3291,7 +3291,7 @@ export default function CharangaSaraoApp() {
 
                                   return (
                                     <div key={car.id} className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800 space-y-3 text-xs">
-                                      <div className="flex justify-between items-start gap-2 flex-wrap">
+                                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                                         <div className="space-y-1">
                                           <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-black text-blue-400 text-sm">🚗 {car.conductor}</span>
@@ -3331,25 +3331,25 @@ export default function CharangaSaraoApp() {
                                           </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 w-full sm:w-auto">
                                           {/* Botón para unirse o salir de la ruta (para todos los usuarios salvo el propio conductor) */}
                                           {!soyConductorDeEsteCoche && !soyCreadorDeEstaRuta && (
                                             estoyUnidoAEsteCoche ? (
                                               <button
                                                 onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
-                                                className="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition cursor-pointer"
+                                                className="min-h-11 w-full sm:w-auto flex-1 sm:flex-none justify-center bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-black border border-rose-500/40 font-black px-3 py-2 rounded-xl text-xs flex items-center gap-1 transition cursor-pointer touch-manipulation"
                                               >
                                                 <LogOut className="w-3.5 h-3.5"/> Salir del coche
                                               </button>
                                             ) : huecosLibres > 0 ? (
                                               <button
                                                 onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
-                                                className="bg-emerald-500 hover:bg-emerald-400 text-black font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow transition cursor-pointer"
+                                                className="min-h-11 w-full sm:w-auto flex-1 sm:flex-none justify-center bg-emerald-500 hover:bg-emerald-400 text-black font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1 shadow transition cursor-pointer touch-manipulation"
                                               >
                                                 <UserCheck className="w-3.5 h-3.5"/> + Unirse a ruta
                                               </button>
                                             ) : (
-                                              <span className="text-[10px] font-bold text-zinc-500 bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800">
+                                              <span className="w-full sm:w-auto text-center text-[10px] font-bold text-zinc-500 bg-zinc-950 px-2.5 py-2 rounded-lg border border-zinc-800">
                                                 Sin plazas
                                               </span>
                                             )
