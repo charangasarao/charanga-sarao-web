@@ -1448,7 +1448,7 @@ export default function CharangaSaraoApp() {
       !esAdmin &&
       !esPerfilExtra &&
       bolo.estadoBolo !== 'presupuestado' &&
-      disponibilidad?.estado !== 'puedo'
+      !disponibilidad?.estado
         ? boloId
         : null
     );
