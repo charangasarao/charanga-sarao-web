@@ -1806,33 +1806,74 @@ export default function CharangaSaraoApp() {
                 </span>
               </div>
 
-              <div className="mt-5 -mx-1 flex gap-3 overflow-x-auto px-1 pb-3 snap-x">
-                {pagosPerfil.length === 0 ? (
-                  <p className="text-xs text-zinc-500 py-5">
-                    {esPerfilExtra ? 'Todavía no hay bolos realizados registrados para este músico.' : 'Todavía no hay bolos en el calendario.'}
-                  </p>
-                ) : pagosPerfil.map(({ bolo, pago }) => {
-                  const perdido = pago.asistenciaRegistrada && pago.asistio === false;
-                  const pagado = pago.asistio === true && pago.pagado === true;
-                  return (
-                    <button key={bolo.id} onClick={() => seleccionarBolo(bolo.id)} className={`snap-start shrink-0 w-48 text-left p-3.5 rounded-xl border transition ${perdido ? 'bg-rose-500/10 border-rose-500/40 text-rose-300' : pagado ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-black/50 border-zinc-700 text-zinc-100'}`}>
-                      <span className={`block text-[10px] font-bold ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.fecha}</span>
-                      <span className={`block mt-1 font-black truncate ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.lugar}</span>
-                      <span className={`block mt-2 text-[10px] font-bold ${perdido ? 'text-rose-300' : pagado ? 'text-emerald-300' : 'text-zinc-400'}`}>
-                        {perdido ? 'No asistió' : pagado ? 'Pagado' : pago.asistio === true ? 'Realizado · pendiente' : 'Sin confirmar'}
-                      </span>
-                      {pago.asistio === true && (
-                        <span className="block mt-1.5 space-y-0.5 text-[10px] text-zinc-300">
-                          <span className="block">Música: {(Number(pago.importeMusica) || 0).toFixed(2)} €</span>
-                          <span className="block">Coche: {pago.usoCoche ? 'Sí' : 'No'}</span>
-                          <span className="block">Gasolina: {(Number(pago.gasolina) || 0).toFixed(2)} €</span>
-                          <span className="block">Kilómetros: {Number(pago.kilometros) || 0} km</span>
+              {esPerfilExtra ? (
+                <div className="mt-5 overflow-x-auto rounded-xl border border-zinc-800">
+                  {pagosPerfil.length === 0 ? (
+                    <p className="text-xs text-zinc-500 py-5 px-3">Todavía no hay bolos realizados registrados para este músico.</p>
+                  ) : (
+                    <table className="w-full min-w-[680px] text-left text-xs text-zinc-300">
+                      <thead className="bg-black/50 text-[10px] uppercase text-zinc-500">
+                        <tr>
+                          <th className="px-3 py-2.5">Bolo</th>
+                          <th className="px-3 py-2.5">Fecha</th>
+                          <th className="px-3 py-2.5">Música</th>
+                          <th className="px-3 py-2.5">Pago de gasolina</th>
+                          <th className="px-3 py-2.5">Kilómetros</th>
+                          <th className="px-3 py-2.5">Estado del pago</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/70">
+                        {pagosPerfil.map(({ bolo, pago }) => (
+                          <tr key={bolo.id}>
+                            <td className="px-3 py-2.5">
+                              <button
+                                type="button"
+                                onClick={() => seleccionarBolo(bolo.id)}
+                                className="font-bold text-white hover:text-emerald-300 text-left"
+                              >
+                                {bolo.lugar}
+                              </button>
+                            </td>
+                            <td className="px-3 py-2.5">{bolo.fecha}</td>
+                            <td className="px-3 py-2.5 text-emerald-300">{(Number(pago.importeMusica) || 0).toFixed(2)} €</td>
+                            <td className="px-3 py-2.5 text-amber-300">{(Number(pago.gasolina) || 0).toFixed(2)} €</td>
+                            <td className="px-3 py-2.5">{Number(pago.kilometros) || 0} km</td>
+                            <td className={`px-3 py-2.5 font-black ${pago.pagado ? 'text-emerald-300' : 'text-amber-300'}`}>
+                              {pago.pagado ? 'Pagado' : 'Pendiente'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-5 -mx-1 flex gap-3 overflow-x-auto px-1 pb-3 snap-x">
+                  {pagosPerfil.length === 0 ? (
+                    <p className="text-xs text-zinc-500 py-5">Todavía no hay bolos en el calendario.</p>
+                  ) : pagosPerfil.map(({ bolo, pago }) => {
+                    const perdido = pago.asistenciaRegistrada && pago.asistio === false;
+                    const pagado = pago.asistio === true && pago.pagado === true;
+                    return (
+                      <button key={bolo.id} onClick={() => seleccionarBolo(bolo.id)} className={`snap-start shrink-0 w-48 text-left p-3.5 rounded-xl border transition ${perdido ? 'bg-rose-500/10 border-rose-500/40 text-rose-300' : pagado ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-black/50 border-zinc-700 text-zinc-100'}`}>
+                        <span className={`block text-[10px] font-bold ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.fecha}</span>
+                        <span className={`block mt-1 font-black truncate ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.lugar}</span>
+                        <span className={`block mt-2 text-[10px] font-bold ${perdido ? 'text-rose-300' : pagado ? 'text-emerald-300' : 'text-zinc-400'}`}>
+                          {perdido ? 'No asistió' : pagado ? 'Pagado' : pago.asistio === true ? 'Realizado · pendiente' : 'Sin confirmar'}
                         </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                        {pago.asistio === true && (
+                          <span className="block mt-1.5 space-y-0.5 text-[10px] text-zinc-300">
+                            <span className="block">Música: {(Number(pago.importeMusica) || 0).toFixed(2)} €</span>
+                            <span className="block">Coche: {pago.usoCoche ? 'Sí' : 'No'}</span>
+                            <span className="block">Gasolina: {(Number(pago.gasolina) || 0).toFixed(2)} €</span>
+                            <span className="block">Kilómetros: {Number(pago.kilometros) || 0} km</span>
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className={`grid grid-cols-2 ${esPerfilExtra ? 'sm:grid-cols-3' : 'sm:grid-cols-4'} border-t border-zinc-800 pt-4 gap-y-4`}>
                 <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Bolos realizados</p><p className="text-xl font-black text-white">{resumenPerfil.bolos}</p></div>
