@@ -30,6 +30,107 @@ const INSTRUMENTOS_DISPONIBLES = [
   { nombre: 'Bombo', cuerda: 'Percusión' }
 ];
 
+const CATALOGO_EXTRAS_POR_CUERDA = [
+  { cuerda: 'Saxos', charanga: 'Boqueron', nombres: ['Hector Boqueron', 'Pancete Boqueron'] },
+  { cuerda: 'Saxos', charanga: 'Cbrass', nombres: ['Migueli Cbrass'] },
+  { cuerda: 'Saxos', charanga: 'Chicuelina', nombres: ['Alonso Chicuelina', 'Pollo Chicuelina'] },
+  { cuerda: 'Saxos', charanga: 'Cubalibre', nombres: ['Polo Cubalibre', 'Chovo Cubalibre'] },
+  { cuerda: 'Saxos', charanga: 'Cucu', nombres: ['Tudela Cucu'] },
+  { cuerda: 'Saxos', charanga: 'Imparables', nombres: ['Josema Imparables'] },
+  { cuerda: 'Saxos', charanga: 'Jaleo', nombres: ['Polani Jaleo', 'Pablo Laguna Jaleo', 'Jorge Laguna Jaleo'] },
+  { cuerda: 'Saxos', charanga: 'Jarra', nombres: ['Juan Jarra'] },
+  { cuerda: 'Saxos', charanga: 'Mejias', nombres: ['Fer Mejias'] },
+  { cuerda: 'Saxos', charanga: 'Meneito', nombres: ['Berrón Meneito', 'Alvaro Meneito'] },
+  { cuerda: 'Saxos', charanga: 'Nota', nombres: ['Mateo Nota', 'Mateín Nota'] },
+  { cuerda: 'Saxos', charanga: 'Ojayo', nombres: ['Alvaro Ojayo', 'Hector Ojayo'] },
+  { cuerda: 'Saxos', charanga: 'PDT', nombres: ['Antonio PDT'] },
+  { cuerda: 'Saxos', charanga: 'Puntillo', nombres: ['Iñigo Puntillo'] },
+  { cuerda: 'Saxos', charanga: 'Relamido', nombres: ['Nico Relamido', 'Sebas Relamido'] },
+  { cuerda: 'Saxos', charanga: 'Resaka', nombres: ['Hector Resaka', 'Polo Resaka', 'Parra Resaka'] },
+  { cuerda: 'Saxos', charanga: 'SoundBand', nombres: ['Angel SoundBand', 'Cristobal SoundBand'] },
+  { cuerda: 'Trompetas', charanga: 'Ayllon', nombres: ['Tino Ayllon'] },
+  { cuerda: 'Trompetas', charanga: 'Boqueron', nombres: ['Isma Boquerón'] },
+  { cuerda: 'Trompetas', charanga: 'Cbrass', nombres: ['Marcos Cbrass', 'Abraham Cbrass'] },
+  { cuerda: 'Trompetas', charanga: 'Chicuelina', nombres: ['Cascas Chicuelina', 'Charly Chicuelina'] },
+  { cuerda: 'Trompetas', charanga: 'Cucu', nombres: ['Nacho Cucu', 'Pablo Cucu'] },
+  { cuerda: 'Trompetas', charanga: 'Huevera', nombres: ['Victor Huevera'] },
+  { cuerda: 'Trompetas', charanga: 'Imparables', nombres: ['Oscar Imparables'] },
+  { cuerda: 'Trompetas', charanga: 'Jaleo', nombres: ['Adri Jaleo', 'Jorge Jaleo'] },
+  { cuerda: 'Trompetas', charanga: 'Jarra', nombres: ['Pablo Jarra', 'Urko Jarra', 'Guille Jarra'] },
+  { cuerda: 'Trompetas', charanga: 'Juerga', nombres: ['Xumy Juerga'] },
+  { cuerda: 'Trompetas', charanga: 'Nota', nombres: ['Dani Nota', 'Barrunta Nota'] },
+  { cuerda: 'Trompetas', charanga: 'Ojayo', nombres: ['Tobes Ojayo', 'Andres Ojayo'] },
+  { cuerda: 'Trompetas', charanga: 'Resaka', nombres: ['Guille Resaka', 'Luisen Resaka'] },
+  { cuerda: 'Trombones', charanga: 'Boqueron', nombres: ['Jorge Boqueron', 'Mario Boqueron'] },
+  { cuerda: 'Trombones', charanga: 'Chicuelina', nombres: ['Camaron Chicuelina', 'Rulas Chicuelina'] },
+  { cuerda: 'Trombones', charanga: 'Cubalibre', nombres: ['Morris Cubalibre', 'Ledo Cubalibre', 'Moradillo Cubalibre'] },
+  { cuerda: 'Trombones', charanga: 'Espinar Freelance', nombres: ['Isma Espinar Freelance'] },
+  { cuerda: 'Trombones', charanga: 'Huevera', nombres: ['Raul Huevera', 'Mario Huevera', 'Oscar Huevera'] },
+  { cuerda: 'Trombones', charanga: 'Jaleo', nombres: ['Pablo Jr Jaleo', 'Monjas Jaleo', 'Pablo Jaleo', 'Zarzuela Jaleo'] },
+  { cuerda: 'Trombones', charanga: 'Jarra', nombres: ['Moragues Jarra', 'Rodrigo Jarra'] },
+  { cuerda: 'Trombones', charanga: 'Nota', nombres: ['Cordero Nota', 'Tipitin Nota'] },
+  { cuerda: 'Trombones', charanga: 'Ojayo', nombres: ['Oso Ojayo'] },
+  { cuerda: 'Trombones', charanga: 'Patxaran', nombres: ['David Patxaran'] },
+  { cuerda: 'Trombones', charanga: 'Queloques', nombres: ['Hector Queloques'] },
+  { cuerda: 'Trombones', charanga: 'Resaka', nombres: ['Guille Resaka', 'Ramon Resaka', 'Maria Resaka'] },
+  { cuerda: 'Trombones', charanga: 'SoundBand', nombres: ['Chuty SoundBand'] },
+  { cuerda: 'Tuba', charanga: 'Atrevida', nombres: ['Aitor Atrevida'] },
+  { cuerda: 'Tuba', charanga: 'Boqueron', nombres: ['Emilio Boqueron'] },
+  { cuerda: 'Tuba', charanga: 'Chicuelina', nombres: ['Alonso Chicuelina', 'Pinillos Chicuelina'] },
+  { cuerda: 'Tuba', charanga: 'Conejo', nombres: ['Chechu Conejo'] },
+  { cuerda: 'Tuba', charanga: 'Cubalibre', nombres: ['Carlos Cubalibre', 'Avispilla Cubalibre'] },
+  { cuerda: 'Tuba', charanga: 'Cucu', nombres: ['Pablo Cucu'] },
+  { cuerda: 'Tuba', charanga: 'Desacuerdo', nombres: ['Carlos Desacuerdo'] },
+  { cuerda: 'Tuba', charanga: 'Desfase', nombres: ['Jesus Desfase'] },
+  { cuerda: 'Tuba', charanga: 'Fugitivos', nombres: ['Alfredo Fugitivos'] },
+  { cuerda: 'Tuba', charanga: 'Imparables', nombres: ['Javi Imparables', 'Oscar Imparables'] },
+  { cuerda: 'Tuba', charanga: 'Jarra', nombres: ['Borja Jarra'] },
+  { cuerda: 'Tuba', charanga: 'Meneito', nombres: ['Guille Meneito'] },
+  { cuerda: 'Tuba', charanga: 'Queloques', nombres: ['Carlos Queloques', 'Hector Queloques'] },
+  { cuerda: 'Tuba', charanga: 'Relamido', nombres: ['Sergio Relamido'] },
+  { cuerda: 'Tuba', charanga: 'Resaka', nombres: ['Jesus Resaka'] },
+  { cuerda: 'Tuba', charanga: 'SoundBand', nombres: ['Jesus SoundBand'] },
+  { cuerda: 'Tuba', charanga: 'Temblones', nombres: ['Armando Temblones'] },
+  { cuerda: 'Tuba', charanga: 'Vicio', nombres: ['Joseba Vicio'] },
+  { cuerda: 'Tuba', charanga: 'Villanos del Ruido', nombres: ['Carba Villanos del Ruido'] },
+  { cuerda: 'Percusión', charanga: 'Boqueron', nombres: ['Vegas Boqueron', 'Victor Boqueron'] },
+  { cuerda: 'Percusión', charanga: 'Chicue', nombres: ['Bulgaro Chicue'] },
+  { cuerda: 'Percusión', charanga: 'Cubalibre', nombres: ['Chino Cubalibre'] },
+  { cuerda: 'Percusión', charanga: 'Cucu', nombres: ['Saul Cucu', 'Carolo Cucu'] },
+  { cuerda: 'Percusión', charanga: 'Fugitivos', nombres: ['Ledesma Fugitivos'] },
+  { cuerda: 'Percusión', charanga: 'Huevera', nombres: ['Cristian Huevera'] },
+  { cuerda: 'Percusión', charanga: 'Jaleo', nombres: ['Mangon Jaleo', 'Juanma Jaleo', 'Fer Jaleo'] },
+  { cuerda: 'Percusión', charanga: 'Jarra', nombres: ['Elias Jarra'] },
+  { cuerda: 'Percusión', charanga: 'Mejias', nombres: ['Ruben Mejias'] },
+  { cuerda: 'Percusión', charanga: 'New Tocados', nombres: ['Coli New Tocados'] },
+  { cuerda: 'Percusión', charanga: 'Nota', nombres: ['Ander Nota', 'Montalvillo Nota', 'Javi Nota'] },
+  { cuerda: 'Percusión', charanga: 'Ojayo', nombres: ['Campas Ojayo'] },
+  { cuerda: 'Percusión', charanga: 'Rumano Imparables', nombres: ['Carlillos Rumano Imparables'] },
+  { cuerda: 'Percusión', charanga: 'SoundBand', nombres: ['Carlitos SoundBand', 'Chtuy Jr SoundBand'] },
+  { cuerda: 'Percusión', charanga: 'Union', nombres: ['Dani Union'] }
+];
+
+const ORDEN_CUERDAS_EXTRAS = ['Saxos', 'Trompetas', 'Trombones', 'Tuba', 'Percusión'];
+const COMPARADOR_EXTRAS = new Intl.Collator('es', { sensitivity: 'base' });
+const CATALOGO_EXTRAS = CATALOGO_EXTRAS_POR_CUERDA
+  .flatMap(({ cuerda, charanga, nombres }) => nombres.map(nombre => ({
+    id: `extra-${cuerda}-${charanga}-${nombre}`
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, ''),
+    nombre,
+    charanga,
+    cuerda,
+    instrumento: cuerda
+  })))
+  .sort((a, b) =>
+    ORDEN_CUERDAS_EXTRAS.indexOf(a.cuerda) - ORDEN_CUERDAS_EXTRAS.indexOf(b.cuerda) ||
+    COMPARADOR_EXTRAS.compare(a.charanga, b.charanga) ||
+    COMPARADOR_EXTRAS.compare(a.nombre, b.nombre)
+  );
+
 const OPCIONES_VESTUARIO = [
   { id: 'Por definir', label: 'Por definir', color: 'bg-zinc-900 text-zinc-400 border-zinc-800' },
   { id: 'Negro', label: 'Camiseta Negra', color: 'bg-zinc-800 text-zinc-100 border-zinc-700' },
@@ -115,9 +216,7 @@ export default function CharangaSaraoApp() {
 
   // Modal Músico Extra
   const [showModalExtra, setShowModalExtra] = useState(false);
-  const [nombreExtra, setNombreExtra] = useState('');
-  const [charangaExtra, setCharangaExtra] = useState('');
-  const [instrumentoExtra, setInstrumentoExtra] = useState('');
+  const [extraCatalogoSeleccionadoId, setExtraCatalogoSeleccionadoId] = useState('');
 
   // Trayectos y Plazas de Coches
   const [showModalTrayectoBolo, setShowModalTrayectoBolo] = useState(false);
@@ -312,6 +411,22 @@ export default function CharangaSaraoApp() {
       const listaActualizada = miembros.map(m => m.id === existente.id ? miembroActualizado : m);
       setMiembros(listaActualizada);
       await guardarEnNube(listaActualizada, null, null);
+      return;
+    }
+
+    const extraRegistrado = CATALOGO_EXTRAS.find(
+      extra => extra.nombre.toLocaleLowerCase('es') === nombreRegistro.trim().toLocaleLowerCase('es')
+    );
+    if (extraRegistrado && !esAdminAcceso) {
+      const perfilExtra = {
+        ...extraRegistrado,
+        tipoPerfil: 'extra',
+        instrumentos: [extraRegistrado.instrumento],
+        roles: ['extra']
+      };
+      setUsuarioActual(perfilExtra);
+      localStorage.setItem('sarao_usuario_actual', JSON.stringify(perfilExtra));
+      setAutenticado(true);
       return;
     }
 
@@ -761,26 +876,32 @@ export default function CharangaSaraoApp() {
 
   const agregarMusicoExtra = async (e) => {
     e.preventDefault();
-    if (!nombreExtra.trim() || !instrumentoExtra) {
-      alert('Introduce el nombre del músico y su instrumento.');
+    if (!puedeGestionarExtras) {
+      alert('No tienes permiso para añadir músicos extras.');
       return;
     }
 
-    const instObj = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === instrumentoExtra);
-    const cuerdaExtra = instObj?.cuerda || 'Saxos';
+    const extraSeleccionado = instrumentosParaExtra.find(extra => extra.id === extraCatalogoSeleccionadoId);
+    if (!extraSeleccionado) {
+      alert('Selecciona un músico extra disponible para tu cuerda.');
+      return;
+    }
 
-    if (!esAdmin && !esGestorBolos && usuarioActual.cuerda !== cuerdaExtra) {
+    if (!esAdmin && extraSeleccionado.cuerda !== usuarioActual.cuerda &&
+      !(usuarioActual.nombre?.trim().toLocaleLowerCase('es') === 'edgar' &&
+        ['Saxos', 'Tuba'].includes(extraSeleccionado.cuerda))) {
       alert(`Solo puedes añadir refuerzos para tu cuerda (${usuarioActual.cuerda}).`);
+      return;
+    }
+
+    if ((boloActual?.musicosExtras || []).some(extra => extra.id === extraSeleccionado.id)) {
+      alert(`${extraSeleccionado.nombre} ya está añadido a este bolo.`);
       return;
     }
 
     registrarSnapshot();
     const nuevoExtra = {
-      id: Date.now(),
-      nombre: nombreExtra.trim(),
-      charanga: charangaExtra.trim() || 'Independiente',
-      instrumento: instrumentoExtra,
-      cuerda: cuerdaExtra,
+      ...extraSeleccionado,
       agregadoPor: usuarioActual.nombre
     };
 
@@ -795,9 +916,7 @@ export default function CharangaSaraoApp() {
     });
 
     setBolos(nuevosBolos);
-    setNombreExtra('');
-    setCharangaExtra('');
-    setInstrumentoExtra('');
+    setExtraCatalogoSeleccionadoId('');
     setShowModalExtra(false);
     await guardarEnNube(null, nuevosBolos, null);
   };
@@ -1260,6 +1379,9 @@ export default function CharangaSaraoApp() {
                 onChange={e => setNombreRegistro(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
               />
+              <p className="text-[10px] text-zinc-500 mt-1">
+                Los músicos extra pueden acceder a su ficha usando el nombre registrado en el catálogo.
+              </p>
             </div>
 
             <div>
@@ -1309,9 +1431,15 @@ export default function CharangaSaraoApp() {
   const totalDiasMes = new Date(mesSeleccionado.anio, mesSeleccionado.mes + 1, 0).getDate();
   const diaSemanaInicio = (new Date(mesSeleccionado.anio, mesSeleccionado.mes, 1).getDay() + 6) % 7;
 
-  const instrumentosParaExtra = (esAdmin || esGestorBolos) 
-    ? INSTRUMENTOS_DISPONIBLES 
-    : INSTRUMENTOS_DISPONIBLES.filter(i => i.cuerda === usuarioActual.cuerda);
+  const esPerfilExtra = usuarioActual.tipoPerfil === 'extra';
+  const instrumentosParaExtra = CATALOGO_EXTRAS.filter(extra =>
+    esAdmin ||
+    (esJefeCuerda && (
+      extra.cuerda === usuarioActual.cuerda ||
+      (usuarioActual.nombre?.trim().toLocaleLowerCase('es') === 'edgar' &&
+        ['Saxos', 'Tuba'].includes(extra.cuerda))
+    ))
+  );
 
   const listaConductoresPlantilla = miembros.filter(m => m.roles?.includes('conductor'));
   const bolosPerfil = bolos
@@ -1319,16 +1447,26 @@ export default function CharangaSaraoApp() {
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
   const pagosPerfil = bolosPerfil.map(b => ({
     bolo: b,
-    pago: b.pagosMiembros?.[`miembro-${usuarioActual.id}`] || {}
-  }));
+    pago: b.pagosMiembros?.[`${esPerfilExtra ? 'extra' : 'miembro'}-${usuarioActual.id}`] ||
+      (esPerfilExtra
+        ? Object.values(b.pagosMiembros || {}).find(pago =>
+          pago.tipo === 'extra' &&
+          (pago.personaId === usuarioActual.id ||
+            pago.nombre?.trim().toLocaleLowerCase('es') === usuarioActual.nombre.trim().toLocaleLowerCase('es'))
+        )
+        : null) ||
+      {}
+  })).filter(({ pago }) => !esPerfilExtra || pago.asistio === true);
   const resumenPerfil = pagosPerfil.reduce((resumen, { pago }) => {
     if (pago.asistio !== true) return resumen;
     resumen.bolos += 1;
     resumen.musica += Number(pago.importeMusica) || 0;
     resumen.gasolina += Number(pago.gasolina) || 0;
     resumen.kilometros += Number(pago.kilometros) || 0;
+    resumen.pagado += pago.pagado ? (Number(pago.importeMusica) || 0) + (Number(pago.gasolina) || 0) : 0;
+    resumen.pendiente += pago.pagado ? 0 : (Number(pago.importeMusica) || 0) + (Number(pago.gasolina) || 0);
     return resumen;
-  }, { bolos: 0, musica: 0, gasolina: 0, kilometros: 0 });
+  }, { bolos: 0, musica: 0, gasolina: 0, kilometros: 0, pagado: 0, pendiente: 0 });
   const pagosExtrasRealizados = bolosPerfil.flatMap(b =>
     Object.values(b.pagosMiembros || {})
       .filter(pago => pago.tipo === 'extra' && pago.asistio === true)
@@ -1637,16 +1775,24 @@ export default function CharangaSaraoApp() {
             <div className="bg-zinc-900 border border-emerald-500/30 rounded-3xl p-5 sm:p-6">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
-                  <p className="text-[10px] uppercase font-black tracking-wider text-emerald-400">Ficha Personal</p>
+                  <p className="text-[10px] uppercase font-black tracking-wider text-emerald-400">
+                    {esPerfilExtra ? 'Ficha de músico extra' : 'Ficha Personal'}
+                  </p>
                   <h2 className="text-3xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>{usuarioActual.nombre}</h2>
-                  <p className="text-xs text-zinc-400 mt-1">{usuarioActual.instrumentos?.join(', ')} · {usuarioActual.cuerda}</p>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    {esPerfilExtra ? `${usuarioActual.instrumento} · ${usuarioActual.charanga}` : `${usuarioActual.instrumentos?.join(', ')} · ${usuarioActual.cuerda}`}
+                  </p>
                 </div>
-                <span className="text-xs text-zinc-400">{pagosPerfil.length} bolos en calendario</span>
+                <span className="text-xs text-zinc-400">
+                  {pagosPerfil.length} {esPerfilExtra ? 'bolos realizados' : 'bolos en calendario'}
+                </span>
               </div>
 
               <div className="mt-5 -mx-1 flex gap-3 overflow-x-auto px-1 pb-3 snap-x">
                 {pagosPerfil.length === 0 ? (
-                  <p className="text-xs text-zinc-500 py-5">Todavía no hay bolos en el calendario.</p>
+                  <p className="text-xs text-zinc-500 py-5">
+                    {esPerfilExtra ? 'Todavía no hay bolos realizados registrados para este músico.' : 'Todavía no hay bolos en el calendario.'}
+                  </p>
                 ) : pagosPerfil.map(({ bolo, pago }) => {
                   const perdido = pago.asistenciaRegistrada && pago.asistio === false;
                   const pagado = pago.asistio === true && pago.pagado === true;
@@ -1670,11 +1816,18 @@ export default function CharangaSaraoApp() {
                 })}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-zinc-800 pt-4 gap-y-4">
+              <div className={`grid grid-cols-2 ${esPerfilExtra ? 'sm:grid-cols-3' : 'sm:grid-cols-4'} border-t border-zinc-800 pt-4 gap-y-4`}>
                 <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Bolos realizados</p><p className="text-xl font-black text-white">{resumenPerfil.bolos}</p></div>
                 <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Música</p><p className="text-xl font-black text-emerald-300">{resumenPerfil.musica.toFixed(2)} €</p></div>
                 <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Gasolina</p><p className="text-xl font-black text-amber-300">{resumenPerfil.gasolina.toFixed(2)} €</p></div>
                 <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Kilómetros</p><p className="text-xl font-black text-white">{resumenPerfil.kilometros} km</p></div>
+                {esPerfilExtra && (
+                  <>
+                    <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Total generado</p><p className="text-xl font-black text-white">{(resumenPerfil.musica + resumenPerfil.gasolina).toFixed(2)} €</p></div>
+                    <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Pagado</p><p className="text-xl font-black text-emerald-300">{resumenPerfil.pagado.toFixed(2)} €</p></div>
+                    <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Pendiente</p><p className="text-xl font-black text-amber-300">{resumenPerfil.pendiente.toFixed(2)} €</p></div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -2999,12 +3152,14 @@ export default function CharangaSaraoApp() {
                             <p className="text-xs text-zinc-400 mt-0.5">
                               {esAdmin 
                                 ? 'Puedes añadir músicos extras de cualquier instrumento para reforzar este bolo.' 
-                                : `Puedes añadir músicos extras de refuerzo para tu cuerda (${usuarioActual.cuerda}).`}
+                                : usuarioActual.nombre?.trim().toLocaleLowerCase('es') === 'edgar'
+                                  ? 'Puedes añadir extras de tu cuerda, Saxos o Tuba.'
+                                  : `Puedes añadir músicos extras de refuerzo para tu cuerda (${usuarioActual.cuerda}).`}
                             </p>
                           </div>
                           <button
                             onClick={() => {
-                              setInstrumentoExtra(instrumentosParaExtra[0]?.nombre || 'Saxo alto');
+                              setExtraCatalogoSeleccionadoId(instrumentosParaExtra[0]?.id || '');
                               setShowModalExtra(true);
                             }}
                             className="w-full sm:w-auto justify-center bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 shrink-0 transition"
@@ -3524,47 +3679,33 @@ export default function CharangaSaraoApp() {
                 <h3 className="text-lg font-black text-white">Añadir Músico Extra (Refuerzo)</h3>
               </div>
               <p className="text-xs text-zinc-400 mb-4">
-                Introduce los datos del músico de refuerzo para el bolo en <strong>{boloActual.lugar}</strong>.
+                {esAdmin
+                  ? <>Elige un músico extra para el bolo en <strong>{boloActual.lugar}</strong>.</>
+                  : <>Elige un músico de tu cuerda para el bolo en <strong>{boloActual.lugar}</strong>.</>}
               </p>
 
               <form onSubmit={agregarMusicoExtra} className="space-y-3">
                 <div>
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Nombre del Músico:</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Marcos, David..."
-                    value={nombreExtra}
-                    onChange={e => setNombreExtra(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-amber-400"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Charanga / Banda de procedencia:</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Charanga El Cubata, Banda Municipal..."
-                    value={charangaExtra}
-                    onChange={e => setCharangaExtra(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-400"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Instrumento:</label>
+                  <label className="text-[11px] font-bold text-zinc-400 block mb-1">Músico extra (ordenado por charanga):</label>
                   <select
-                    value={instrumentoExtra}
-                    onChange={e => setInstrumentoExtra(e.target.value)}
+                    value={extraCatalogoSeleccionadoId}
+                    onChange={e => setExtraCatalogoSeleccionadoId(e.target.value)}
                     className="w-full bg-black border border-zinc-800 text-white rounded-xl p-2.5 text-xs font-bold outline-none focus:border-amber-400"
                     required
                   >
-                    {instrumentosParaExtra.map(inst => (
-                      <option key={inst.nombre} value={inst.nombre}>
-                        {inst.nombre} ({inst.cuerda})
-                      </option>
-                    ))}
+                    <option value="" disabled>Selecciona un músico</option>
+                    {ORDEN_CUERDAS_EXTRAS.map(cuerda => {
+                      const extrasDeCuerda = instrumentosParaExtra.filter(extra => extra.cuerda === cuerda);
+                      return extrasDeCuerda.length > 0 ? (
+                        <optgroup key={cuerda} label={cuerda}>
+                          {extrasDeCuerda.map(extra => (
+                            <option key={extra.id} value={extra.id}>
+                              {extra.nombre} — {extra.charanga}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null;
+                    })}
                   </select>
                 </div>
 
