@@ -221,6 +221,7 @@ export default function CharangaSaraoApp() {
 
   // Trayectos y Plazas de Coches
   const [showModalTrayectoBolo, setShowModalTrayectoBolo] = useState(false);
+  const [extraAsignadoTrayectoId, setExtraAsignadoTrayectoId] = useState('');
   const [vehiculoTrayecto, setVehiculoTrayecto] = useState('');
   const [plazasTrayecto, setPlazasTrayecto] = useState('4');
   const [origenTrayecto, setOrigenTrayecto] = useState('');
@@ -3247,15 +3248,30 @@ export default function CharangaSaraoApp() {
                                 </p>
                               </div>
                               {esConductor && (
-                                <button
-                                  onClick={() => {
-                                    setPlazasTrayecto('4');
-                                    setShowModalTrayectoBolo(true);
-                                  }}
-                                  className="bg-blue-500 hover:bg-blue-400 text-black font-black text-[11px] px-3 py-2 rounded-xl shadow cursor-pointer"
-                                >
-                                  + Añadir mi Coche y Plazas
-                                </button>
+                                <div className="flex gap-2 flex-wrap">
+                                  <button
+                                    onClick={() => {
+                                      setExtraAsignadoTrayectoId('');
+                                      setPlazasTrayecto('4');
+                                      setShowModalTrayectoBolo(true);
+                                    }}
+                                    className="bg-blue-500 hover:bg-blue-400 text-black font-black text-[11px] px-3 py-2 rounded-xl shadow cursor-pointer"
+                                  >
+                                    + Añadir mi Coche y Plazas
+                                  </button>
+                                  {musicosExtras.length > 0 && (
+                                    <button
+                                      onClick={() => {
+                                        setExtraAsignadoTrayectoId(String(musicosExtras[0].id));
+                                        setPlazasTrayecto('4');
+                                        setShowModalTrayectoBolo(true);
+                                      }}
+                                      className="bg-amber-400 hover:bg-amber-300 text-black font-black text-[11px] px-3 py-2 rounded-xl shadow cursor-pointer"
+                                    >
+                                      + Añadir ruta para un extra
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </div>
 
@@ -3266,6 +3282,9 @@ export default function CharangaSaraoApp() {
                                   const plazasTotales = typeof car.plazasTotales === 'number' ? car.plazasTotales : 4;
                                   const huecosLibres = Math.max(0, plazasTotales - pasajeros.length);
                                   const soyConductorDeEsteCoche = car.conductor?.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase();
+                                  const soyCreadorDeEstaRuta = car.creadoPorId === usuarioActual.id ||
+                                    car.creadoPor?.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase();
+                                  const puedoGestionarEsteCoche = esGestorBolos || soyConductorDeEsteCoche || soyCreadorDeEstaRuta;
                                   const estoyUnidoAEsteCoche = pasajeros.some(
                                     p => p.trim().toLowerCase() === usuarioActual.nombre?.trim().toLowerCase()
                                   );
@@ -3276,6 +3295,11 @@ export default function CharangaSaraoApp() {
                                         <div className="space-y-1">
                                           <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-black text-blue-400 text-sm">🚗 {car.conductor}</span>
+                                            {car.extraId && (
+                                              <span className="text-[10px] bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded border border-amber-500/20">
+                                                Ruta de extra
+                                              </span>
+                                            )}
                                             <span className="text-[10px] bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">
                                               {car.vehiculo}
                                             </span>
@@ -3303,12 +3327,13 @@ export default function CharangaSaraoApp() {
                                               </div>
                                             )}
                                             <p>🏁 Llegada: <strong className="text-white">{car.destino}</strong> {car.horaLlegada && <span className="text-emerald-300 font-semibold">({car.horaLlegada})</span>}</p>
+                                            {car.creadoPor && <p className="text-zinc-500">Ruta publicada por {car.creadoPor}</p>}
                                           </div>
                                         </div>
 
                                         <div className="flex items-center gap-2">
                                           {/* Botón para unirse o salir de la ruta (para todos los usuarios salvo el propio conductor) */}
-                                          {!soyConductorDeEsteCoche && (
+                                          {!soyConductorDeEsteCoche && !soyCreadorDeEstaRuta && (
                                             estoyUnidoAEsteCoche ? (
                                               <button
                                                 onClick={() => toggleUnirseRutaCoche(boloActual.id, car.id)}
@@ -3330,7 +3355,7 @@ export default function CharangaSaraoApp() {
                                             )
                                           )}
 
-                                          {(esGestorBolos || soyConductorDeEsteCoche) && (
+                                          {puedoGestionarEsteCoche && (
                                             <button
                                               onClick={async () => {
                                                 registrarSnapshot();
@@ -3361,7 +3386,7 @@ export default function CharangaSaraoApp() {
                                               className="bg-blue-500/20 border border-blue-500/40 text-blue-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1.5"
                                             >
                                               {nombrePas}
-                                              {(esGestorBolos || soyConductorDeEsteCoche) && (
+                                              {puedoGestionarEsteCoche && (
                                                 <button
                                                   type="button"
                                                   onClick={() => quitarPasajeroDeCoche(boloActual.id, car.id, nombrePas)}
@@ -3835,29 +3860,49 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* MODAL TRAYECTO CONDUCTOR CON SELECTOR DE PLAZAS LIBRES */}
-        {showModalTrayectoBolo && boloActual && (
+        {showModalTrayectoBolo && boloActual && esConductor && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-zinc-900 border border-blue-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center gap-2 mb-2">
                 <Car className="w-5 h-5 text-blue-400"/>
-                <h3 className="text-lg font-black text-white">Publicar Coche y Huecos Libres</h3>
+                <h3 className="text-lg font-black text-white">
+                  {extraAsignadoTrayectoId ? 'Publicar ruta para músico extra' : 'Publicar Coche y Huecos Libres'}
+                </h3>
               </div>
               <p className="text-xs text-zinc-400 mb-4">
-                Indica cuántos huecos libres tienes en tu coche, la salida y las paradas para que los compañeros puedan unirse.
+                {extraAsignadoTrayectoId
+                  ? 'Publica la ruta del extra y los huecos disponibles para que los compañeros puedan unirse.'
+                  : 'Indica cuántos huecos libres tienes en tu coche, la salida y las paradas para que los compañeros puedan unirse.'}
               </p>
 
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!origenTrayecto || !destinoTrayecto) return;
+                if (!esConductor) {
+                  alert('Solo un conductor o el administrador puede publicar rutas.');
+                  return;
+                }
                 const numPlazas = parseInt(plazasTrayecto, 10);
                 if (isNaN(numPlazas) || numPlazas < 1) {
                   alert('Indica al menos 1 hueco libre.');
                   return;
                 }
+                const extraAsignado = extraAsignadoTrayectoId
+                  ? (boloActual.musicosExtras || []).find(extra => String(extra.id) === extraAsignadoTrayectoId)
+                  : null;
+                if (extraAsignadoTrayectoId && !extraAsignado) {
+                  alert('El músico extra seleccionado ya no está asignado a este bolo.');
+                  return;
+                }
                 registrarSnapshot();
                 const nuevoCar = {
                   id: Date.now(),
-                  conductor: usuarioActual.nombre,
+                  conductor: extraAsignado?.nombre || usuarioActual.nombre,
+                  ...(extraAsignado ? {
+                    extraId: extraAsignado.id,
+                    creadoPorId: usuarioActual.id,
+                    creadoPor: usuarioActual.nombre
+                  } : {}),
                   vehiculo: vehiculoTrayecto || 'Coche',
                   plazasTotales: numPlazas,
                   pasajeros: [],
@@ -3873,9 +3918,28 @@ export default function CharangaSaraoApp() {
                 setParadasIntermedias([{ lugar: '', hora: '' }]);
                 setDestinoTrayecto(''); setHoraLlegadaDestino(''); setVehiculoTrayecto('');
                 setPlazasTrayecto('4');
+                setExtraAsignadoTrayectoId('');
                 setShowModalTrayectoBolo(false);
                 await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
+
+                {(boloActual.musicosExtras || []).length > 0 && (
+                  <div>
+                    <label className="text-[11px] font-bold text-amber-400 block mb-1">Asignar ruta a músico extra (opcional):</label>
+                    <select
+                      value={extraAsignadoTrayectoId}
+                      onChange={e => setExtraAsignadoTrayectoId(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 text-white rounded-xl px-3 py-2 text-xs font-bold"
+                    >
+                      <option value="">Mi coche (conductor actual)</option>
+                      {(boloActual.musicosExtras || []).map(extra => (
+                        <option key={extra.id} value={String(extra.id)}>
+                          {extra.nombre} — {extra.charanga}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2">
@@ -3971,7 +4035,14 @@ export default function CharangaSaraoApp() {
                   <button type="submit" className="flex-1 bg-blue-500 hover:bg-blue-400 text-black font-black py-2.5 rounded-xl text-sm">
                     Publicar Trayecto
                   </button>
-                  <button type="button" onClick={() => setShowModalTrayectoBolo(false)} className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExtraAsignadoTrayectoId('');
+                      setShowModalTrayectoBolo(false);
+                    }}
+                    className="px-4 bg-zinc-800 text-zinc-300 rounded-xl text-sm font-bold"
+                  >
                     Cancelar
                   </button>
                 </div>
