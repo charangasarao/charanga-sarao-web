@@ -1445,7 +1445,6 @@ export default function CharangaSaraoApp() {
     setPestañaActiva('bolos');
     setInstrumentoElegidoBolo(disponibilidad?.instrumento || usuarioActual.instrumentos?.[0] || '');
     setBoloDisponibilidadAbiertoId(
-      !esAdmin &&
       !esPerfilExtra &&
       bolo.estadoBolo !== 'presupuestado' &&
       !disponibilidad?.estado
@@ -4429,7 +4428,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {boloDisponibilidadAbiertoId === boloActual?.id && !esAdmin && !esPerfilExtra && (
+        {boloDisponibilidadAbiertoId === boloActual?.id && !esPerfilExtra && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
             <div className={`bg-zinc-900 border ${boloActual.estadoBolo === 'ensayo' ? 'border-cyan-400/50' : 'border-amber-500/50'} rounded-3xl p-6 max-w-md w-full shadow-2xl`}>
               <div className="flex items-start justify-between gap-3 mb-4">
