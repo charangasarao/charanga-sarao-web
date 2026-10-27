@@ -1101,37 +1101,84 @@ export default function CharangaSaraoApp() {
   // FUNCIONES DE FACTURACIÓN
   // =========================================================================
 
+  const convertirImporteFactura = (valor) => {
+    const texto = String(valor ?? '').trim().replace(/\s/g, '');
+    if (!texto) return NaN;
+
+    const ultimaComa = texto.lastIndexOf(',');
+    const ultimoPunto = texto.lastIndexOf('.');
+    let normalizado = texto;
+
+    if (ultimaComa !== -1 && ultimoPunto !== -1) {
+      const separadorDecimal = ultimaComa > ultimoPunto ? ',' : '.';
+      const separadorMiles = separadorDecimal === ',' ? '.' : ',';
+      normalizado = texto.split(separadorMiles).join('');
+      normalizado = normalizado.replace(separadorDecimal, '.');
+    } else if (ultimaComa !== -1 || ultimoPunto !== -1) {
+      const separador = ultimaComa !== -1 ? ',' : '.';
+      const partes = texto.split(separador);
+      const pareceSeparadorMiles = partes.length > 1
+        && partes[partes.length - 1].length === 3
+        && partes[0].length >= 1
+        && partes[0].length <= 3;
+      normalizado = pareceSeparadorMiles
+        ? partes.join('')
+        : texto.replace(separador, '.');
+    }
+
+    return Number(normalizado);
+  };
+
+  const obtenerImporteFactura = (factura) => {
+    const importe = convertirImporteFactura(factura.importe);
+    return Number.isFinite(importe) ? importe : 0;
+  };
+
+  const facturaPerteneceAUsuario = (factura, usuario) => {
+    if (!usuario) return false;
+    const mismoId = factura.usuarioId != null && usuario.id != null
+      && String(factura.usuarioId) === String(usuario.id);
+    const mismoNombre = factura.usuarioNombre?.trim().toLowerCase()
+      === usuario.nombre?.trim().toLowerCase();
+    return mismoId || Boolean(mismoNombre && usuario.nombre);
+  };
+
   const extraerImporteDeTexto = (texto) => {
     if (!texto) return null;
     let candidatos = [];
+    const regexImportes = /(?:\d{1,3}(?:[ .\u00a0]\d{3})+|\d+)(?:[,.]\d{1,2})?/g;
 
-    const regexClave = /(?:total|importe|pagar|base|cuota|neto|factura|eur|€)[^0-9]*([0-9]{1,5}(?:[.,][0-9]{1,2})?)/gi;
-    let match;
-    while ((match = regexClave.exec(texto)) !== null) {
-      const val = parseFloat(match[1].replace(',', '.'));
-      if (!isNaN(val) && val > 0 && val < 50000) candidatos.push(val);
+    for (const match of texto.matchAll(regexImportes)) {
+      const valor = convertirImporteFactura(match[0]);
+      if (!Number.isFinite(valor) || valor <= 0 || valor >= 50000) continue;
+
+      const antes = texto.slice(Math.max(0, match.index - 70), match.index);
+      const despues = texto.slice(match.index + match[0].length, match.index + match[0].length + 35);
+      const contexto = `${antes} ${despues}`;
+      const tieneTotal = /\b(?:total|importe\s+total|a\s+pagar|amount\s+due)\b/i.test(antes)
+        || /^\s*(?:€|eur(?:os?)?)?\s*(?:total|a\s+pagar)\b/i.test(despues);
+      const esDesglose = /\b(?:subtotal|base\s+imponible|base|iva|impuestos?|irpf|retenci[oó]n|descuento|anticipo)\b/i.test(antes);
+      const tieneMoneda = /€|\beur(?:os?)?\b/i.test(contexto);
+      const tieneDecimales = /[,.]\d{1,2}$/.test(match[0]);
+
+      let puntuacion = tieneTotal ? 100 : 0;
+      if (tieneMoneda) puntuacion += 25;
+      if (tieneDecimales) puntuacion += 5;
+      if (esDesglose) puntuacion -= tieneTotal ? 30 : 60;
+
+      if (puntuacion > 0) candidatos.push({ valor, puntuacion });
     }
 
-    if (candidatos.length === 0) {
-      const regexMoneda = /\b([0-9]{1,4}[.,][0-9]{2})\b/g;
-      while ((match = regexMoneda.exec(texto)) !== null) {
-        const val = parseFloat(match[1].replace(',', '.'));
-        if (!isNaN(val) && val > 0.5 && val < 25000 && val !== 20.26 && val !== 20.27) {
-          candidatos.push(val);
-        }
-      }
-    }
-
-    if (candidatos.length > 0) {
-      return Math.max(...candidatos).toFixed(2);
-    }
-    return null;
+    candidatos.sort((a, b) => b.puntuacion - a.puntuacion || b.valor - a.valor);
+    return candidatos.length > 0 ? candidatos[0].valor.toFixed(2) : null;
   };
 
   const manejarSeleccionArchivoFactura = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setImporteFacturaDetectado('');
+    setPreviewArchivoUrl('');
     setArchivoFactura(file);
     setNombreArchivoFactura(file.name);
     if (!conceptoFactura) {
@@ -1176,7 +1223,7 @@ export default function CharangaSaraoApp() {
     try {
       const importeEnNombre = extraerImporteDeTexto(file.name);
 
-      if (file.type === 'application/pdf') {
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         const arrayBuffer = await file.arrayBuffer();
         const decoder = new TextDecoder('iso-8859-1');
         const rawText = decoder.decode(arrayBuffer);
@@ -1209,6 +1256,8 @@ export default function CharangaSaraoApp() {
           } else {
             setMensajeAnalisis('ℹ️ Imagen analizada. Por favor introduce o verifica el importe manualmente.');
           }
+        } else {
+          throw new Error('No se pudo iniciar el analizador OCR.');
         }
       }
     } catch (err) {
@@ -1221,8 +1270,8 @@ export default function CharangaSaraoApp() {
 
   const guardarYEnviarFactura = async (e) => {
     e.preventDefault();
-    const imp = parseFloat(String(importeFacturaDetectado).replace(',', '.'));
-    if (isNaN(imp) || imp <= 0) {
+    const imp = convertirImporteFactura(importeFacturaDetectado);
+    if (!Number.isFinite(imp) || imp <= 0) {
       alert('Por favor introduce un importe de factura válido mayor que 0.');
       return;
     }
@@ -1292,15 +1341,23 @@ export default function CharangaSaraoApp() {
   };
 
   const eliminarFactura = async (factura) => {
-    const esMia = factura.usuarioId === usuarioActual.id || factura.usuarioNombre?.toLowerCase() === usuarioActual.nombre?.toLowerCase();
+    const esMia = facturaPerteneceAUsuario(factura, usuarioActual);
     if (!esMia && !esFacturador && !esAdmin) {
       alert('Solo puedes borrar tus propias facturas.');
       return;
     }
 
-    if (confirm(`¿Seguro que deseas eliminar la factura "${factura.concepto}" (${factura.importe.toFixed(2)} €)?`)) {
+    const importe = convertirImporteFactura(factura.importe);
+    const importeVisible = Number.isFinite(importe) ? `${importe.toFixed(2)} €` : 'importe no disponible';
+    if (confirm(`¿Seguro que deseas eliminar la factura "${factura.concepto}" (${importeVisible})?`)) {
+      const indiceFactura = facturas.findIndex(f => f === factura
+        || (factura.id != null && f.id != null && String(f.id) === String(factura.id)));
+      if (indiceFactura === -1) {
+        alert('No se encontró la factura. Actualiza la lista e inténtalo de nuevo.');
+        return;
+      }
       registrarSnapshot();
-      const nuevasFacturas = facturas.filter(f => f.id !== factura.id);
+      const nuevasFacturas = facturas.filter((_, indice) => indice !== indiceFactura);
       setFacturas(nuevasFacturas);
       await guardarEnNube(null, null, null, nuevasFacturas);
     }
@@ -1330,10 +1387,10 @@ export default function CharangaSaraoApp() {
 
   // CÁLCULO DE TOTALES DE FACTURAS
   const misFacturas = facturas.filter(
-    f => f.usuarioId === usuarioActual?.id || f.usuarioNombre?.trim().toLowerCase() === usuarioActual?.nombre?.trim().toLowerCase()
+    f => facturaPerteneceAUsuario(f, usuarioActual)
   );
-  const miTotalFacturado = misFacturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
-  const totalGeneralFacturado = facturas.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
+  const miTotalFacturado = misFacturas.reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
+  const totalGeneralFacturado = facturas.reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
 
   // COMPROBACIÓN EXACTA DE FECHA: DESCARTA CUALQUIER BOLO CUYO DÍA YA PASÓ
   const esBoloVigente = (fechaStr) => {
@@ -1379,7 +1436,7 @@ export default function CharangaSaraoApp() {
       const porcentaje = totalBolos > 0 ? Math.round((dispoCount / totalBolos) * 100) : 0;
       const facturadoM = facturas
         .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
-        .reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
+        .reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
       csvContent += `${m.nombre};${m.instrumentos.join(', ')};${m.cuerda};${dispoCount};${totalBolos};${porcentaje}%;${facturadoM.toFixed(2)}\n`;
     });
     const encodedUri = encodeURI(csvContent);
@@ -2555,7 +2612,7 @@ export default function CharangaSaraoApp() {
                           const facturasMiembro = facturas.filter(
                             f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase()
                           );
-                          const sumaMiembro = facturasMiembro.reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
+                          const sumaMiembro = facturasMiembro.reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
 
                           return (
                             <tr key={m.id} className="hover:bg-zinc-800/30">
@@ -2600,7 +2657,7 @@ export default function CharangaSaraoApp() {
 
                         <div className="flex items-center gap-3 shrink-0">
                           <span className="text-base font-black text-cyan-400">
-                            {parseFloat(f.importe).toFixed(2)} €
+                            {obtenerImporteFactura(f).toFixed(2)} €
                           </span>
 
                           {f.archivoDataUrl && (
@@ -2817,7 +2874,7 @@ export default function CharangaSaraoApp() {
                           const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
                           const totalFacturadoMiembro = facturas
                             .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
-                            .reduce((acc, f) => acc + (parseFloat(f.importe) || 0), 0);
+                            .reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
 
                           return (
                             <tr key={m.id} className="hover:bg-zinc-800/30">
