@@ -1145,32 +1145,53 @@ export default function CharangaSaraoApp() {
 
   const extraerImporteDeTexto = (texto) => {
     if (!texto) return null;
-    let candidatos = [];
-    const regexImportes = /(?:\d{1,3}(?:[ .\u00a0]\d{3})+|\d+)(?:[,.]\d{1,2})?/g;
+    const lineas = texto.split(/\r?\n/).map(linea => linea.trim()).filter(Boolean);
+    if (lineas.length === 0) return null;
 
-    for (const match of texto.matchAll(regexImportes)) {
-      const valor = convertirImporteFactura(match[0]);
-      if (!Number.isFinite(valor) || valor <= 0 || valor >= 50000) continue;
+    const regexImportes = /(?<!\d)(?:\d{1,3}(?:[ .\u00a0]\d{3})+|\d+)(?:[,.]\d{1,2})?(?!\d)/g;
+    const candidatos = [];
 
-      const antes = texto.slice(Math.max(0, match.index - 70), match.index);
-      const despues = texto.slice(match.index + match[0].length, match.index + match[0].length + 35);
-      const contexto = `${antes} ${despues}`;
-      const tieneTotal = /\b(?:total|importe\s+total|a\s+pagar|amount\s+due)\b/i.test(antes)
-        || /^\s*(?:€|eur(?:os?)?)?\s*(?:total|a\s+pagar)\b/i.test(despues);
-      const esDesglose = /\b(?:subtotal|base\s+imponible|base|iva|impuestos?|irpf|retenci[oó]n|descuento|anticipo)\b/i.test(antes);
-      const tieneMoneda = /€|\beur(?:os?)?\b/i.test(contexto);
-      const tieneDecimales = /[,.]\d{1,2}$/.test(match[0]);
+    lineas.forEach((linea, indice) => {
+      for (const match of linea.matchAll(regexImportes)) {
+        const valor = convertirImporteFactura(match[0]);
+        if (!Number.isFinite(valor) || valor <= 0 || valor >= 50000) continue;
 
-      let puntuacion = tieneTotal ? 100 : 0;
-      if (tieneMoneda) puntuacion += 25;
-      if (tieneDecimales) puntuacion += 5;
-      if (esDesglose) puntuacion -= tieneTotal ? 30 : 60;
+        const contexto = linea.slice(Math.max(0, match.index - 12), match.index + match[0].length + 12);
+        const tieneMoneda = /€|\beur(?:os?)?\b/i.test(contexto);
+        const tieneDecimales = /[,.]\d{1,2}$/.test(match[0]);
+        if (!tieneMoneda && !tieneDecimales) continue;
 
-      if (puntuacion > 0) candidatos.push({ valor, puntuacion });
-    }
+        candidatos.push({ valor, indice });
+      }
+    });
 
-    candidatos.sort((a, b) => b.puntuacion - a.puntuacion || b.valor - a.valor);
-    return candidatos.length > 0 ? candidatos[0].valor.toFixed(2) : null;
+    if (candidatos.length === 0) return null;
+
+    const inicioZonaInferior = Math.floor(lineas.length * 0.65);
+    const candidatosInferiores = candidatos.filter(candidato => candidato.indice >= inicioZonaInferior);
+    const candidatosZonaInferior = candidatosInferiores.length > 0 ? candidatosInferiores : candidatos;
+    const mayorImporte = Math.max(...candidatosZonaInferior.map(candidato => candidato.valor));
+    return mayorImporte.toFixed(2);
+  };
+
+  const cargarScriptFactura = (src, disponible) => {
+    if (disponible()) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = () => disponible() ? resolve() : reject(new Error('El analizador no está disponible.'));
+      script.onerror = () => reject(new Error(`No se pudo cargar el analizador: ${src}`));
+      document.head.appendChild(script);
+    });
+  };
+
+  const cargarTesseractFactura = async () => {
+    await cargarScriptFactura(
+      'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+      () => Boolean(window.Tesseract)
+    );
+    return window.Tesseract;
   };
 
   const manejarSeleccionArchivoFactura = async (e) => {
@@ -1224,40 +1245,63 @@ export default function CharangaSaraoApp() {
       const importeEnNombre = extraerImporteDeTexto(file.name);
 
       if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-        const arrayBuffer = await file.arrayBuffer();
-        const decoder = new TextDecoder('iso-8859-1');
-        const rawText = decoder.decode(arrayBuffer);
-        const bloquesTexto = (rawText.match(/\(([^()]+)\)/g) || []).map(s => s.slice(1, -1)).join(' ');
-        const detectado = extraerImporteDeTexto(bloquesTexto) || extraerImporteDeTexto(rawText) || importeEnNombre;
+        await cargarScriptFactura(
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+          () => Boolean(window.pdfjsLib)
+        );
+        const pdfjsLib = window.pdfjsLib;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+        const pagina = await pdf.getPage(pdf.numPages);
+        const contenido = await pagina.getTextContent();
+        const elementosOrdenados = contenido.items
+          .filter(item => typeof item.str === 'string' && item.str.trim())
+          .sort((a, b) => b.transform[5] - a.transform[5] || a.transform[4] - b.transform[4]);
+        const lineasPagina = [];
+        elementosOrdenados.forEach(item => {
+          const y = item.transform[5];
+          let linea = lineasPagina.find(actual => Math.abs(actual.y - y) < 3);
+          if (!linea) {
+            linea = { y, items: [] };
+            lineasPagina.push(linea);
+          }
+          linea.items.push(item);
+        });
+        const textoPdf = lineasPagina
+          .sort((a, b) => b.y - a.y)
+          .map(linea => linea.items.sort((a, b) => a.transform[4] - b.transform[4]).map(item => item.str).join(' '))
+          .join('\n');
+        let detectado = extraerImporteDeTexto(textoPdf);
+
+        if (!detectado) {
+          const tesseract = await cargarTesseractFactura();
+          const viewport = pagina.getViewport({ scale: 2 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const contexto = canvas.getContext('2d');
+          if (!contexto) throw new Error('No se pudo preparar la página PDF para el OCR.');
+          await pagina.render({ canvasContext: contexto, viewport }).promise;
+          const { data: { text } } = await tesseract.recognize(canvas, 'spa');
+          detectado = extraerImporteDeTexto(text);
+        }
+        detectado = detectado || importeEnNombre;
 
         if (detectado) {
           setImporteFacturaDetectado(String(detectado));
-          setMensajeAnalisis(`✓ Importe detectado automáticamente del PDF: ${detectado} € (puedes corregirlo si es necesario).`);
+          setMensajeAnalisis(`✓ Importe mayor detectado en la parte inferior del PDF: ${detectado} € (revísalo antes de confirmar).`);
         } else {
           setMensajeAnalisis('ℹ️ PDF cargado. Confirma o escribe el importe abajo.');
         }
       } else if (file.type.startsWith('image/')) {
-        if (!window.Tesseract) {
-          await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-          });
-        }
-
-        if (window.Tesseract) {
-          const { data: { text } } = await window.Tesseract.recognize(file, 'spa');
-          const detectado = extraerImporteDeTexto(text) || importeEnNombre;
-          if (detectado) {
-            setImporteFacturaDetectado(String(detectado));
-            setMensajeAnalisis(`✓ Importe detectado por escáner óptico (OCR): ${detectado} € (revísalo antes de confirmar).`);
-          } else {
-            setMensajeAnalisis('ℹ️ Imagen analizada. Por favor introduce o verifica el importe manualmente.');
-          }
+        const tesseract = await cargarTesseractFactura();
+        const { data: { text } } = await tesseract.recognize(file, 'spa');
+        const detectado = extraerImporteDeTexto(text) || importeEnNombre;
+        if (detectado) {
+          setImporteFacturaDetectado(String(detectado));
+          setMensajeAnalisis(`✓ Importe mayor detectado en la parte inferior de la imagen: ${detectado} € (revísalo antes de confirmar).`);
         } else {
-          throw new Error('No se pudo iniciar el analizador OCR.');
+          setMensajeAnalisis('ℹ️ Imagen analizada. Por favor introduce o verifica el importe manualmente.');
         }
       }
     } catch (err) {
