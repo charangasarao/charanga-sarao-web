@@ -1150,6 +1150,7 @@ export default function CharangaSaraoApp() {
 
     const regexImportes = /(?<!\d)(?:\d{1,3}(?:[ .\u00a0]\d{3})+|\d+)(?:[,.]\d{1,2})?(?!\d)/g;
     const candidatos = [];
+    const regexEtiquetas = /\bimporte\s+total\b|\btotal\s+(?:a\s+pagar|factura|pagar)\b|\b(?:a\s+pagar|pago)\b|\btotal\b/gi;
 
     lineas.forEach((linea, indice) => {
       for (const match of linea.matchAll(regexImportes)) {
@@ -1161,11 +1162,39 @@ export default function CharangaSaraoApp() {
         const tieneDecimales = /[,.]\d{1,2}$/.test(match[0]);
         if (!tieneMoneda && !tieneDecimales) continue;
 
-        candidatos.push({ valor, indice });
+        const etiquetas = [];
+        for (let indiceEtiqueta = Math.max(0, indice - 1); indiceEtiqueta <= Math.min(lineas.length - 1, indice + 1); indiceEtiqueta += 1) {
+          for (const etiqueta of lineas[indiceEtiqueta].matchAll(regexEtiquetas)) {
+            const textoEtiqueta = etiqueta[0].toLowerCase();
+            const esTotalExplicito = /importe\s+total|total\s+(?:a\s+pagar|factura|pagar)|a\s+pagar/.test(textoEtiqueta);
+            const esDesglose = /\b(?:subtotal|base\s+imponible|base|iva|impuestos?|irpf|retenci[oó]n|descuento|anticipo)\b/i.test(lineas[indiceEtiqueta]);
+            if (esDesglose && !esTotalExplicito) continue;
+
+            const distanciaLinea = Math.abs(indice - indiceEtiqueta);
+            const distanciaTexto = distanciaLinea === 0
+              ? Math.abs(match.index - etiqueta.index)
+              : distanciaLinea * 30;
+            const prioridad = esTotalExplicito ? 300 : textoEtiqueta === 'pago' ? 250 : 200;
+            const direccion = indiceEtiqueta <= indice ? 15 : -15;
+            etiquetas.push(prioridad - distanciaTexto + direccion);
+          }
+        }
+
+        candidatos.push({
+          valor,
+          indice,
+          puntuacionEtiqueta: etiquetas.length > 0 ? Math.max(...etiquetas) : 0
+        });
       }
     });
 
     if (candidatos.length === 0) return null;
+
+    const candidatosEtiquetados = candidatos.filter(candidato => candidato.puntuacionEtiqueta > 0);
+    if (candidatosEtiquetados.length > 0) {
+      candidatosEtiquetados.sort((a, b) => b.puntuacionEtiqueta - a.puntuacionEtiqueta || b.valor - a.valor);
+      return candidatosEtiquetados[0].valor.toFixed(2);
+    }
 
     const inicioZonaInferior = Math.floor(lineas.length * 0.65);
     const candidatosInferiores = candidatos.filter(candidato => candidato.indice >= inicioZonaInferior);
