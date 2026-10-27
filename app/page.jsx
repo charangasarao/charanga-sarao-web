@@ -1367,14 +1367,17 @@ export default function CharangaSaraoApp() {
       tipoArchivo: archivoFactura?.type || 'desconocido',
       archivoDataUrl: previewArchivoUrl || '',
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
-      enviadaACorreo: correoFacturacion || 'Sin correo configurado'
+      enviadaACorreo: correoFacturacion || 'Sin correo configurado',
+      estadoEnvioCorreo: correoFacturacion ? 'pendiente' : 'sin_configurar'
     };
 
     const nuevasFacturas = [nuevaFactura, ...facturas];
     setFacturas(nuevasFacturas);
     await guardarEnNube(null, null, null, nuevasFacturas);
 
-    if (correoFacturacion && correoFacturacion.includes('@')) {
+    let errorEnvioCorreo = '';
+    const destinatario = correoFacturacion.trim();
+    if (destinatario && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
       try {
         const formData = new FormData();
         formData.append('_subject', `Nueva Factura Charanga Sarao - ${usuarioActual.nombre} (${imp.toFixed(2)} €)`);
@@ -1388,13 +1391,33 @@ export default function CharangaSaraoApp() {
           formData.append('attachment', archivoFactura, archivoFactura.name);
         }
 
-        await fetch(`https://formsubmit.co/${correoFacturacion.trim()}`, {
+        const respuesta = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(destinatario)}`, {
           method: 'POST',
+          headers: { Accept: 'application/json' },
           body: formData
         });
+        const resultado = await respuesta.json();
+        if (!respuesta.ok || resultado.success !== true && resultado.success !== 'true') {
+          throw new Error(resultado.message || `El servicio de correo respondió con el estado ${respuesta.status}.`);
+        }
+
+        nuevaFactura.estadoEnvioCorreo = 'enviado';
       } catch (err) {
         console.error("Error enviando email automático:", err);
+        errorEnvioCorreo = err instanceof Error ? err.message : 'Error desconocido al enviar el correo.';
+        nuevaFactura.estadoEnvioCorreo = 'error';
       }
+    } else if (destinatario) {
+      errorEnvioCorreo = 'El correo de facturación configurado no es válido.';
+      nuevaFactura.estadoEnvioCorreo = 'error';
+    }
+
+    if (correoFacturacion) {
+      const facturasActualizadas = nuevasFacturas.map(factura =>
+        factura.id === nuevaFactura.id ? nuevaFactura : factura
+      );
+      setFacturas(facturasActualizadas);
+      await guardarEnNube(null, null, null, facturasActualizadas);
     }
 
     setEnviandoFactura(false);
@@ -1406,8 +1429,10 @@ export default function CharangaSaraoApp() {
     setMensajeAnalisis('');
     setShowModalSubirFactura(false);
 
-    if (correoFacturacion) {
-      alert(`Factura de ${imp.toFixed(2)} € registrada y enviada automáticamente a ${correoFacturacion}.`);
+    if (errorEnvioCorreo) {
+      alert(`La factura de ${imp.toFixed(2)} € se ha registrado, pero no se pudo confirmar su envío a ${destinatario}.\n\n${errorEnvioCorreo}\n\nComprueba que el correo esté activado en FormSubmit y vuelve a intentarlo.`);
+    } else if (nuevaFactura.estadoEnvioCorreo === 'enviado') {
+      alert(`Factura de ${imp.toFixed(2)} € registrada y enviada a ${destinatario}.`);
     } else {
       alert(`Factura de ${imp.toFixed(2)} € registrada correctamente.`);
     }
@@ -2724,7 +2749,17 @@ export default function CharangaSaraoApp() {
                             <span className="text-[10px] text-zinc-500">({f.nombreArchivo})</span>
                           </div>
                           <p className="text-[11px] text-zinc-400">
-                            📅 {f.fecha} • Enviada a: <strong className="text-zinc-300">{f.enviadaACorreo}</strong>
+                            📅 {f.fecha} • Destino: <strong className="text-zinc-300">{f.enviadaACorreo}</strong>
+                            {f.estadoEnvioCorreo && (
+                              <span className={`ml-2 font-bold ${
+                                f.estadoEnvioCorreo === 'enviado' ? 'text-emerald-400' :
+                                  f.estadoEnvioCorreo === 'error' ? 'text-rose-400' : 'text-amber-400'
+                              }`}>
+                                {f.estadoEnvioCorreo === 'enviado' ? 'Correo enviado' :
+                                  f.estadoEnvioCorreo === 'error' ? 'Error de envío' :
+                                    f.estadoEnvioCorreo === 'pendiente' ? 'Envío pendiente' : 'Sin correo configurado'}
+                              </span>
+                            )}
                           </p>
                         </div>
 
