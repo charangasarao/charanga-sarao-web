@@ -1,5 +1,16 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Envío de facturas por correo
+
+El envío de facturas utiliza Resend desde la ruta del servidor `/api/send`. Configura estas variables en `.env.local` y también en el entorno de despliegue:
+
+```env
+RESEND_API_KEY=re_...
+RESEND_FROM_EMAIL=Facturas <facturas@tudominio.com>
+```
+
+El remitente debe estar verificado en Resend. Mantén `RESEND_API_KEY` únicamente en el servidor; no uses el prefijo `NEXT_PUBLIC_`.
+
 ## Getting Started
 
 First, run the development server:

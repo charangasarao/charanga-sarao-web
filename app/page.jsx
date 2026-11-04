@@ -1343,6 +1343,7 @@ export default function CharangaSaraoApp() {
 
   const guardarYEnviarFactura = async (e) => {
     e.preventDefault();
+    if (enviandoFactura) return;
     const imp = convertirImporteFactura(importeFacturaDetectado);
     if (!Number.isFinite(imp) || imp <= 0) {
       alert('Por favor introduce un importe de factura válido mayor que 0.');
@@ -1352,85 +1353,104 @@ export default function CharangaSaraoApp() {
       alert('Indica un concepto o proveedor para la factura.');
       return;
     }
-
     setEnviandoFactura(true);
-    registrarSnapshot();
-
-    const nuevaFactura = {
-      id: Date.now(),
-      usuarioId: usuarioActual.id,
-      usuarioNombre: usuarioActual.nombre,
-      cuerda: usuarioActual.cuerda,
-      concepto: conceptoFactura.trim(),
-      importe: parseFloat(imp.toFixed(2)),
-      nombreArchivo: nombreArchivoFactura || 'Documento adjunto',
-      tipoArchivo: archivoFactura?.type || 'desconocido',
-      archivoDataUrl: previewArchivoUrl || '',
-      fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
-      enviadaACorreo: correoFacturacion || 'Sin correo configurado',
-      estadoEnvioCorreo: correoFacturacion ? 'pendiente' : 'sin_configurar'
-    };
-
-    const nuevasFacturas = [nuevaFactura, ...facturas];
-    setFacturas(nuevasFacturas);
-    await guardarEnNube(null, null, null, nuevasFacturas);
-
     let errorEnvioCorreo = '';
-    const destinatario = correoFacturacion.trim();
-    if (destinatario && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
-      try {
+    const destinatario = String(correoFacturacion || '').trim();
+    let facturasRegistradas = null;
+    let nuevaFactura = null;
+    try {
+      registrarSnapshot();
+      nuevaFactura = {
+        id: Date.now(),
+        usuarioId: usuarioActual.id,
+        usuarioNombre: usuarioActual.nombre,
+        cuerda: usuarioActual.cuerda,
+        concepto: conceptoFactura.trim(),
+        importe: parseFloat(imp.toFixed(2)),
+        nombreArchivo: nombreArchivoFactura || 'Documento adjunto',
+        tipoArchivo: archivoFactura?.type || 'desconocido',
+        archivoDataUrl: previewArchivoUrl || '',
+        fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }),
+        enviadaACorreo: destinatario || 'Sin correo configurado',
+        estadoEnvioCorreo: destinatario ? 'pendiente' : 'sin_configurar'
+      };
+      const nuevasFacturas = [nuevaFactura, ...facturas];
+      facturasRegistradas = nuevasFacturas;
+      setFacturas(nuevasFacturas);
+      void guardarEnNube(null, null, null, nuevasFacturas);
+
+      if (destinatario && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario)) {
         const formData = new FormData();
-        formData.append('_subject', `Nueva Factura Charanga Sarao - ${usuarioActual.nombre} (${imp.toFixed(2)} €)`);
-        formData.append('Músico', usuarioActual.nombre);
-        formData.append('Cuerda', usuarioActual.cuerda);
-        formData.append('Concepto_Factura', conceptoFactura.trim());
-        formData.append('Importe_Facturado', `${imp.toFixed(2)} €`);
-        formData.append('Fecha_Subida', nuevaFactura.fecha);
-        formData.append('_captcha', 'false');
+        formData.append('to', destinatario);
+        formData.append('musico', usuarioActual.nombre);
+        formData.append('cuerda', usuarioActual.cuerda || '');
+        formData.append('concepto', conceptoFactura.trim());
+        formData.append('importe', imp.toFixed(2));
+        formData.append('fecha', nuevaFactura.fecha);
         if (archivoFactura) {
-          formData.append('attachment', archivoFactura, archivoFactura.name);
+          formData.append('file', archivoFactura, archivoFactura.name);
         }
 
-        const respuesta = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(destinatario)}`, {
-          method: 'POST',
-          headers: { Accept: 'application/json' },
-          body: formData
-        });
-        const resultado = await respuesta.json();
-        if (!respuesta.ok || resultado.success !== true && resultado.success !== 'true') {
-          throw new Error(resultado.message || `El servicio de correo respondió con el estado ${respuesta.status}.`);
+        const controlador = new AbortController();
+        const timeout = window.setTimeout(() => controlador.abort(), 20000);
+        try {
+          const respuesta = await fetch('/api/send', {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body: formData,
+            signal: controlador.signal
+          });
+          let resultado;
+          try {
+            resultado = await respuesta.json();
+          } catch {
+            throw new Error(`El servicio de correo devolvió una respuesta no válida (HTTP ${respuesta.status}).`);
+          }
+          if (!respuesta.ok || resultado.success !== true) {
+            throw new Error(resultado.error || `El servicio de correo respondió con el estado ${respuesta.status}.`);
+          }
+        } finally {
+          window.clearTimeout(timeout);
         }
 
         nuevaFactura.estadoEnvioCorreo = 'enviado';
-      } catch (err) {
-        console.error("Error enviando email automático:", err);
-        errorEnvioCorreo = err instanceof Error ? err.message : 'Error desconocido al enviar el correo.';
+      } else if (destinatario) {
+        throw new Error('El correo de facturación configurado no es válido.');
+      }
+    } catch (err) {
+      console.error("Error guardando o enviando factura:", err);
+      errorEnvioCorreo = err instanceof Error
+        ? err.name === 'AbortError'
+          ? 'Resend no respondió en 20 segundos. Comprueba la conexión e inténtalo de nuevo.'
+          : err.message
+        : 'Error desconocido al enviar el correo.';
+      if (destinatario && nuevaFactura) {
         nuevaFactura.estadoEnvioCorreo = 'error';
       }
-    } else if (destinatario) {
-      errorEnvioCorreo = 'El correo de facturación configurado no es válido.';
-      nuevaFactura.estadoEnvioCorreo = 'error';
+    } finally {
+      if (destinatario && facturasRegistradas && nuevaFactura) {
+        const facturasActualizadas = facturasRegistradas.map(factura =>
+          factura.id === nuevaFactura.id ? nuevaFactura : factura
+        );
+        setFacturas(facturasActualizadas);
+        void guardarEnNube(null, null, null, facturasActualizadas);
+      } else if (facturasRegistradas) {
+        void guardarEnNube(null, null, null, facturasRegistradas);
+      }
+      setEnviandoFactura(false);
+      setArchivoFactura(null);
+      setPreviewArchivoUrl('');
+      setNombreArchivoFactura('');
+      setConceptoFactura('');
+      setImporteFacturaDetectado('');
+      setMensajeAnalisis('');
+      setShowModalSubirFactura(false);
     }
 
-    if (correoFacturacion) {
-      const facturasActualizadas = nuevasFacturas.map(factura =>
-        factura.id === nuevaFactura.id ? nuevaFactura : factura
-      );
-      setFacturas(facturasActualizadas);
-      await guardarEnNube(null, null, null, facturasActualizadas);
-    }
-
-    setEnviandoFactura(false);
-    setArchivoFactura(null);
-    setPreviewArchivoUrl('');
-    setNombreArchivoFactura('');
-    setConceptoFactura('');
-    setImporteFacturaDetectado('');
-    setMensajeAnalisis('');
-    setShowModalSubirFactura(false);
-
-    if (errorEnvioCorreo) {
-      alert(`La factura de ${imp.toFixed(2)} € se ha registrado, pero no se pudo confirmar su envío a ${destinatario}.\n\n${errorEnvioCorreo}\n\nComprueba que el correo esté activado en FormSubmit y vuelve a intentarlo.`);
+    if (!nuevaFactura) {
+      alert('No se pudo preparar la factura. Revisa los datos e inténtalo de nuevo.');
+    } else if (errorEnvioCorreo) {
+      alert(`La factura de ${imp.toFixed(2)} € se ha registrado, pero no se pudo confirmar su envío a ${destinatario}.\n\n${errorEnvioCorreo}\n\nComprueba la configuración de Resend y vuelve a intentarlo.`);
     } else if (nuevaFactura.estadoEnvioCorreo === 'enviado') {
       alert(`Factura de ${imp.toFixed(2)} € registrada y enviada a ${destinatario}.`);
     } else {
