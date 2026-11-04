@@ -1786,7 +1786,7 @@ export default function CharangaSaraoApp() {
   };
 
   return (
-    <div className="sarao-app min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
+    <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
       
       {/* BOTÓN DESHACER (SOLO ADMIN) */}
       {esAdmin && historialEstados.length > 0 && (
@@ -1801,7 +1801,7 @@ export default function CharangaSaraoApp() {
         </div>
       )}
 
-      <header className="sarao-header bg-gradient-to-b from-zinc-900 to-black border-b border-green-500/20 px-4 sm:px-6 py-4 sm:py-5 sticky top-0 z-30 backdrop-blur-md bg-opacity-90">
+      <header className="bg-gradient-to-b from-zinc-900 to-black border-b border-green-500/20 px-4 sm:px-6 py-4 sm:py-5 sticky top-0 z-30 backdrop-blur-md bg-opacity-90">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl overflow-hidden border border-green-500/40 bg-black shrink-0">
@@ -1855,7 +1855,7 @@ export default function CharangaSaraoApp() {
         {/* INICIO / LANDING PAGE */}
         {pestañaActiva === 'landing' && (
           <div className="space-y-6">
-            <div className="sarao-welcome bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-5 sm:p-8 relative overflow-hidden shadow-2xl">
+            <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-5 sm:p-8 relative overflow-hidden shadow-2xl">
               <div className="relative z-10">
                 <span className="bg-green-500/20 text-green-400 text-xs font-black px-3 py-1 rounded-full uppercase border border-green-500/30">
                   En directo en la nube ☁️
@@ -4905,7 +4905,7 @@ export default function CharangaSaraoApp() {
       </main>
 
       {/* BARRA INFERIOR */}
-      <nav className="sarao-tabbar fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-2.5 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto">
+      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-2.5 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto">
         {[
           { id: 'landing', label: 'Inicio', icon: Home },
           { id: 'bolos', label: 'Bolos', icon: CalendarIcon },

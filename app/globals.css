@@ -1,11 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: light;
-  --background: #f3f6f3;
-  --foreground: #172019;
-  --brand-green: #16834b;
-  --brand-green-dark: #11683d;
+  --background: #ffffff;
+  --foreground: #171717;
 }
 
 @theme inline {
@@ -15,213 +12,15 @@
   --font-mono: var(--font-geist-mono);
 }
 
-html {
-  min-height: 100%;
-  background: var(--background);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
 }
 
 body {
-  min-height: 100%;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button {
-  -webkit-tap-highlight-color: transparent;
-}
-
-.sarao-app {
-  color: #172019;
-  background:
-    radial-gradient(
-      ellipse at 50% -12%,
-      rgb(196 239 211 / 46%),
-      transparent 38rem
-    ),
-    #f3f6f3;
-}
-
-.sarao-header {
-  background: rgb(255 255 255 / 88%);
-  border-color: #e2ebe4;
-  box-shadow: 0 1px 0 rgb(19 53 31 / 4%);
-  -webkit-backdrop-filter: saturate(180%) blur(18px);
-  backdrop-filter: saturate(180%) blur(18px);
-}
-
-.sarao-header h1 {
-  color: var(--brand-green-dark);
-}
-
-.sarao-welcome {
-  isolation: isolate;
-  background:
-    radial-gradient(ellipse at 92% 10%, rgb(105 205 136 / 26%), transparent 45%),
-    linear-gradient(125deg, #e2f5e8 0%, #f8fcf8 56%, #ffffff 100%);
-  border-color: #cde8d4;
-  box-shadow: 0 16px 42px rgb(26 92 48 / 9%);
-}
-
-.sarao-welcome h2 {
-  color: #14251a;
-}
-
-.sarao-tabbar {
-  background: rgb(255 255 255 / 90%);
-  border-color: #dce8df;
-  box-shadow: 0 12px 38px rgb(24 43 29 / 18%);
-  -webkit-backdrop-filter: saturate(180%) blur(22px);
-  backdrop-filter: saturate(180%) blur(22px);
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
-}
-
-.sarao-app [class~="bg-black"],
-.sarao-app [class~="bg-zinc-950"],
-.sarao-app [class*="bg-zinc-950/"],
-.sarao-app [class~="bg-zinc-900"],
-.sarao-app [class*="bg-zinc-900/"],
-.sarao-app [class~="bg-zinc-800"],
-.sarao-app [class*="bg-zinc-800/"],
-.sarao-app [class~="bg-slate-950"],
-.sarao-app [class~="bg-slate-900"] {
-  background-color: #fff;
-}
-
-.sarao-app [class~="bg-zinc-900"]:hover,
-.sarao-app [class~="bg-zinc-800"]:hover {
-  background-color: #f5faf6;
-}
-
-.sarao-app [class~="text-white"],
-.sarao-app [class~="text-slate-100"],
-.sarao-app [class~="text-zinc-100"] {
-  color: #172019;
-}
-
-.sarao-app [class~="text-zinc-300"],
-.sarao-app [class~="text-zinc-400"],
-.sarao-app [class~="text-zinc-500"],
-.sarao-app [class~="text-slate-300"],
-.sarao-app [class~="text-slate-400"] {
-  color: #68736b;
-}
-
-.sarao-app [class~="text-green-300"],
-.sarao-app [class~="text-green-400"],
-.sarao-app [class~="text-emerald-300"],
-.sarao-app [class~="text-emerald-400"],
-.sarao-app [class~="text-blue-300"],
-.sarao-app [class~="text-blue-400"] {
-  color: var(--brand-green-dark);
-}
-
-.sarao-app [class~="bg-green-500"],
-.sarao-app [class~="bg-emerald-500"],
-.sarao-app [class~="bg-blue-500"] {
-  background-color: var(--brand-green);
-}
-
-.sarao-app [class~="bg-green-500"]:hover,
-.sarao-app [class~="bg-emerald-500"]:hover,
-.sarao-app [class~="bg-blue-500"]:hover {
-  background-color: var(--brand-green-dark);
-}
-
-.sarao-app [class~="border-zinc-800"],
-.sarao-app [class~="border-zinc-700"],
-.sarao-app [class~="border-slate-800"] {
-  border-color: #e3ebe5;
-}
-
-.sarao-app [class~="border-green-500/20"],
-.sarao-app [class~="border-green-500/30"],
-.sarao-app [class~="border-emerald-500/30"] {
-  border-color: #cde8d4;
-}
-
-.sarao-app [class*="from-green-950/60"] {
-  background-image: linear-gradient(125deg, #e2f5e8, #f8fcf8 56%, #fff);
-}
-
-.sarao-app [class*="from-zinc-900"][class*="to-black"] {
-  background-image: linear-gradient(
-    to bottom,
-    rgb(255 255 255 / 94%),
-    rgb(255 255 255 / 88%)
-  );
-}
-
-.sarao-app main [class*="rounded-3xl"][class*="bg-zinc-900"],
-.sarao-app main [class*="rounded-3xl"][class*="bg-zinc-950"] {
-  border-color: #e4ebe5;
-  box-shadow: 0 8px 26px rgb(22 44 29 / 6%);
-}
-
-.sarao-app input:not([type="checkbox"]):not([type="radio"]),
-.sarao-app select,
-.sarao-app textarea {
-  color: #172019;
-  background-color: #f8faf8;
-  border-color: #dce5de;
-  border-radius: 0.9rem;
-}
-
-.sarao-app input::placeholder,
-.sarao-app textarea::placeholder {
-  color: #8b958d;
-}
-
-.sarao-app input:focus,
-.sarao-app select:focus,
-.sarao-app textarea:focus {
-  border-color: #45a66c;
-  box-shadow: 0 0 0 3px rgb(22 131 75 / 12%);
-}
-
-.sarao-app button {
-  transition:
-    transform 160ms ease,
-    background-color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.sarao-app button:active {
-  transform: scale(0.97);
-}
-
-@media (max-width: 640px) {
-  .sarao-app {
-    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
-  }
-
-  .sarao-header {
-    padding-top: max(0.85rem, env(safe-area-inset-top));
-  }
-
-  .sarao-tabbar {
-    bottom: max(0.65rem, env(safe-area-inset-bottom));
-    max-width: calc(100vw - 1rem);
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .sarao-tabbar::-webkit-scrollbar {
-    display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sarao-app button {
-    transition: none;
-  }
 }
