@@ -247,6 +247,7 @@ export default function CharangaSaraoApp() {
   // Estados de Facturas
   const [showModalSubirFactura, setShowModalSubirFactura] = useState(false);
   const [archivoFactura, setArchivoFactura] = useState(null);
+  const [errorArchivoFactura, setErrorArchivoFactura] = useState('');
   const [previewArchivoUrl, setPreviewArchivoUrl] = useState('');
   const [nombreArchivoFactura, setNombreArchivoFactura] = useState('');
   const [conceptoFactura, setConceptoFactura] = useState('');
@@ -1227,6 +1228,16 @@ export default function CharangaSaraoApp() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 4.5 * 1024 * 1024) {
+      e.target.value = '';
+      setArchivoFactura(null);
+      setPreviewArchivoUrl('');
+      setNombreArchivoFactura('');
+      setErrorArchivoFactura('El archivo supera el tamaño máximo permitido.');
+      return;
+    }
+
+    setErrorArchivoFactura('');
     setImporteFacturaDetectado('');
     setPreviewArchivoUrl('');
     setArchivoFactura(file);
@@ -1439,6 +1450,7 @@ export default function CharangaSaraoApp() {
       }
       setEnviandoFactura(false);
       setArchivoFactura(null);
+      setErrorArchivoFactura('');
       setPreviewArchivoUrl('');
       setNombreArchivoFactura('');
       setConceptoFactura('');
@@ -2677,6 +2689,7 @@ export default function CharangaSaraoApp() {
                 <button
                   onClick={() => {
                     setArchivoFactura(null);
+                    setErrorArchivoFactura('');
                     setPreviewArchivoUrl('');
                     setNombreArchivoFactura('');
                     setConceptoFactura('');
@@ -2836,13 +2849,23 @@ export default function CharangaSaraoApp() {
                   <label className="text-xs font-bold text-cyan-300 block mb-1.5">
                     1. Archivo de la factura (PDF o Imagen):
                   </label>
-                  <input
-                    type="file"
-                    accept="application/pdf,image/*"
-                    onChange={manejarSeleccionArchivoFactura}
-                    className="w-full text-xs text-zinc-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-cyan-500 file:text-black hover:file:bg-cyan-400 bg-black border border-zinc-800 rounded-2xl p-2 cursor-pointer"
-                    required
-                  />
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <input
+                      type="file"
+                      accept="application/pdf,image/*"
+                      onChange={manejarSeleccionArchivoFactura}
+                      className="w-full min-w-0 text-xs text-zinc-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-cyan-500 file:text-black hover:file:bg-cyan-400 bg-black border border-zinc-800 rounded-2xl p-2 cursor-pointer"
+                      required
+                    />
+                    <span className="shrink-0 rounded-lg border border-red-500/60 bg-red-500/15 px-3 py-2 text-center text-xs font-black uppercase tracking-wide text-red-300">
+                      Máx. 4,5 MB de archivo
+                    </span>
+                  </div>
+                  {errorArchivoFactura && (
+                    <p role="alert" className="mt-2 rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">
+                      {errorArchivoFactura}
+                    </p>
+                  )}
                 </div>
 
                 {analizandoFactura && (

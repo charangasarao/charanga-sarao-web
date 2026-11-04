@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
+const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const escapeHtml = (value) =>
@@ -70,7 +70,7 @@ export async function POST(request) {
     }
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "El archivo no puede superar los 25 MB." },
+        { error: "El archivo no puede superar los 4,5 MB." },
         { status: 413 },
       );
     }
