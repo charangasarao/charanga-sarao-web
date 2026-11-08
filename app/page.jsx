@@ -20,6 +20,55 @@ const CONFIG_CUERDAS = {
   'Percusión': { label: 'Percusión', color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/30', dot: '#e879f9' }
 };
 
+const CANCIONES = [
+  { titulo: 'Terriblemente cruel', artista: 'Leiva' },
+  { titulo: 'Solo quiero bailar', artista: 'Zentric' },
+  { titulo: 'El fin del mundo', artista: 'La La Love You' },
+  { titulo: 'Emborracharme', artista: 'Lori Meyers' },
+  {
+    titulo: 'La mujer de verde',
+    artista: 'Izal',
+    secciones: [
+      { titulo: 'Primera parte', letra: 'dadme una señal...' },
+      { titulo: 'Segunda parte', letra: 'tu dame una señal...' }
+    ],
+    estribilloPendiente: true
+  },
+  { titulo: 'Toda la noche en la calle', artista: 'Amaral' },
+  { titulo: 'Marta, Sebas, Guille y los demás', artista: 'Amaral' },
+  { titulo: 'Tenía tanto que darte', artista: 'Nena Daconte' },
+  { titulo: 'No puedo vivir sin ti', artista: 'Los Ronaldos' },
+  { titulo: 'Debí tirar más fotos', artista: 'Bad Bunny' },
+  { titulo: 'Estrella Polar', artista: 'Pereza' },
+  { titulo: 'Pienso en aquella tarde', artista: 'Pereza' },
+  { titulo: 'Nunca volverá', artista: 'El Sueño de Morfeo' },
+  {
+    titulo: 'Freed From Desire',
+    artista: 'Artista no indicado',
+    secciones: [{ titulo: 'Parte indicada', letra: 'Vamos arriba, que no pare la fiesta', repeticiones: 4 }]
+  },
+  {
+    titulo: "L'amour toujours",
+    artista: 'Artista no indicado',
+    secciones: [{ titulo: 'Parte indicada', letra: 'Que buenos son, que buenos son, los chicos de este pueblo que nos llevan de excursión', repeticiones: 2 }]
+  },
+  { titulo: 'Las babys', artista: 'Aitana' },
+  { titulo: 'El columpio asesino', artista: 'Toro salvaje' },
+  { titulo: 'Pedro', artista: 'Raffaella Carrà' },
+  { titulo: 'Potra salvaje', artista: 'Isabel Aaiún' },
+  { titulo: 'Nochentera', artista: 'Vicco' },
+  { titulo: 'La bachata', artista: 'Manuel Turizo' },
+  { titulo: 'El merengue', artista: 'Manuel Turizo' },
+  { titulo: 'Clavaito', artista: 'Abraham Mateo' },
+  {
+    titulo: 'Que hubiera sido si antes te hubiera conocido',
+    artista: 'Artista no indicado',
+    secciones: [{ titulo: 'Parte indicada', letra: 'Yo me caso contigo, tu nombre suena bien con mi apellido...' }],
+    estribilloPendiente: true
+  },
+  { titulo: 'La morocha', artista: 'Artista no indicado' }
+];
+
 const INSTRUMENTOS_DISPONIBLES = [
   { nombre: 'Saxo alto', cuerda: 'Saxos' },
   { nombre: 'Saxo tenor', cuerda: 'Saxos' },
@@ -2162,6 +2211,51 @@ export default function CharangaSaraoApp() {
                 )}
               </div>
             )}
+          </section>
+        )}
+
+        {/* SECCIÓN: LETRAS DE CANCIONES */}
+        {pestañaActiva === 'letras' && (
+          <section className="space-y-5">
+            <div className="bg-zinc-900 border border-fuchsia-500/30 rounded-3xl p-5 sm:p-6">
+              <div className="flex items-center gap-3">
+                <Music className="w-6 h-6 text-fuchsia-400"/>
+                <div>
+                  <h2 className="text-3xl sm:text-4xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    LETRAS DE CANCIONES
+                  </h2>
+                  <p className="text-xs text-zinc-400 mt-1">{CANCIONES.length} canciones del repertorio</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {CANCIONES.map(cancion => (
+                <article key={cancion.titulo} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-3">
+                  <div>
+                    <h3 className="text-lg font-black text-white">{cancion.titulo}</h3>
+                    <p className="text-xs text-zinc-400">{cancion.artista}</p>
+                  </div>
+
+                  {cancion.secciones?.map(seccion => (
+                    <div key={seccion.titulo} className="bg-black/40 border border-zinc-800 rounded-xl p-3">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-fuchsia-300 mb-1">{seccion.titulo}</p>
+                      {Array.from({ length: seccion.repeticiones || 1 }, (_, index) => (
+                        <p key={index} className="text-sm text-zinc-200">
+                          {seccion.letra}{seccion.repeticiones > 1 ? ` (${index + 1}/${seccion.repeticiones})` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  ))}
+
+                  {(!cancion.secciones || cancion.estribilloPendiente) && (
+                    <p className="text-xs text-zinc-500 italic">
+                      Estribillo pendiente: añade aquí un fragmento que tengas autorización para usar.
+                    </p>
+                  )}
+                </article>
+              ))}
+            </div>
           </section>
         )}
 
@@ -4911,6 +5005,7 @@ export default function CharangaSaraoApp() {
           { id: 'bolos', label: 'Bolos', icon: CalendarIcon },
           { id: 'perfil', label: 'Mi ficha', icon: Wallet },
           { id: 'ensayos', label: 'Ensayos', icon: Music },
+          { id: 'letras', label: 'Letras de canciones', icon: FileText },
           { id: 'presupuestos', label: 'Presupuestos', icon: ClipboardList },
           { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
