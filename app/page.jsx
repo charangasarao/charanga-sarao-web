@@ -2019,6 +2019,15 @@ export default function CharangaSaraoApp() {
                 <span className="text-xs font-bold text-cyan-400 mt-4 block">&rarr; Ver ensayos ({listaEnsayos.length})</span>
               </div>
 
+              <button type="button" onClick={() => setPestañaActiva('letras')} className="text-left bg-zinc-900/90 hover:bg-zinc-900 border border-fuchsia-500/30 hover:border-fuchsia-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
+                <div>
+                  <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Music className="w-6 h-6"/></div>
+                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Letras de canciones</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Consulta las canciones del repertorio y sus fragmentos.</p>
+                </div>
+                <span className="text-xs font-bold text-fuchsia-400 mt-4 block">&rarr; Ver canciones ({CANCIONES.length})</span>
+              </button>
+
               <div onClick={() => setPestañaActiva('presupuestos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-amber-500/30 hover:border-amber-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><ClipboardList className="w-6 h-6"/></div>
