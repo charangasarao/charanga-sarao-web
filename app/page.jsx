@@ -21,10 +21,59 @@ const CONFIG_CUERDAS = {
 };
 
 const CANCIONES = [
-  { titulo: 'Terriblemente cruel', artista: 'Leiva' },
-  { titulo: 'Solo quiero bailar', artista: 'Zentric' },
-  { titulo: 'El fin del mundo', artista: 'La La Love You' },
-  { titulo: 'Emborracharme', artista: 'Lori Meyers' },
+  {
+    titulo: 'Terriblemente cruel',
+    artista: 'Leiva',
+    secciones: [{
+      titulo: 'Letra',
+      letra: `Sabes que yo puedo ser terriblemente cruel
+Para que no pierda la tensión
+Tal vez, la historia se me fue de las manos
+
+Voy a ser terriblemente fiel
+Cuando se te pase la emoción
+Ya sé, te puede parecer demasiado`
+    }]
+  },
+  {
+    titulo: 'Solo quiero bailar',
+    artista: 'Zentric',
+    secciones: [{
+      titulo: 'Letra',
+      letra: `Si no vas a venir.. Avisame pronto
+que yo quiero bailar solo quiero bailar
+solo quiero olvidar toda esta situacion. (x2)`
+    }]
+  },
+  {
+    titulo: 'El fin del mundo',
+    artista: 'La La Love You',
+    secciones: [{
+      titulo: 'Letra',
+      letra: `Y tú bailando, bailando, bailando
+Y yo llorando, llorando por ti
+Me voy muriendo mientras bailas
+Me voy muriendo mientras bailas
+
+Y tú bailando, bailando, bailando
+Y yo llorando, sufriendo de amor
+Me voy muriendo mientras bailas
+Me voy muriendo mientras bailas`
+    }]
+  },
+  {
+    titulo: 'Emborracharme',
+    artista: 'Lori Meyers',
+    secciones: [{
+      titulo: 'Letra',
+      letra: `Y beber todo ese batido, acompañarlo después con vino
+Beber hasta emborracharme
+Hasta caer rendido y levantarme
+Sigo aún borracho perdido
+Pero, me atrevo a contarte que yo no quiero ser tu amante.
+Que yo no quiero ser tu amante`
+    }]
+  },
   {
     titulo: 'La mujer de verde',
     artista: 'Izal',
@@ -2250,7 +2299,7 @@ export default function CharangaSaraoApp() {
                     <div key={seccion.titulo} className="bg-black/40 border border-zinc-800 rounded-xl p-3">
                       <p className="text-[10px] font-black uppercase tracking-wide text-fuchsia-300 mb-1">{seccion.titulo}</p>
                       {Array.from({ length: seccion.repeticiones || 1 }, (_, index) => (
-                        <p key={index} className="text-sm text-zinc-200">
+                        <p key={index} className="text-sm text-zinc-200 whitespace-pre-line">
                           {seccion.letra}{seccion.repeticiones > 1 ? ` (${index + 1}/${seccion.repeticiones})` : ''}
                         </p>
                       ))}
