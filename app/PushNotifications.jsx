@@ -1,18 +1,13 @@
 "use client";
 
-import { collection, deleteDoc, doc, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, writeBatch } from "firebase/firestore";
+import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { Bell, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { db } from "./firebase";
+import { app, db } from "./firebase";
 
 const STORAGE_KEY = "sarao_push_prompt_v1";
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  return Uint8Array.from(rawData, (character) => character.charCodeAt(0));
-}
+const DEVICE_ID_STORAGE_KEY = "sarao_push_device_id_v1";
 
 async function getSubscriptionId(endpoint) {
   const digest = await crypto.subtle.digest(
@@ -24,19 +19,153 @@ async function getSubscriptionId(endpoint) {
   ).join("");
 }
 
+function getDeviceId() {
+  let deviceId = window.localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, deviceId);
+  }
+  return deviceId;
+}
+
+async function getTokenDocumentId() {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(getDeviceId()),
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
+async function getPushConfig() {
+  const response = await fetch("/api/push-config", { cache: "no-store" });
+  const config = await response.json();
+  if (!response.ok || typeof config.vapidPublicKey !== "string") {
+    throw new Error(
+      config.error ||
+        "El servicio de notificaciones todavía no está configurado. Consulta la sección de notificaciones del README.",
+    );
+  }
+  return config;
+}
+
+function getUserId(user) {
+  const userId =
+    user.id == null ? String(user.nombre || "").trim() : String(user.id);
+  if (!userId) {
+    throw new Error("No se pudo identificar al usuario actual.");
+  }
+  return userId;
+}
+
+async function registerNotificationDevice(user, vapidPublicKey) {
+  if (!(await isSupported())) {
+    throw new Error(
+      "Este navegador no es compatible con Firebase Cloud Messaging.",
+    );
+  }
+
+  const userId = getUserId(user);
+  await navigator.serviceWorker.register("/service-worker.js", {
+    scope: "/",
+  });
+  const registration = await navigator.serviceWorker.ready;
+  const messagingToken = await getToken(getMessaging(app), {
+    vapidKey: vapidPublicKey,
+    serviceWorkerRegistration: registration,
+  });
+  if (!messagingToken) {
+    throw new Error("Firebase no devolvió un token de notificaciones.");
+  }
+
+  const subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    throw new Error("No se pudo crear la suscripción push del dispositivo.");
+  }
+
+  const tokenDocumentId = await getTokenDocumentId();
+  const subscriptionId = await getSubscriptionId(subscription.endpoint);
+  const batch = writeBatch(db);
+  batch.set(
+    doc(collection(db, "tokens_notificaciones"), tokenDocumentId),
+    {
+      token: messagingToken,
+      userId,
+      userName: user.nombre || "",
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true },
+  );
+  batch.set(
+    doc(collection(db, "push_subscriptions"), subscriptionId),
+    {
+      userId,
+      userName: user.nombre || "",
+      endpoint: subscription.endpoint,
+      subscription: subscription.toJSON(),
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true },
+  );
+  await batch.commit();
+}
+
 export default function PushNotifications({ user }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const storageKey = `${STORAGE_KEY}_${user.id ?? user.nombre}`;
+  const userIdentifier = user?.id ?? user?.nombre;
+  const storageKey =
+    userIdentifier == null ? null : `${STORAGE_KEY}_${userIdentifier}`;
 
   useEffect(() => {
+    if (!storageKey) return;
     if (window.localStorage.getItem(storageKey) === null) {
       setIsOpen(true);
     }
   }, [storageKey]);
 
+  useEffect(() => {
+    if (
+      !user ||
+      !storageKey ||
+      window.localStorage.getItem(storageKey) !== "accepted" ||
+      !("Notification" in window) ||
+      Notification.permission !== "granted"
+    ) {
+      return;
+    }
+
+    let isActive = true;
+    const actualizarToken = async () => {
+      try {
+        const config = await getPushConfig();
+        await registerNotificationDevice(user, config.vapidPublicKey);
+      } catch (error) {
+        console.error(
+          "No se pudo actualizar el token de notificaciones:",
+          error,
+        );
+        if (isActive) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "No se pudo actualizar el token de notificaciones.",
+          );
+          setIsOpen(true);
+        }
+      }
+    };
+
+    void actualizarToken();
+    return () => {
+      isActive = false;
+    };
+  }, [storageKey, user]);
+
   const guardarPreferencia = (preference) => {
+    if (!storageKey) return;
     window.localStorage.setItem(storageKey, preference);
     setIsOpen(false);
   };
@@ -47,6 +176,7 @@ export default function PushNotifications({ user }) {
 
     try {
       if (
+        !user ||
         !window.isSecureContext ||
         !("Notification" in window) ||
         !("serviceWorker" in navigator) ||
@@ -62,17 +192,6 @@ export default function PushNotifications({ user }) {
         );
       }
 
-      const configResponse = await fetch("/api/push-config", {
-        cache: "no-store",
-      });
-      const config = await configResponse.json();
-      if (!configResponse.ok || typeof config.vapidPublicKey !== "string") {
-        throw new Error(
-          config.error ||
-            "El servicio de notificaciones todavía no está configurado. Consulta la sección de notificaciones del README.",
-        );
-      }
-
       const permission =
         Notification.permission === "granted"
           ? "granted"
@@ -83,25 +202,8 @@ export default function PushNotifications({ user }) {
         );
       }
 
-      await navigator.serviceWorker.register("/service-worker.js", {
-        scope: "/",
-      });
-      const registration = await navigator.serviceWorker.ready;
-      const subscription =
-        (await registration.pushManager.getSubscription()) ||
-        (await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(config.vapidPublicKey),
-        }));
-      const subscriptionId = await getSubscriptionId(subscription.endpoint);
-
-      await setDoc(doc(collection(db, "push_subscriptions"), subscriptionId), {
-        userId: user.id == null ? null : String(user.id),
-        userName: user.nombre || "",
-        endpoint: subscription.endpoint,
-        subscription: subscription.toJSON(),
-        updatedAt: new Date().toISOString(),
-      });
+      const config = await getPushConfig();
+      await registerNotificationDevice(user, config.vapidPublicKey);
 
       guardarPreferencia("accepted");
     } catch (error) {
@@ -121,7 +223,15 @@ export default function PushNotifications({ user }) {
     setErrorMessage("");
 
     try {
-      if ("serviceWorker" in navigator) {
+      if (user && "serviceWorker" in navigator) {
+        if (window.localStorage.getItem(DEVICE_ID_STORAGE_KEY)) {
+          await deleteDoc(
+            doc(
+              collection(db, "tokens_notificaciones"),
+              await getTokenDocumentId(),
+            ),
+          );
+        }
         const registration = await navigator.serviceWorker.getRegistration("/");
         const subscription = await registration?.pushManager.getSubscription();
         if (subscription) {
@@ -145,7 +255,7 @@ export default function PushNotifications({ user }) {
     }
   };
 
-  if (!isOpen) return null;
+  if (!user || !isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">

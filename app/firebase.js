@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { getApp, getApps, initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -7,8 +7,8 @@ const firebaseConfig = {
   projectId: "charanga-sarao",
   storageBucket: "charanga-sarao.firebasestorage.app",
   messagingSenderId: "285421321243",
-  appId: "1:285421321243:web:374442f27dc2fe64d5ccbe"
+  appId: "1:285421321243:web:374442f27dc2fe64d5ccbe",
 };
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app);

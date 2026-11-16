@@ -35,7 +35,7 @@ La app usa Web Push para navegadores compatibles y para la PWA instalada en móv
    VAPID_PUBLIC_KEY=clave_publica
    ```
 
-   En Next.js, la ruta `/api/push-config` lee `process.env.VAPID_PUBLIC_KEY` y entrega solo la clave pública al navegador para crear la suscripción. Configura la misma clave como secreto de Functions, junto con la clave privada y un correo de contacto válido:
+   Importa el par VAPID en la configuración de Cloud Messaging del proyecto Firebase. En Next.js, la ruta `/api/push-config` lee `process.env.VAPID_PUBLIC_KEY` y entrega solo la clave pública al navegador para crear la suscripción y obtener el token FCM. Configura la misma clave pública como secreto de Functions, junto con la clave privada y un correo de contacto válido:
 
    ```bash
    cd ..
@@ -52,7 +52,7 @@ La app usa Web Push para navegadores compatibles y para la PWA instalada en móv
    firebase deploy --only functions:notifyOnCalendarChanges
    ```
 
-Las suscripciones se guardan en la colección Firestore `push_subscriptions`; las reglas de Firestore deben permitir al cliente crear y borrar los registros correspondientes. La app usa perfiles propios y no Firebase Authentication, por lo que las reglas actuales del proyecto deben tener en cuenta ese modelo. La función compara cambios del calendario en el servidor: avisa de nuevos bolos y ensayos a los usuarios suscritos, y de nuevas rutas solo a los músicos suscritos que marcaron «Puedo» para ese bolo. Al tocar una notificación se abre el detalle correspondiente en la app.
+Las suscripciones Web Push se guardan en `push_subscriptions`. Al aceptar las notificaciones, el navegador también obtiene un token de Firebase Cloud Messaging y lo guarda en `tokens_notificaciones`, asociado al perfil activo mediante `userId` y `userName`; cada dispositivo conserva su propio documento. Las reglas de Firestore deben permitir al cliente crear, actualizar y borrar sus documentos en ambas colecciones. La app usa perfiles propios y no Firebase Authentication, por lo que las reglas actuales del proyecto deben tener en cuenta ese modelo. La función compara cambios del calendario en el servidor: avisa de nuevos bolos y ensayos a los usuarios suscritos, y de nuevas rutas solo a los músicos suscritos que marcaron «Puedo» para ese bolo. Al tocar una notificación se abre el detalle correspondiente en la app.
 
 ## Getting Started
 
