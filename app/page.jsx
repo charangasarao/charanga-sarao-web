@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 import { db } from './firebase';
-import { collection, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import PushNotifications from './PushNotifications';
 
 const CONFIG_CUERDAS = {
@@ -462,49 +462,9 @@ export default function CharangaSaraoApp() {
         facturas: nuevasFacturas ?? facturas,
         correoFacturacion: nuevoCorreo !== null ? nuevoCorreo : correoFacturacion
       }, { merge: true });
-      return true;
     } catch (e) {
       console.error("Error guardando en la nube:", e);
       alert("No se pudo sincronizar con Firebase. Revisa tu conexión.");
-      return false;
-    }
-  };
-
-  const obtenerTokensNotificacion = async () => {
-    try {
-      const snapshot = await getDocs(collection(db, 'push_subscriptions'));
-      const tokens = snapshot.docs.flatMap((docSnap) => {
-        const data = docSnap.data() || {};
-        const valores = [
-          data.token,
-          data.fcmToken,
-          data.registrationToken,
-          data.endpoint,
-          data.subscription?.endpoint,
-        ];
-
-        return valores.filter((valor) => typeof valor === 'string' && valor.trim().length > 0);
-      });
-
-      return [...new Set(tokens)].slice(0, 500);
-    } catch (error) {
-      console.error('Error obteniendo tokens para notificaciones:', error);
-      return [];
-    }
-  };
-
-  const enviarNotificacionAUsuarios = async ({ titulo, mensaje }) => {
-    try {
-      const tokens = await obtenerTokensNotificacion();
-      if (!tokens.length) return;
-
-      await fetch('/api/enviar-notificacion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titulo, mensaje, tokens })
-      });
-    } catch (error) {
-      console.error('Error enviando notificación a los usuarios:', error);
     }
   };
 
@@ -902,7 +862,6 @@ export default function CharangaSaraoApp() {
     }
 
     registrarSnapshot();
-    const creandoNuevoEnsayo = !ensayoEditandoId;
     let nuevosBolos;
 
     if (ensayoEditandoId) {
@@ -946,14 +905,7 @@ export default function CharangaSaraoApp() {
     setFechaEnsayo('');
     setHoraEnsayo('');
     setRepertorioEnsayo('');
-    const guardadoEnNube = await guardarEnNube(null, nuevosBolos, null);
-
-    if (guardadoEnNube && creandoNuevoEnsayo) {
-      await enviarNotificacionAUsuarios({
-        titulo: 'Nuevo ensayo en el calendario',
-        mensaje: 'Tenemos nuevo ENSAYO fijado panzabucheeee',
-      });
-    }
+    await guardarEnNube(null, nuevosBolos, null);
   };
 
   const eliminarEnsayo = async (ensayoId, ensayoLugar, ensayoFecha) => {
@@ -4436,13 +4388,7 @@ export default function CharangaSaraoApp() {
                 setPlazasTrayecto('4');
                 setExtraAsignadoTrayectoId('');
                 setShowModalTrayectoBolo(false);
-                const guardadoEnNube = await guardarEnNube(null, nuevosBolos, null);
-                if (guardadoEnNube) {
-                  await enviarNotificacionAUsuarios({
-                    titulo: 'Nueva ruta publicada',
-                    mensaje: `${usuarioActual.nombre} ha puesto su putivuelta para este bolo`,
-                  });
-                }
+                await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
 
                 {(boloActual.musicosExtras || []).length > 0 && (
@@ -4625,15 +4571,7 @@ export default function CharangaSaraoApp() {
                 setNuevoPresupuestoBolo(''); setNuevoConFacturaBolo(false);
                 setNuevoRepertorioEnsayo('');
                 setShowModalBolo(false);
-                const guardadoEnNube = await guardarEnNube(null, nuevosBolos, null);
-                if (guardadoEnNube) {
-                  await enviarNotificacionAUsuarios({
-                    titulo: tipoCreacionEvento === 'ensayo' ? 'Nuevo ensayo en el calendario' : 'Nuevo bolo en el calendario',
-                    mensaje: tipoCreacionEvento === 'ensayo'
-                      ? 'Tenemos nuevo ENSAYO fijado panzabucheeee'
-                      : 'Tenemos nuevo BOLO croquetoooooo',
-                  });
-                }
+                await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
 
                 <div className="grid grid-cols-3 gap-1.5 p-1 bg-black rounded-xl border border-zinc-800">
