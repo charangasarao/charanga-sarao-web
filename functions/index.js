@@ -109,7 +109,10 @@ exports.notifyOnCalendarChanges = onDocumentUpdated(
               calendarEvent.estadoBolo === "ensayo"
                 ? "Nuevo ensayo en el calendario"
                 : "Nuevo bolo en el calendario",
-            body: `${calendarEvent.lugar || "Sin lugar"} · ${calendarEvent.fecha || ""}`,
+            body:
+              calendarEvent.estadoBolo === "ensayo"
+                ? "Tenemos nuevo ENSAYO fijado panzabucheeee"
+                : "Tenemos nuevo BOLO croquetoooooo",
             tag: `evento-${getId(calendarEvent.id)}`,
             url: `/?evento=${encodeURIComponent(getId(calendarEvent.id))}`,
           },
@@ -133,7 +136,7 @@ exports.notifyOnCalendarChanges = onDocumentUpdated(
           userIds: attendingMemberIds,
           payload: {
             title: "Nueva ruta para un bolo al que estás apuntado",
-            body: `${calendarEvent.lugar || "El bolo"} · ${route.origen || "Ruta publicada"} → ${route.destino || ""}`,
+            body: `${route.creadoPor || route.conductor || "Alguien"} ha puesto su putivuelta para este bolo`,
             tag: `ruta-${getId(calendarEvent.id)}-${getId(route.id)}`,
             url: `/?evento=${encodeURIComponent(getId(calendarEvent.id))}`,
           },
