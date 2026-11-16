@@ -1,0 +1,16 @@
+{
+  "name": "charanga-sarao-functions",
+  "private": true,
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "scripts": {
+    "lint": "node --check index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.1",
+    "firebase-functions": "^7.3.0",
+    "web-push": "^3.6.7"
+  }
+}

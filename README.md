@@ -11,6 +11,49 @@ RESEND_FROM_EMAIL=Facturas <facturas@tudominio.com>
 
 El remitente debe estar verificado en Resend. Mantén `RESEND_API_KEY` únicamente en el servidor; no uses el prefijo `NEXT_PUBLIC_`.
 
+## Notificaciones push
+
+La app usa Web Push para navegadores compatibles y para la PWA instalada en móviles. En iPhone y iPad (iOS 16.4 o posterior), el usuario debe añadir primero la app a la pantalla de inicio y abrirla desde ese icono. El permiso se solicita una sola vez por perfil y dispositivo, después del primer inicio de sesión.
+
+1. Selecciona el proyecto Firebase:
+
+   ```bash
+   firebase use --add
+   ```
+
+2. Desde la raíz del proyecto, instala las dependencias y genera un par de claves VAPID:
+
+   ```bash
+   cd functions
+   npm install
+   npm exec -- web-push generate-vapid-keys
+   ```
+
+3. Vuelve a la raíz del proyecto y añade la clave pública al entorno de compilación de Next.js y a `.env.local`:
+
+   ```env
+   NEXT_PUBLIC_VAPID_PUBLIC_KEY=clave_publica
+   ```
+
+   Configura también esa misma clave en Firebase Functions, junto con la clave privada y un correo de contacto válido:
+
+   ```bash
+   cd ..
+   firebase functions:secrets:set VAPID_PUBLIC_KEY
+   firebase functions:secrets:set VAPID_PRIVATE_KEY
+   firebase functions:secrets:set VAPID_SUBJECT
+   ```
+
+   `VAPID_SUBJECT` debe tener formato `mailto:correo@dominio.com`. No publiques la clave privada ni la añadas a variables `NEXT_PUBLIC_`.
+
+4. Despliega la función que envía las notificaciones:
+
+   ```bash
+   firebase deploy --only functions:notifyOnCalendarChanges
+   ```
+
+Las suscripciones se guardan en la colección Firestore `push_subscriptions`; las reglas de Firestore deben permitir al cliente crear y borrar los registros correspondientes. La app usa perfiles propios y no Firebase Authentication, por lo que las reglas actuales del proyecto deben tener en cuenta ese modelo. La función compara cambios del calendario en el servidor: avisa de nuevos bolos y ensayos a los usuarios suscritos, y de nuevas rutas solo a los músicos suscritos que marcaron «Puedo» para ese bolo. Al tocar una notificación se abre el detalle correspondiente en la app.
+
 ## Getting Started
 
 First, run the development server:

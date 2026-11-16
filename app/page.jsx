@@ -11,6 +11,7 @@ import {
 
 import { db } from './firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import PushNotifications from './PushNotifications';
 
 const CONFIG_CUERDAS = {
   'Saxos': { label: 'Saxos', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', dot: '#34d399' },
@@ -435,6 +436,22 @@ export default function CharangaSaraoApp() {
       }
     }
   }, [miembros]);
+
+  useEffect(() => {
+    if (!autenticado || !cargado || typeof window === 'undefined') return;
+
+    const eventId = new URLSearchParams(window.location.search).get('evento');
+    const calendarEvent = bolos.find(evento => String(evento.id) === eventId);
+    if (!calendarEvent) return;
+
+    setBoloSeleccionadoId(calendarEvent.id);
+    setPestañaActiva('bolos');
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${window.location.hash}`,
+    );
+  }, [autenticado, cargado, bolos]);
 
   const guardarEnNube = async (nuevosMiembros, nuevosBolos, nuevoBote, nuevasFacturas = null, nuevoCorreo = null) => {
     try {
@@ -1885,6 +1902,7 @@ export default function CharangaSaraoApp() {
 
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
+      <PushNotifications user={usuarioActual} />
       
       {/* BOTÓN DESHACER (SOLO ADMIN) */}
       {esAdmin && historialEstados.length > 0 && (
