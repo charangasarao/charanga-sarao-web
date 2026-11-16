@@ -46,12 +46,6 @@ export default function PushNotifications({ user }) {
     setErrorMessage("");
 
     try {
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
-      if (!vapidPublicKey) {
-        throw new Error(
-          "El servicio de notificaciones todavía no está configurado. Consulta la sección de notificaciones del README.",
-        );
-      }
       if (
         !window.isSecureContext ||
         !("Notification" in window) ||
@@ -65,6 +59,17 @@ export default function PushNotifications({ user }) {
       if (Notification.permission === "denied") {
         throw new Error(
           "Las notificaciones están bloqueadas en los ajustes del navegador. Actívalas allí y vuelve a iniciar sesión.",
+        );
+      }
+
+      const configResponse = await fetch("/api/push-config", {
+        cache: "no-store",
+      });
+      const config = await configResponse.json();
+      if (!configResponse.ok || typeof config.vapidPublicKey !== "string") {
+        throw new Error(
+          config.error ||
+            "El servicio de notificaciones todavía no está configurado. Consulta la sección de notificaciones del README.",
         );
       }
 
@@ -86,7 +91,7 @@ export default function PushNotifications({ user }) {
         (await registration.pushManager.getSubscription()) ||
         (await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+          applicationServerKey: urlBase64ToUint8Array(config.vapidPublicKey),
         }));
       const subscriptionId = await getSubscriptionId(subscription.endpoint);
 

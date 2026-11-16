@@ -29,13 +29,13 @@ La app usa Web Push para navegadores compatibles y para la PWA instalada en móv
    npm exec -- web-push generate-vapid-keys
    ```
 
-3. Vuelve a la raíz del proyecto y añade la clave pública al entorno de compilación de Next.js y a `.env.local`:
+3. Vuelve a la raíz del proyecto y configura la clave pública en el servidor Next.js y en Firebase Functions con el nombre `VAPID_PUBLIC_KEY`:
 
    ```env
-   NEXT_PUBLIC_VAPID_PUBLIC_KEY=clave_publica
+   VAPID_PUBLIC_KEY=clave_publica
    ```
 
-   Configura también esa misma clave en Firebase Functions, junto con la clave privada y un correo de contacto válido:
+   En Next.js, la ruta `/api/push-config` lee `process.env.VAPID_PUBLIC_KEY` y entrega solo la clave pública al navegador para crear la suscripción. Configura la misma clave como secreto de Functions, junto con la clave privada y un correo de contacto válido:
 
    ```bash
    cd ..
@@ -44,7 +44,7 @@ La app usa Web Push para navegadores compatibles y para la PWA instalada en móv
    firebase functions:secrets:set VAPID_SUBJECT
    ```
 
-   `VAPID_SUBJECT` debe tener formato `mailto:correo@dominio.com`. No publiques la clave privada ni la añadas a variables `NEXT_PUBLIC_`.
+   `VAPID_SUBJECT` debe tener formato `mailto:correo@dominio.com`. No publiques la clave privada ni la devuelvas desde la ruta de configuración.
 
 4. Despliega la función que envía las notificaciones:
 
