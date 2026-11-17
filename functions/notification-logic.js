@@ -56,6 +56,22 @@ function getMemberIds(members) {
   ];
 }
 
+function getFcmTokenGroups(tokenDocuments) {
+  const tokens = new Map();
+  for (const document of Array.isArray(tokenDocuments) ? tokenDocuments : []) {
+    const token = document?.token;
+    if (typeof token !== "string" || !token.trim()) continue;
+    const normalizedToken = token.trim();
+    const documentIds = tokens.get(normalizedToken) || [];
+    if (document?.id != null) documentIds.push(getId(document.id));
+    tokens.set(normalizedToken, documentIds);
+  }
+  return [...tokens.entries()].map(([token, documentIds]) => ({
+    token,
+    documentIds: [...new Set(documentIds)],
+  }));
+}
+
 function getCalendarNotifications(previousData, currentData) {
   const previousEvents = Array.isArray(previousData?.bolos)
     ? previousData.bolos
@@ -87,9 +103,9 @@ function getCalendarNotifications(previousData, currentData) {
             ? "Nuevo ensayo en el calendario"
             : "Nuevo bolo en el calendario",
           body: isEnsayo
-            ? "Tenemos nuevo ENSAYO fijado panzabucheeee"
+            ? `Tenemos nuevo ENSAYO fijado panzabucheeee: ${calendarEvent.lugar || "lugar sin indicar"}. Fecha: ${formatDate(calendarEvent.fecha)}. Hora: ${calendarEvent.horaInicio || "sin indicar"}.`
             : "Tenemos nuevo BOLO croquetoooooo",
-          tag: `evento-${eventId}`,
+          tag: `evento-${eventId}-nuevo-${isEnsayo ? "ensayo" : "bolo"}`,
           url: `/?evento=${encodeURIComponent(eventId)}`,
         },
       });
@@ -113,7 +129,7 @@ function getCalendarNotifications(previousData, currentData) {
           payload: {
             title: "Cambio de horario",
             body: `El bolo "${getEventTitle(calendarEvent)}" ha cambiado. Antes: ${formatDate(previousEvent.fecha)}, ${previousEvent.horaInicio || "hora sin indicar"}${previousEvent.horaFin ? ` - ${previousEvent.horaFin}` : ""}. Ahora: ${formatDate(calendarEvent.fecha)}, ${calendarEvent.horaInicio || "hora sin indicar"}${calendarEvent.horaFin ? ` - ${calendarEvent.horaFin}` : ""}.`,
-            tag: `evento-${eventId}`,
+            tag: `evento-${eventId}-cambio-horario`,
             url: `/?evento=${encodeURIComponent(eventId)}`,
           },
         });
@@ -127,7 +143,7 @@ function getCalendarNotifications(previousData, currentData) {
           payload: {
             title: "Cambio de vestuario",
             body: `El vestuario de "${getEventTitle(calendarEvent)}" ha cambiado: ${getOutfitLabel(previousEvent.vestuario)} → ${getOutfitLabel(calendarEvent.vestuario)}.`,
-            tag: `evento-${eventId}`,
+            tag: `evento-${eventId}-cambio-vestuario`,
             url: `/?evento=${encodeURIComponent(eventId)}`,
           },
         });
@@ -135,22 +151,13 @@ function getCalendarNotifications(previousData, currentData) {
     }
 
     for (const route of getNewRoutes(previousEvent, calendarEvent)) {
-      const attendingMemberIds = getMemberIds(
-        (Array.isArray(currentData?.miembros)
-          ? currentData.miembros
-          : []
-        ).filter(
-          (member) =>
-            member?.disponibilidadBolos?.[eventId]?.estado === "puedo",
-        ),
-      );
       notifications.push({
         kind: `nueva-ruta-${getId(route.id)}`,
         eventId,
-        recipientIds: attendingMemberIds,
+        recipientIds: null,
         payload: {
-          title: "Nueva ruta para un bolo al que estás apuntado",
-          body: `${route.creadoPor || route.conductor || "Alguien"} ha puesto su putivuelta para este bolo`,
+          title: "Nueva ruta publicada",
+          body: `${route.creadoPor || route.conductor || "Alguien"} ha puesto su putivuelta para este bolo: ${calendarEvent.lugar || getEventTitle(calendarEvent)}`,
           tag: `ruta-${eventId}-${getId(route.id)}`,
           url: `/?evento=${encodeURIComponent(eventId)}`,
         },
@@ -175,13 +182,39 @@ function getCalendarNotifications(previousData, currentData) {
       payload: {
         title: "Bolo cancelado",
         body: `Se ha cancelado "${getEventTitle(previousEvent)}", previsto para el ${formatDate(previousEvent.fecha)}.`,
-        tag: `evento-${eventId}`,
+        tag: `evento-${eventId}-bolo-cancelado`,
         url: `/?evento=${encodeURIComponent(eventId)}`,
       },
     });
   }
 
   return notifications;
+}
+
+function shouldSendRouteWebPush(subscription, fcmDevices) {
+  const devices = Array.isArray(fcmDevices) ? fcmDevices : [];
+  const subscriptionId = getId(subscription?.subscriptionId).trim();
+  if (
+    subscriptionId &&
+    devices.some(
+      (device) => getId(device?.pushSubscriptionId).trim() === subscriptionId,
+    )
+  ) {
+    return false;
+  }
+
+  const userId = getId(subscription?.userId).trim();
+  const userDevices = devices.filter(
+    (device) =>
+      userId &&
+      getId(device?.userId).trim() === userId &&
+      typeof device?.token === "string" &&
+      device.token.trim(),
+  );
+  if (!subscriptionId) return userDevices.length === 0;
+  return !userDevices.some(
+    (device) => !getId(device?.pushSubscriptionId).trim(),
+  );
 }
 
 function getZonedParts(date, timeZone = MADRID_TIME_ZONE) {
@@ -459,6 +492,7 @@ module.exports = {
   buildBoloReminder,
   buildEnsayoReminder,
   formatDate,
+  getFcmTokenGroups,
   getAssignedRoute,
   getCalendarNotifications,
   getEventStart,
@@ -468,4 +502,5 @@ module.exports = {
   getMadridDate,
   isReminderDeliveryRelevant,
   isPendingAvailability,
+  shouldSendRouteWebPush,
 };

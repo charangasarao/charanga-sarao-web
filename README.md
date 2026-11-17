@@ -52,7 +52,7 @@ Para desplegar posteriormente, con autorización:
    firebase deploy --only functions:notifyOnCalendarChanges,functions:sendScheduledNotifications,functions:sendAvailabilityReminders
    ```
 
-El despliegue de las funciones programadas requiere que el proyecto Firebase tenga habilitados Cloud Functions, Cloud Scheduler y la facturación correspondiente. Al aceptar las notificaciones, el navegador también conserva el token FCM en `tokens_notificaciones`; las automatizaciones del servidor usan `push_subscriptions` y no envían correo ni avisos administrativos. Al tocar una notificación que corresponde a un evento del calendario, se abre su detalle en la app.
+El despliegue de las funciones programadas requiere que el proyecto Firebase tenga habilitados Cloud Functions, Cloud Scheduler y la facturación correspondiente. Al aceptar las notificaciones, el navegador conserva el token FCM en `tokens_notificaciones` y la suscripción Web Push en `push_subscriptions`. Los avisos de nuevas rutas usan ambos canales; el documento FCM guarda el `pushSubscriptionId` (identificador hash del documento Web Push) para evitar avisar dos veces al mismo dispositivo, sin cambiar la suscripción ni su endpoint. Las notificaciones siguen siendo exclusivamente push y no envían correo ni avisos administrativos.
 
 ## Getting Started
 

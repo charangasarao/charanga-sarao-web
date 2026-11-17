@@ -4,11 +4,13 @@ const {
   buildAvailabilityReminder,
   buildBoloReminder,
   buildEnsayoReminder,
+  getFcmTokenGroups,
   getCalendarNotifications,
   getEventStart,
   isEventReminderDue,
   isPendingAvailability,
   isReminderDeliveryRelevant,
+  shouldSendRouteWebPush,
 } = require("./notification-logic");
 
 function confirmedEvent(overrides = {}) {
@@ -52,6 +54,9 @@ test("notifica cambios de fecha, horas y vestuario solo para bolos confirmados",
     notifications[1].payload.body,
     /Camiseta Negra → Camiseta Blanca/,
   );
+  assert.equal(notifications[0].payload.tag, "evento-12-cambio-horario");
+  assert.equal(notifications[1].payload.tag, "evento-12-cambio-vestuario");
+  assert.notEqual(notifications[0].payload.tag, notifications[1].payload.tag);
   assert.deepEqual(notifications[0].recipientIds, ["8"]);
 
   const budgetedNotifications = getCalendarNotifications(
@@ -78,7 +83,7 @@ test("cancelar un bolo confirmado avisa, pero eliminar un ensayo no", () => {
   assert.match(notifications[0].payload.body, /15\/08\/2027/);
 });
 
-test("conserva los avisos de alta y ruta para los asistentes", () => {
+test("conserva los avisos de alta y notifica rutas a todos los registrados", () => {
   const bolo = confirmedEvent({ id: 20 });
   const ensayo = confirmedEvent({
     id: 21,
@@ -93,6 +98,10 @@ test("conserva los avisos de alta y ruta para los asistentes", () => {
     newEvents.map((notification) => notification.payload.title),
     ["Nuevo bolo en el calendario", "Nuevo ensayo en el calendario"],
   );
+  assert.match(newEvents[1].payload.body, /Cuéllar/);
+  assert.match(newEvents[1].payload.body, /15\/08\/2027/);
+  assert.match(newEvents[1].payload.body, /13:00h/);
+  assert.match(newEvents[1].payload.body, /panzabucheeee/);
 
   const previousEvent = confirmedEvent({ id: 22 });
   const currentEvent = confirmedEvent({
@@ -112,15 +121,72 @@ test("conserva los avisos de alta y ruta para los asistentes", () => {
           id: 2,
           disponibilidadBolos: { 22: { estado: "tal_vez" } },
         },
+        {
+          id: 3,
+          disponibilidadBolos: { 22: { estado: "no" } },
+        },
+        { id: 4, disponibilidadBolos: {} },
       ],
     },
   );
   assert.equal(routeNotifications.length, 1);
+  assert.equal(routeNotifications[0].payload.title, "Nueva ruta publicada");
+  assert.match(routeNotifications[0].payload.body, /Cuéllar/);
+  assert.equal(routeNotifications[0].recipientIds, null);
+});
+
+test("deduplica tokens FCM repetidos y omite tokens vacíos", () => {
+  const groups = getFcmTokenGroups([
+    { id: "device-a", token: " token-a " },
+    { id: "device-b", token: "token-a" },
+    { id: "device-c", token: "token-c" },
+    { id: "device-empty", token: " " },
+    { id: "device-missing" },
+  ]);
+
+  assert.deepEqual(groups, [
+    { token: "token-a", documentIds: ["device-a", "device-b"] },
+    { token: "token-c", documentIds: ["device-c"] },
+  ]);
+});
+
+test("evita Web Push duplicado si la misma persona ya recibe la ruta por FCM", () => {
+  const fcmDevices = [
+    {
+      pushSubscriptionId: "subscription-a",
+      userId: "1",
+      token: "token-a",
+    },
+    {
+      pushSubscriptionId: "subscription-b",
+      userId: "1",
+      token: "token-b",
+    },
+  ];
+
   assert.equal(
-    routeNotifications[0].payload.title,
-    "Nueva ruta para un bolo al que estás apuntado",
+    shouldSendRouteWebPush(
+      { userId: "1", subscriptionId: "subscription-a" },
+      fcmDevices,
+    ),
+    false,
   );
-  assert.deepEqual(routeNotifications[0].recipientIds, ["1"]);
+  assert.equal(
+    shouldSendRouteWebPush(
+      { userId: "1", subscriptionId: "subscription-c" },
+      fcmDevices,
+    ),
+    true,
+  );
+  assert.equal(shouldSendRouteWebPush({ userId: "1" }, fcmDevices), false);
+  assert.equal(shouldSendRouteWebPush({ userId: "2" }, fcmDevices), true);
+  assert.equal(
+    shouldSendRouteWebPush(
+      { userId: "1", subscriptionId: "legacy-subscription" },
+      [{ userId: "1", token: "legacy-token" }],
+    ),
+    false,
+  );
 });
 
 test("solo avisa de disponibilidad pendiente en los siete días anteriores y el mismo día", () => {
@@ -324,6 +390,24 @@ test("solo mantiene recordatorios de bolo para asistentes y eventos todavía vig
     ),
     false,
   );
+  for (const state of ["no", "tal_vez", undefined]) {
+    const memberWithoutAvailability = {
+      id: 1,
+      ...(state
+        ? { disponibilidadBolos: { "bolo-1": { estado: state } } }
+        : {}),
+    };
+    assert.equal(
+      isReminderDeliveryRelevant(
+        reminder,
+        event,
+        memberWithoutAvailability,
+        "2027-08-13",
+        now,
+      ),
+      false,
+    );
+  }
   assert.equal(
     isReminderDeliveryRelevant(
       reminder,

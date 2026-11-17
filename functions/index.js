@@ -5,6 +5,7 @@ const {
   Timestamp,
   getFirestore,
 } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 const { logger } = require("firebase-functions");
 const { defineSecret } = require("firebase-functions/params");
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
@@ -14,6 +15,7 @@ const {
   buildAvailabilityReminder,
   buildBoloReminder,
   buildEnsayoReminder,
+  getFcmTokenGroups,
   getCalendarNotifications,
   getEventStart,
   getId,
@@ -23,6 +25,7 @@ const {
   getMadridDate,
   isPendingAvailability,
   MADRID_TIME_ZONE,
+  shouldSendRouteWebPush,
 } = require("./notification-logic");
 
 initializeApp();
@@ -35,6 +38,7 @@ const db = getFirestore();
 const DELIVERY_COLLECTION = "push_notification_deliveries";
 const DELIVERY_BATCH_SIZE = 100;
 const DELIVERY_LEASE_MS = 15 * 60 * 1000;
+const FCM_TOKEN_COLLECTION = "tokens_notificaciones";
 
 function getDeliveryId(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -58,28 +62,11 @@ async function getSubscriptions(userId) {
   );
 }
 
-async function enqueueNotification({
-  dedupeKey,
-  userId,
-  eventId,
-  payload,
-  deliveryType,
-  eventDate,
-  eventTime,
-  reminderDate,
-}) {
-  if (!userId) return;
-
-  const deliveryId = getDeliveryId(`${dedupeKey}:${userId}`);
+async function createPendingDelivery(deliveryId, deliveryData) {
   const deliveryRef = db.collection(DELIVERY_COLLECTION).doc(deliveryId);
   try {
     await deliveryRef.create({
-      userId,
-      eventId: getId(eventId),
-      payload,
-      ...(deliveryType
-        ? { deliveryType, eventDate, eventTime, reminderDate }
-        : {}),
+      ...deliveryData,
       status: "pending",
       attemptCount: 0,
       deliveredSubscriptionIds: [],
@@ -92,11 +79,37 @@ async function enqueueNotification({
   }
 }
 
+async function enqueueNotification({
+  dedupeKey,
+  userId,
+  eventId,
+  payload,
+  deliveryType,
+  eventDate,
+  eventTime,
+  reminderDate,
+  excludeFcmDuplicates,
+}) {
+  if (!userId) return;
+
+  const deliveryId = getDeliveryId(`${dedupeKey}:${userId}`);
+  await createPendingDelivery(deliveryId, {
+    userId,
+    eventId: getId(eventId),
+    payload,
+    ...(deliveryType
+      ? { deliveryType, eventDate, eventTime, reminderDate }
+      : {}),
+    ...(excludeFcmDuplicates ? { excludeFcmDuplicates: true } : {}),
+  });
+}
+
 async function enqueueForRecipients({
   dedupeKey,
   eventId,
   payload,
   recipientIds,
+  excludeFcmDuplicates,
 }) {
   let userIds = recipientIds;
   if (userIds === null) {
@@ -116,7 +129,37 @@ async function enqueueForRecipients({
 
   await Promise.all(
     [...new Set(userIds)].map((userId) =>
-      enqueueNotification({ dedupeKey, userId, eventId, payload }),
+      enqueueNotification({
+        dedupeKey,
+        userId,
+        eventId,
+        payload,
+        excludeFcmDuplicates,
+      }),
+    ),
+  );
+}
+
+async function enqueueFcmRouteNotifications({ dedupeKey, eventId, payload }) {
+  const snapshot = await db.collection(FCM_TOKEN_COLLECTION).get();
+  const tokens = getFcmTokenGroups(
+    snapshot.docs.map((document) => ({
+      id: document.id,
+      token: document.data().token,
+    })),
+  );
+
+  await Promise.all(
+    tokens.map(({ token, documentIds }) =>
+      createPendingDelivery(
+        getDeliveryId(`${dedupeKey}:fcm:${getDeliveryId(token)}`),
+        {
+          eventId: getId(eventId),
+          payload,
+          fcmTokenDocumentIds: documentIds,
+          fcmTokenHash: getDeliveryId(token),
+        },
+      ),
     ),
   );
 }
@@ -124,14 +167,22 @@ async function enqueueForRecipients({
 async function enqueueCalendarChanges(cloudEventId, previousData, currentData) {
   const notifications = getCalendarNotifications(previousData, currentData);
   await Promise.all(
-    notifications.map(({ kind, eventId, recipientIds, payload }) =>
-      enqueueForRecipients({
-        dedupeKey: `calendar:${cloudEventId}:${kind}:${eventId}`,
-        eventId,
-        payload,
-        recipientIds,
-      }),
-    ),
+    notifications.map(async ({ kind, eventId, recipientIds, payload }) => {
+      const dedupeKey = `calendar:${cloudEventId}:${kind}:${eventId}`;
+      const isNewRoute = kind.startsWith("nueva-ruta-");
+      await Promise.all([
+        enqueueForRecipients({
+          dedupeKey,
+          eventId,
+          payload,
+          recipientIds,
+          excludeFcmDuplicates: isNewRoute,
+        }),
+        ...(isNewRoute
+          ? [enqueueFcmRouteNotifications({ dedupeKey, eventId, payload })]
+          : []),
+      ]);
+    }),
   );
 }
 
@@ -240,10 +291,32 @@ async function markDeliverySent(deliveryRef, leaseId) {
       eventDate: FieldValue.delete(),
       eventTime: FieldValue.delete(),
       reminderDate: FieldValue.delete(),
+      excludeFcmDuplicates: FieldValue.delete(),
+      fcmTokenDocumentIds: FieldValue.delete(),
+      fcmTokenHash: FieldValue.delete(),
       lastError: FieldValue.delete(),
       leaseId: FieldValue.delete(),
     });
   });
+}
+
+async function getValidFcmDevices(userId) {
+  const snapshot = await db
+    .collection(FCM_TOKEN_COLLECTION)
+    .where("userId", "==", userId)
+    .get();
+  return snapshot.docs
+    .map((document) => {
+      const token = document.data().token;
+      return typeof token === "string" && token.trim()
+        ? {
+            pushSubscriptionId: document.data().pushSubscriptionId,
+            userId: getId(document.data().userId),
+            token: token.trim(),
+          }
+        : null;
+    })
+    .filter(Boolean);
 }
 
 async function processDelivery(deliveryDocument, now) {
@@ -288,12 +361,71 @@ async function processDelivery(deliveryDocument, now) {
       }
     }
 
+    if (Array.isArray(delivery.fcmTokenDocumentIds)) {
+      const tokenDocuments = await Promise.all(
+        delivery.fcmTokenDocumentIds.map((documentId) =>
+          db.collection(FCM_TOKEN_COLLECTION).doc(documentId).get(),
+        ),
+      );
+      const token = tokenDocuments
+        .filter((document) => document.exists)
+        .map((document) => document.data().token)
+        .find(
+          (candidate) =>
+            typeof candidate === "string" &&
+            candidate.trim() &&
+            getDeliveryId(candidate.trim()) === delivery.fcmTokenHash,
+        );
+
+      if (!token) {
+        logger.warn("El token FCM de una ruta ya no está disponible.", {
+          deliveryId: deliveryRef.id,
+        });
+        await markDeliverySent(deliveryRef, delivery.leaseId);
+        return;
+      }
+
+      await getMessaging().send({
+        token: token.trim(),
+        notification: {
+          title: payload.title,
+          body: payload.body,
+        },
+        webpush: {
+          notification: {
+            icon: "/PEGATINAS-512.png",
+            badge: "/PEGATINAS-192.png",
+            tag: payload.tag,
+          },
+        },
+      });
+      await markDeliverySent(deliveryRef, delivery.leaseId);
+      return;
+    }
+
     const subscriptions = await getSubscriptions(delivery.userId);
+    const fcmDevices = delivery.excludeFcmDuplicates
+      ? await getValidFcmDevices(delivery.userId)
+      : [];
     const deliveredIds = new Set(delivery.deliveredSubscriptionIds);
     let hasFailures = false;
 
     for (const subscriptionDocument of subscriptions) {
       if (deliveredIds.has(subscriptionDocument.id)) continue;
+      if (
+        delivery.excludeFcmDuplicates &&
+        !shouldSendRouteWebPush(
+          {
+            ...subscriptionDocument.data(),
+            subscriptionId: subscriptionDocument.id,
+          },
+          fcmDevices,
+        )
+      ) {
+        await markSubscriptionDelivered(deliveryRef, subscriptionDocument.id);
+        deliveredIds.add(subscriptionDocument.id);
+        continue;
+      }
 
       try {
         await webpush.sendNotification(
