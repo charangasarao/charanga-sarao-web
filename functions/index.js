@@ -208,7 +208,7 @@ exports.notifyOnCalendarChanges = onDocumentUpdated(
     // La app elimina los eventos del calendario; una baja de un evento confirmado
     // se interpreta como cancelación. Los presupuestos no confirmados se ignoran.
     const removedEvents = previousEvents.filter((previousEvent) =>
-      EVENT_STATES.has(previousEvent.estadoBolo) &&
+      previousEvent.estadoBolo === "confirmado" &&
       !currentEvents.some((currentEvent) => getId(currentEvent.id) === getId(previousEvent.id)),
     );
     for (const removedEvent of removedEvents) {
@@ -257,7 +257,7 @@ exports.sendEventReminders = onSchedule(
 
       if (calendarEvent.estadoBolo === "confirmado") {
         const hoursUntil = (startsAt.getTime() - nowMs) / 3600000;
-        if (hoursUntil > 47.75 && hoursUntil <= 48) {
+        if (hoursUntil > 47.5 && hoursUntil <= 48.25) {
           const attendees = members.filter((member) => member.disponibilidadBolos?.[eventId]?.estado === "puedo");
           for (const member of attendees) {
             const normalizedMemberName = String(member.nombre || "").trim().toLocaleLowerCase("es");
@@ -298,7 +298,7 @@ exports.sendEventReminders = onSchedule(
         }
       } else if (calendarEvent.estadoBolo === "ensayo") {
         const hoursUntil = (startsAt.getTime() - nowMs) / 3600000;
-        if (hoursUntil > 23.75 && hoursUntil <= 24) {
+        if (hoursUntil > 23.5 && hoursUntil <= 24.25) {
           jobs.push({ key: `ensayo-24h-${eventId}`, userIds: null, payload: {
             title: "Mañana hay ensayo",
             body: `${calendarEvent.fecha} · ${calendarEvent.horaInicio || "hora por confirmar"} · ${calendarEvent.lugar || "lugar por confirmar"} · Repertorio: ${calendarEvent.repertorio || "por confirmar"}`.slice(0, 350),
@@ -310,7 +310,7 @@ exports.sendEventReminders = onSchedule(
 
       // Aviso diario a las 09:00 (hora peninsular), desde D-7 hasta el día del bolo,
       // solo a miembros que aún no han guardado ninguna respuesta de disponibilidad.
-      if (calendarEvent.estadoBolo === "confirmado" && Number(localNow.hour) === REMINDER_HOUR && Number(localNow.minute) < 15) {
+      if (calendarEvent.estadoBolo === "confirmado" && Number(localNow.hour) === REMINDER_HOUR && Number(localNow.minute) < 30) {
         const daysRemaining = dateDifferenceInMadrid(now, startsAt);
         if (daysRemaining >= 0 && daysRemaining <= 7) {
           const unanswered = members.filter((member) => !member.disponibilidadBolos?.[eventId]?.estado);
