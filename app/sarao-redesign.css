@@ -78,7 +78,9 @@ nav[class*="fixed"][class*="bottom-4"] {
   top: 50% !important;
   right: auto !important;
   bottom: auto !important;
-  transform: translateY(-50%) !important;
+  /* Tailwind v4 usa la propiedad translate por separado; hay que resetearla también. */
+  transform: none !important;
+  translate: none !important;
   display: flex !important;
   flex-direction: column !important;
   flex-wrap: nowrap !important;
@@ -143,7 +145,8 @@ nav[class*="fixed"][class*="bottom-4"] button span {
     top: auto !important;
     right: auto !important;
     bottom: max(8px,env(safe-area-inset-bottom)) !important;
-    transform: translateX(-50%) !important;
+    transform: none !important;
+    translate: -50% 0 !important;
     flex-direction: row !important;
     align-items: center !important;
     justify-content: flex-start !important;
