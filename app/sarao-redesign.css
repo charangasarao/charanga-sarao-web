@@ -166,3 +166,90 @@ hr, [class*="border-zinc-800"] { border-color: rgba(190,220,185,.11) !important;
   header h1 { font-size: 1.2rem !important; }
   main.max-w-5xl { padding-inline: 12px !important; }
 }
+
+
+/* Refinamiento de usabilidad: navegación visible, plana y fácil de entender */
+@media (min-width: 901px) {
+  nav[class*="fixed"][class*="bottom-4"] {
+    position: sticky !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    margin: 0 !important;
+    padding: 10px 20px !important;
+    border-width: 0 0 1px !important;
+    border-radius: 0 !important;
+    background: rgba(10, 15, 11, .96) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,.16) !important;
+  }
+  nav[class*="fixed"][class*="bottom-4"] button {
+    width: auto !important;
+    min-height: 40px !important;
+    justify-content: center !important;
+    padding: 9px 13px !important;
+    font-size: 13px !important;
+  }
+  nav[class*="fixed"][class*="bottom-4"] button span { display: inline !important; }
+  main.max-w-5xl {
+    max-width: 1320px !important;
+    margin-inline: auto !important;
+    padding: 30px 28px 56px !important;
+  }
+}
+@media (max-width: 900px) {
+  nav[class*="fixed"][class*="bottom-4"] {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    width: max-content !important;
+    max-width: 96vw !important;
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain;
+  }
+  nav[class*="fixed"][class*="bottom-4"] button {
+    width: auto !important;
+    flex: 0 0 auto !important;
+  }
+  nav[class*="fixed"][class*="bottom-4"] button span {
+    display: inline !important;
+    font-size: 11px;
+  }
+}
+@media (max-width: 560px) {
+  nav[class*="fixed"][class*="bottom-4"] button {
+    flex-direction: column !important;
+    gap: 3px !important;
+    min-width: 58px;
+    padding: 7px 8px !important;
+  }
+  nav[class*="fixed"][class*="bottom-4"] button span {
+    display: block !important;
+    font-size: 9px !important;
+    max-width: 64px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Menos ruido visual: superficies claras de distinguir y lectura más cómoda */
+main [class*="bg-zinc-900"] { background-color: #141b16 !important; }
+main [class*="bg-zinc-900/90"] { background-color: #151d17 !important; }
+main [class*="text-zinc-500"] { color: #a4b0a5 !important; }
+main [class*="text-zinc-400"] { color: #bdc8be !important; }
+main [class*="text-[10px]"], main [class*="text-[11px]"] { line-height: 1.55 !important; }
+main h2 { font-size: clamp(1.7rem, 3vw, 2.45rem) !important; }
+main h3 { font-size: clamp(1.1rem, 2vw, 1.35rem) !important; }
+main [class*="rounded-3xl"] { border-radius: 20px !important; }
+main [class*="rounded-2xl"] { border-radius: 15px !important; }
+main button, main a { min-height: 38px; }
+main button:focus-visible, nav button:focus-visible, header button:focus-visible {
+  outline: 3px solid var(--sarao-green) !important;
+  outline-offset: 3px;
+}
