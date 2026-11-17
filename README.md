@@ -13,15 +13,15 @@ El remitente debe estar verificado en Resend. Mantén `RESEND_API_KEY` únicamen
 
 ## Notificaciones push
 
-La app usa Web Push para navegadores compatibles y para la PWA instalada en móviles. En iPhone y iPad (iOS 16.4 o posterior), el usuario debe añadir primero la app a la pantalla de inicio y abrirla desde ese icono. El permiso se solicita una sola vez por perfil y dispositivo, después del primer inicio de sesión.
+La app usa Web Push para navegadores compatibles y para la PWA instalada en móviles. En iPhone y iPad (iOS 16.4 o posterior), el usuario debe añadir primero la app a la pantalla de inicio y abrirla desde ese icono. Las suscripciones activas se guardan en `push_subscriptions`; Firebase Functions envía las notificaciones y no requiere que el usuario tenga abierta la app.
 
-1. Selecciona el proyecto Firebase:
+Para configurar el entorno:
 
    ```bash
    firebase use --add
    ```
 
-2. Desde la raíz del proyecto, instala las dependencias y genera un par de claves VAPID:
+Desde la raíz, instala las dependencias de Functions y genera un par de claves VAPID si todavía no existe:
 
    ```bash
    cd functions
@@ -29,13 +29,11 @@ La app usa Web Push para navegadores compatibles y para la PWA instalada en móv
    npm exec -- web-push generate-vapid-keys
    ```
 
-3. Vuelve a la raíz del proyecto y configura la clave pública en el servidor Next.js y en Firebase Functions con el nombre `VAPID_PUBLIC_KEY`:
+Configura la clave pública en el entorno de ejecución de Next.js como `VAPID_PUBLIC_KEY`. La ruta `/api/push-config` entrega solo esta clave al navegador. Configura el mismo par VAPID como secretos de Functions, junto con un correo de contacto válido:
 
    ```env
    VAPID_PUBLIC_KEY=clave_publica
    ```
-
-   Importa el par VAPID en la configuración de Cloud Messaging del proyecto Firebase. En Next.js, la ruta `/api/push-config` lee `process.env.VAPID_PUBLIC_KEY` y entrega solo la clave pública al navegador para crear la suscripción y obtener el token FCM. Configura la misma clave pública como secreto de Functions, junto con la clave privada y un correo de contacto válido:
 
    ```bash
    cd ..
@@ -44,15 +42,17 @@ La app usa Web Push para navegadores compatibles y para la PWA instalada en móv
    firebase functions:secrets:set VAPID_SUBJECT
    ```
 
-   `VAPID_SUBJECT` debe tener formato `mailto:correo@dominio.com`. No publiques la clave privada ni la devuelvas desde la ruta de configuración.
+`VAPID_SUBJECT` debe tener formato `mailto:correo@dominio.com`. No publiques la clave privada ni la devuelvas desde la ruta de configuración.
 
-4. Despliega la función que envía las notificaciones:
+Las Cloud Functions usan Node.js 22. `notifyOnCalendarChanges` conserva los avisos de nuevos bolos confirmados, ensayos y rutas; además avisa de cancelaciones de bolos confirmados y cambios de fecha, hora y vestuario. `sendAvailabilityReminders` se ejecuta a las 09:00 de `Europe/Madrid`, y `sendScheduledNotifications` comprueba cada minuto los recordatorios de 48 y 24 horas. Las entregas pendientes se registran en `push_notification_deliveries`, con deduplicación, exclusión de suscripciones caducadas y reintentos. La colección la administra Functions mediante Admin SDK; no requiere cambios en las reglas de Firestore ni índices compuestos. El acceso del cliente a `push_subscriptions` debe seguir limitado por las reglas existentes.
+
+Para desplegar posteriormente, con autorización:
 
    ```bash
-   firebase deploy --only functions:notifyOnCalendarChanges
+   firebase deploy --only functions:notifyOnCalendarChanges,functions:sendScheduledNotifications,functions:sendAvailabilityReminders
    ```
 
-Las suscripciones Web Push se guardan en `push_subscriptions`. Al aceptar las notificaciones, el navegador también obtiene un token de Firebase Cloud Messaging y lo guarda en `tokens_notificaciones`, asociado al perfil activo mediante `userId` y `userName`; cada dispositivo conserva su propio documento. Para leer esos tokens y enviarlos a `/api/enviar-notificacion`, las reglas de Firestore deben permitir al cliente leerlos y crear, actualizar y borrar sus documentos en ambas colecciones. La app usa perfiles propios y no Firebase Authentication, por lo que las reglas actuales del proyecto deben tener en cuenta ese modelo. La función compara cambios del calendario en el servidor: avisa de nuevos bolos y ensayos a los usuarios suscritos, y de nuevas rutas solo a los músicos suscritos que marcaron «Puedo» para ese bolo. Al tocar una notificación se abre el detalle correspondiente en la app.
+El despliegue de las funciones programadas requiere que el proyecto Firebase tenga habilitados Cloud Functions, Cloud Scheduler y la facturación correspondiente. Al aceptar las notificaciones, el navegador también conserva el token FCM en `tokens_notificaciones`; las automatizaciones del servidor usan `push_subscriptions` y no envían correo ni avisos administrativos. Al tocar una notificación que corresponde a un evento del calendario, se abre su detalle en la app.
 
 ## Getting Started
 
