@@ -47,8 +47,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(notification.title || "Charanga Sarao", {
       body: notification.body,
-      icon: "/PEGATINAS.jpg",
-      badge: "/PEGATINAS.jpg",
+      icon: "/PEGATINAS-512.png",
+      badge: "/PEGATINAS-192.png",
       tag: notification.tag,
       data: { url: notification.url || "/" },
     }),
@@ -80,8 +80,8 @@ messaging.onBackgroundMessage((payload) => {
   const data = payload.data || {};
   return self.registration.showNotification(data.title || "Charanga Sarao", {
     body: data.body || "Tienes una nueva notificación.",
-    icon: "/PEGATINAS.jpg",
-    badge: "/PEGATINAS.jpg",
+    icon: "/PEGATINAS-512.png",
+    badge: "/PEGATINAS-192.png",
     tag: data.tag,
     data: { url: data.url || "/" },
   });

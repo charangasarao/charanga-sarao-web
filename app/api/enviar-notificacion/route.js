@@ -56,6 +56,12 @@ export async function POST(request) {
         title: titulo || "Charanga Sarao",
         body: mensaje || "Nuevo aviso importante.",
       },
+      webpush: {
+        notification: {
+          icon: "/PEGATINAS-512.png",
+          badge: "/PEGATINAS-192.png",
+        },
+      },
       tokens,
     });
 
