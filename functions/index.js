@@ -260,13 +260,28 @@ exports.sendEventReminders = onSchedule(
         if (hoursUntil > 47.75 && hoursUntil <= 48) {
           const attendees = members.filter((member) => member.disponibilidadBolos?.[eventId]?.estado === "puedo");
           for (const member of attendees) {
+            const normalizedMemberName = String(member.nombre || "").trim().toLocaleLowerCase("es");
             const route = (calendarEvent.cochesAsignados || []).find((item) =>
-              (item.pasajeros || []).some((passenger) =>
-                getId(passenger.id ?? passenger.miembroId ?? passenger.userId) === getId(member.id) ||
-                String(passenger.nombre || "").trim().toLowerCase() === String(member.nombre || "").trim().toLowerCase(),
-              ),
+              (item.pasajeros || []).some((passenger) => {
+                // La app guarda los pasajeros como nombres (strings), no como objetos.
+                const passengerName = typeof passenger === "string"
+                  ? passenger
+                  : passenger?.nombre || passenger?.name || "";
+                const passengerId = typeof passenger === "object"
+                  ? passenger.id ?? passenger.miembroId ?? passenger.userId
+                  : null;
+                return getId(passengerId) === getId(member.id) ||
+                  String(passengerName).trim().toLocaleLowerCase("es") === normalizedMemberName;
+              }),
             );
-            const routeDetails = route ? formatRoute(route) : "No tienes una ruta de coche asignada.";
+            const pickupPoint = route?.recogidasPasajeros?.[normalizedMemberName];
+            const routeDetails = route
+              ? [
+                  `Vas con ${route.conductor || "el conductor asignado"}`,
+                  formatRoute(route),
+                  pickupPoint ? `Tu punto de recogida: ${pickupPoint}` : "",
+                ].filter(Boolean).join(" · ")
+              : "No tienes una ruta de coche asignada.";
             const body = [
               `${calendarEvent.lugar || calendarEvent.titulo || "Bolo"} · ${calendarEvent.fecha}`,
               `Horario: ${calendarEvent.horaInicio || "por confirmar"}${calendarEvent.horaFin ? `–${calendarEvent.horaFin}` : ""}`,
