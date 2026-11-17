@@ -27,18 +27,12 @@ export async function POST(request) {
   let body;
   try {
     body = await request.json();
-    
-    // AÑADE ESTAS LÍNEAS AQUÍ PARA DEPURAR:
-    console.log("Cuerpo recibido en la API:", JSON.stringify(body));
-    console.log("Tokens recibidos:", body?.tokens);
-
   } catch {
     return NextResponse.json(
       { success: false, error: "El cuerpo de la petición no es JSON válido." },
       { status: 400 },
     );
   }
-  
 
   const { titulo, mensaje, tokens } = body ?? {};
   if (
