@@ -42,7 +42,7 @@ header button { border-radius: 11px !important; border: 1px solid var(--app-bord
 main.max-w-5xl {
   width: min(100% - 48px, 1440px) !important;
   max-width: 1440px !important; margin: 0 auto !important;
-  padding: 42px 0 56px !important;
+  padding: 108px 0 56px !important;
 }
 main h1, main h2, main h3, main h4 { letter-spacing: -.035em; text-wrap: balance; }
 main h2 { font-size: clamp(1.45rem, 2vw, 1.9rem) !important; font-weight: 800 !important; }
@@ -118,7 +118,7 @@ main .fixed.inset-0 > div { border: 1px solid var(--app-border); box-shadow: 0 2
 
 /* Tablet */
 @media (max-width: 900px) {
-  main.max-w-5xl { width: min(100% - 32px, 900px) !important; padding-top: 32px !important; }
+  main.max-w-5xl { width: min(100% - 32px, 900px) !important; padding-top: 100px !important; }
   nav[class*="fixed"][class*="bottom-4"] { width: calc(100% - 32px) !important; }
 }
 /* Móvil: navegación inferior cómoda, con etiquetas legibles */
