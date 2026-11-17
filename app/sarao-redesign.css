@@ -1,255 +1,174 @@
-/* Charanga Sarao — propuesta visual interna
-   Capa exclusivamente estética: conserva componentes, datos y flujos existentes. */
+/* Charanga Sarao — rediseño visual de la app interna.
+   Solo presentación: no altera lógica, datos, permisos ni autenticación. */
 :root {
   color-scheme: dark;
-  --sarao-bg: #080b09;
-  --sarao-surface: #111713;
-  --sarao-surface-raised: #171f19;
-  --sarao-line: rgba(142, 255, 66, .16);
-  --sarao-green: #8dff42;
-  --sarao-green-deep: #54d51b;
-  --sarao-muted: #9aa79b;
+  --sarao-bg: #090d0a;
+  --sarao-panel: #131a15;
+  --sarao-panel-soft: #19221b;
+  --sarao-line: rgba(190, 220, 185, .13);
+  --sarao-green: #91f34b;
+  --sarao-text: #f3f7f1;
+  --sarao-muted: #b0bdb1;
 }
-html { background: var(--sarao-bg); }
+html { background: var(--sarao-bg); scroll-behavior: smooth; }
 body {
+  color: var(--sarao-text);
   background:
-    radial-gradient(ellipse at 72% 0%, rgba(91, 190, 37, .10), transparent 36rem),
-    linear-gradient(180deg, #0b100c 0%, var(--sarao-bg) 46rem);
-  color: #f4f8f2;
+    radial-gradient(ellipse at 78% 0%, rgba(112, 190, 65, .09), transparent 34rem),
+    var(--sarao-bg);
   font-family: Arial, Helvetica, sans-serif;
 }
-::selection { background: var(--sarao-green); color: #071006; }
+::selection { background: var(--sarao-green); color: #081006; }
 
-/* Cabecera */
+/* Cabecera sobria y legible */
 header.sticky {
-  background: rgba(8, 12, 9, .88) !important;
+  background: rgba(9, 13, 10, .94) !important;
   border-bottom: 1px solid var(--sarao-line) !important;
-  box-shadow: 0 12px 36px rgba(0,0,0,.18);
-  backdrop-filter: blur(18px);
+  box-shadow: 0 8px 28px rgba(0,0,0,.18);
+  backdrop-filter: blur(16px);
+  z-index: 30;
 }
-header.sticky > div { max-width: 100% !important; }
-header img { border-radius: 14px !important; box-shadow: 0 0 24px rgba(141,255,66,.12); }
-header h1 { text-shadow: 0 0 24px rgba(141,255,66,.14); }
+header.sticky > div { max-width: 1440px !important; }
+header img { border-radius: 13px !important; }
+header h1 { letter-spacing: -.025em; }
 
-/* Navegación: lateral en escritorio, inferior en móvil */
-nav[class*="fixed"][class*="bottom-4"] {
-  left: 22px !important;
-  top: 50% !important;
-  bottom: auto !important;
-  transform: translateY(-50%) !important;
-  width: 218px;
-  max-width: 218px !important;
-  max-height: calc(100vh - 48px);
-  overflow-y: auto !important;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 5px !important;
-  padding: 12px !important;
-  border: 1px solid rgba(141,255,66,.2) !important;
-  border-radius: 22px !important;
-  background: rgba(14, 20, 15, .94) !important;
-  box-shadow: 0 22px 70px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.035);
-  backdrop-filter: blur(20px);
-}
-nav[class*="fixed"][class*="bottom-4"] button {
-  width: 100%;
-  min-height: 43px;
-  justify-content: flex-start;
-  padding: 10px 12px !important;
-  border-radius: 12px !important;
-  color: #aeb9ae;
-  font-size: 12px !important;
-  letter-spacing: .01em;
-}
-nav[class*="fixed"][class*="bottom-4"] button:hover {
-  background: rgba(141,255,66,.08);
-  color: #fff;
-}
-nav[class*="fixed"][class*="bottom-4"] button[class*="bg-green-500"] {
-  background: linear-gradient(110deg, var(--sarao-green), #b5ff7d) !important;
-  color: #091006 !important;
-  box-shadow: 0 6px 22px rgba(141,255,66,.18);
-}
-nav[class*="fixed"][class*="bottom-4"] button span { display: inline !important; }
-
-/* Área de trabajo */
+/* Contenido: una sola columna central, sin hueco reservado para un menú lateral */
 main.max-w-5xl {
-  max-width: none !important;
-  margin-left: 266px !important;
-  margin-right: 28px !important;
-  padding: 28px 24px 48px !important;
+  width: 100% !important;
+  max-width: 1320px !important;
+  margin: 0 auto !important;
+  padding: 28px 28px 124px !important;
 }
-main > div { max-width: 1440px; margin-inline: auto; }
-main [class*="rounded-3xl"][class*="bg-zinc-900"],
-main [class*="rounded-2xl"][class*="bg-zinc-900"] {
-  border-color: rgba(190, 220, 185, .11) !important;
-  box-shadow: 0 14px 38px rgba(0,0,0,.18);
-}
-main [class*="hover:border-green-500"]:hover {
-  border-color: rgba(141,255,66,.52) !important;
-  box-shadow: 0 18px 42px rgba(0,0,0,.28), 0 0 0 1px rgba(141,255,66,.06);
-}
+main > div { max-width: 100%; }
+main h2, main h3, main h4 { text-wrap: balance; }
+main h2 { font-size: clamp(1.55rem, 2.8vw, 2.25rem) !important; }
+main h3 { font-size: clamp(1.05rem, 1.8vw, 1.3rem) !important; }
+main [class*="bg-zinc-900"] { background-color: #141b16 !important; }
+main [class*="text-zinc-500"] { color: #aab7ab !important; }
+main [class*="text-zinc-400"] { color: #c0cbc1 !important; }
+main [class*="text-green-400"] { color: var(--sarao-green) !important; }
+main [class*="rounded-3xl"] { border-radius: 20px !important; }
+main [class*="rounded-2xl"] { border-radius: 15px !important; }
+main [class*="border-zinc-800"] { border-color: var(--sarao-line) !important; }
 main [class*="bg-gradient-to-r"] {
   background:
-    radial-gradient(ellipse at 88% 12%, rgba(141,255,66,.16), transparent 42%),
-    linear-gradient(112deg, #152319 0%, #101711 52%, #0c100d 100%) !important;
-  border: 1px solid rgba(141,255,66,.25) !important;
-  box-shadow: 0 22px 60px rgba(0,0,0,.28);
+    radial-gradient(ellipse at 88% 12%, rgba(145,243,75,.13), transparent 42%),
+    linear-gradient(112deg, #17231a, #101711 68%, #0d120e) !important;
+  border: 1px solid rgba(145,243,75,.22) !important;
 }
-main h2, main h3, main h4 { text-wrap: balance; }
-main [class*="text-green-400"] { color: var(--sarao-green) !important; }
-main [class*="bg-green-500"][class*="text-black"] {
-  background: var(--sarao-green) !important;
+main [class*="hover:border-green-500"]:hover {
+  border-color: rgba(145,243,75,.48) !important;
+}
+main button:focus-visible, main a:focus-visible,
+nav button:focus-visible, header button:focus-visible {
+  outline: 3px solid var(--sarao-green) !important;
+  outline-offset: 3px;
 }
 
-/* Campos y controles */
-input, textarea, select {
-  accent-color: var(--sarao-green);
-}
-input:not([type="checkbox"]):not([type="radio"]),
-textarea, select {
-  border-color: rgba(190,220,185,.18) !important;
-  background-color: #090e0a !important;
-  border-radius: 12px !important;
-  transition: border-color .18s ease, box-shadow .18s ease;
+/* Formularios */
+input, textarea, select { accent-color: var(--sarao-green); }
+input:not([type="checkbox"]):not([type="radio"]), textarea, select {
+  background-color: #0b100c !important;
+  border-color: rgba(190,220,185,.2) !important;
+  border-radius: 11px !important;
 }
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-color: rgba(141,255,66,.7) !important;
-  box-shadow: 0 0 0 3px rgba(141,255,66,.10);
+  border-color: rgba(145,243,75,.72) !important;
+  box-shadow: 0 0 0 3px rgba(145,243,75,.1);
 }
-button { transition: transform .18s ease, background-color .18s ease, border-color .18s ease; }
-button:active { transform: translateY(1px) scale(.99); }
-
-/* Tablas y separadores */
 table { border-collapse: separate; border-spacing: 0; }
-thead { color: #b8c4b7; }
-th { letter-spacing: .06em; }
-hr, [class*="border-zinc-800"] { border-color: rgba(190,220,185,.11) !important; }
+thead { color: #c2cec3; }
 
-/* Evita animaciones excesivas si el usuario lo solicita en el sistema */
+/* Navegación fija inferior: siempre visible, con nombre e icono.
+   En pantallas estrechas se puede desplazar horizontalmente. */
+nav[class*="fixed"][class*="bottom-4"] {
+  position: fixed !important;
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  transform: translateX(-50%) !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 4px !important;
+  width: max-content !important;
+  max-width: calc(100vw - 28px) !important;
+  max-height: 76px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-x: contain;
+  padding: 8px !important;
+  border: 1px solid rgba(145,243,75,.22) !important;
+  border-radius: 17px !important;
+  background: rgba(16, 23, 17, .97) !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,.52) !important;
+  backdrop-filter: blur(18px);
+  scrollbar-width: none;
+  z-index: 50 !important;
+}
+nav[class*="fixed"][class*="bottom-4"]::-webkit-scrollbar { display: none; }
+nav[class*="fixed"][class*="bottom-4"] button {
+  display: inline-flex !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 42px !important;
+  padding: 9px 12px !important;
+  border-radius: 11px !important;
+  color: #c0cbc1;
+  font-size: 12px !important;
+  white-space: nowrap !important;
+}
+nav[class*="fixed"][class*="bottom-4"] button:hover {
+  color: #fff;
+  background: rgba(145,243,75,.09);
+}
+nav[class*="fixed"][class*="bottom-4"] button[class*="bg-green-500"] {
+  color: #091006 !important;
+  background: var(--sarao-green) !important;
+  box-shadow: 0 4px 18px rgba(145,243,75,.2);
+}
+nav[class*="fixed"][class*="bottom-4"] button span {
+  display: inline !important;
+  font-size: inherit !important;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+/* Adaptación móvil */
+@media (max-width: 700px) {
+  header.sticky { padding-inline: 12px !important; }
+  header h1 { font-size: 1.15rem !important; }
+  main.max-w-5xl { padding: 18px 14px 112px !important; }
+  nav[class*="fixed"][class*="bottom-4"] {
+    max-width: calc(100vw - 16px) !important;
+    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    padding: 6px !important;
+    border-radius: 14px !important;
+  }
+  nav[class*="fixed"][class*="bottom-4"] button {
+    min-height: 44px !important;
+    padding: 8px 10px !important;
+    gap: 5px !important;
+    font-size: 11px !important;
+  }
+}
+@media (max-width: 390px) {
+  nav[class*="fixed"][class*="bottom-4"] button { padding-inline: 8px !important; }
+  nav[class*="fixed"][class*="bottom-4"] button span { font-size: 10px !important; }
+}
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
-}
-
-/* Tablet y móvil: conserva la barra inferior original */
-@media (max-width: 900px) {
-  main.max-w-5xl {
-    margin-left: auto !important;
-    margin-right: auto !important;
-    padding: 18px 14px 116px !important;
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
   }
-  nav[class*="fixed"][class*="bottom-4"] {
-    left: 50% !important;
-    top: auto !important;
-    bottom: 12px !important;
-    transform: translateX(-50%) !important;
-    width: max-content;
-    max-width: 96vw !important;
-    max-height: none;
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto !important;
-    padding: 8px !important;
-    border-radius: 18px !important;
-  }
-  nav[class*="fixed"][class*="bottom-4"] button {
-    width: auto;
-    min-height: 42px;
-    justify-content: center;
-    padding: 10px !important;
-  }
-  nav[class*="fixed"][class*="bottom-4"] button span { display: none !important; }
-}
-@media (max-width: 520px) {
-  header.sticky { padding: 12px !important; }
-  header h1 { font-size: 1.2rem !important; }
-  main.max-w-5xl { padding-inline: 12px !important; }
-}
-
-
-/* Refinamiento de usabilidad: navegación visible, plana y fácil de entender */
-@media (min-width: 901px) {
-  nav[class*="fixed"][class*="bottom-4"] {
-    position: sticky !important;
-    inset: auto !important;
-    transform: none !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: none !important;
-    overflow: visible !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    margin: 0 !important;
-    padding: 10px 20px !important;
-    border-width: 0 0 1px !important;
-    border-radius: 0 !important;
-    background: rgba(10, 15, 11, .96) !important;
-    box-shadow: 0 8px 24px rgba(0,0,0,.16) !important;
-  }
-  nav[class*="fixed"][class*="bottom-4"] button {
-    width: auto !important;
-    min-height: 40px !important;
-    justify-content: center !important;
-    padding: 9px 13px !important;
-    font-size: 13px !important;
-  }
-  nav[class*="fixed"][class*="bottom-4"] button span { display: inline !important; }
-  main.max-w-5xl {
-    max-width: 1320px !important;
-    margin-inline: auto !important;
-    padding: 30px 28px 56px !important;
-  }
-}
-@media (max-width: 900px) {
-  nav[class*="fixed"][class*="bottom-4"] {
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    justify-content: flex-start !important;
-    width: max-content !important;
-    max-width: 96vw !important;
-    overflow-x: auto !important;
-    overscroll-behavior-x: contain;
-  }
-  nav[class*="fixed"][class*="bottom-4"] button {
-    width: auto !important;
-    flex: 0 0 auto !important;
-  }
-  nav[class*="fixed"][class*="bottom-4"] button span {
-    display: inline !important;
-    font-size: 11px;
-  }
-}
-@media (max-width: 560px) {
-  nav[class*="fixed"][class*="bottom-4"] button {
-    flex-direction: column !important;
-    gap: 3px !important;
-    min-width: 58px;
-    padding: 7px 8px !important;
-  }
-  nav[class*="fixed"][class*="bottom-4"] button span {
-    display: block !important;
-    font-size: 9px !important;
-    max-width: 64px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-
-/* Menos ruido visual: superficies claras de distinguir y lectura más cómoda */
-main [class*="bg-zinc-900"] { background-color: #141b16 !important; }
-main [class*="bg-zinc-900/90"] { background-color: #151d17 !important; }
-main [class*="text-zinc-500"] { color: #a4b0a5 !important; }
-main [class*="text-zinc-400"] { color: #bdc8be !important; }
-main [class*="text-[10px]"], main [class*="text-[11px]"] { line-height: 1.55 !important; }
-main h2 { font-size: clamp(1.7rem, 3vw, 2.45rem) !important; }
-main h3 { font-size: clamp(1.1rem, 2vw, 1.35rem) !important; }
-main [class*="rounded-3xl"] { border-radius: 20px !important; }
-main [class*="rounded-2xl"] { border-radius: 15px !important; }
-main button, main a { min-height: 38px; }
-main button:focus-visible, nav button:focus-visible, header button:focus-visible {
-  outline: 3px solid var(--sarao-green) !important;
-  outline-offset: 3px;
 }
