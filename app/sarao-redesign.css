@@ -1,0 +1,168 @@
+/* Charanga Sarao — propuesta visual interna
+   Capa exclusivamente estética: conserva componentes, datos y flujos existentes. */
+:root {
+  color-scheme: dark;
+  --sarao-bg: #080b09;
+  --sarao-surface: #111713;
+  --sarao-surface-raised: #171f19;
+  --sarao-line: rgba(142, 255, 66, .16);
+  --sarao-green: #8dff42;
+  --sarao-green-deep: #54d51b;
+  --sarao-muted: #9aa79b;
+}
+html { background: var(--sarao-bg); }
+body {
+  background:
+    radial-gradient(ellipse at 72% 0%, rgba(91, 190, 37, .10), transparent 36rem),
+    linear-gradient(180deg, #0b100c 0%, var(--sarao-bg) 46rem);
+  color: #f4f8f2;
+  font-family: Arial, Helvetica, sans-serif;
+}
+::selection { background: var(--sarao-green); color: #071006; }
+
+/* Cabecera */
+header.sticky {
+  background: rgba(8, 12, 9, .88) !important;
+  border-bottom: 1px solid var(--sarao-line) !important;
+  box-shadow: 0 12px 36px rgba(0,0,0,.18);
+  backdrop-filter: blur(18px);
+}
+header.sticky > div { max-width: 100% !important; }
+header img { border-radius: 14px !important; box-shadow: 0 0 24px rgba(141,255,66,.12); }
+header h1 { text-shadow: 0 0 24px rgba(141,255,66,.14); }
+
+/* Navegación: lateral en escritorio, inferior en móvil */
+nav[class*="fixed"][class*="bottom-4"] {
+  left: 22px !important;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+  width: 218px;
+  max-width: 218px !important;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto !important;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px !important;
+  padding: 12px !important;
+  border: 1px solid rgba(141,255,66,.2) !important;
+  border-radius: 22px !important;
+  background: rgba(14, 20, 15, .94) !important;
+  box-shadow: 0 22px 70px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.035);
+  backdrop-filter: blur(20px);
+}
+nav[class*="fixed"][class*="bottom-4"] button {
+  width: 100%;
+  min-height: 43px;
+  justify-content: flex-start;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  color: #aeb9ae;
+  font-size: 12px !important;
+  letter-spacing: .01em;
+}
+nav[class*="fixed"][class*="bottom-4"] button:hover {
+  background: rgba(141,255,66,.08);
+  color: #fff;
+}
+nav[class*="fixed"][class*="bottom-4"] button[class*="bg-green-500"] {
+  background: linear-gradient(110deg, var(--sarao-green), #b5ff7d) !important;
+  color: #091006 !important;
+  box-shadow: 0 6px 22px rgba(141,255,66,.18);
+}
+nav[class*="fixed"][class*="bottom-4"] button span { display: inline !important; }
+
+/* Área de trabajo */
+main.max-w-5xl {
+  max-width: none !important;
+  margin-left: 266px !important;
+  margin-right: 28px !important;
+  padding: 28px 24px 48px !important;
+}
+main > div { max-width: 1440px; margin-inline: auto; }
+main [class*="rounded-3xl"][class*="bg-zinc-900"],
+main [class*="rounded-2xl"][class*="bg-zinc-900"] {
+  border-color: rgba(190, 220, 185, .11) !important;
+  box-shadow: 0 14px 38px rgba(0,0,0,.18);
+}
+main [class*="hover:border-green-500"]:hover {
+  border-color: rgba(141,255,66,.52) !important;
+  box-shadow: 0 18px 42px rgba(0,0,0,.28), 0 0 0 1px rgba(141,255,66,.06);
+}
+main [class*="bg-gradient-to-r"] {
+  background:
+    radial-gradient(ellipse at 88% 12%, rgba(141,255,66,.16), transparent 42%),
+    linear-gradient(112deg, #152319 0%, #101711 52%, #0c100d 100%) !important;
+  border: 1px solid rgba(141,255,66,.25) !important;
+  box-shadow: 0 22px 60px rgba(0,0,0,.28);
+}
+main h2, main h3, main h4 { text-wrap: balance; }
+main [class*="text-green-400"] { color: var(--sarao-green) !important; }
+main [class*="bg-green-500"][class*="text-black"] {
+  background: var(--sarao-green) !important;
+}
+
+/* Campos y controles */
+input, textarea, select {
+  accent-color: var(--sarao-green);
+}
+input:not([type="checkbox"]):not([type="radio"]),
+textarea, select {
+  border-color: rgba(190,220,185,.18) !important;
+  background-color: #090e0a !important;
+  border-radius: 12px !important;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: rgba(141,255,66,.7) !important;
+  box-shadow: 0 0 0 3px rgba(141,255,66,.10);
+}
+button { transition: transform .18s ease, background-color .18s ease, border-color .18s ease; }
+button:active { transform: translateY(1px) scale(.99); }
+
+/* Tablas y separadores */
+table { border-collapse: separate; border-spacing: 0; }
+thead { color: #b8c4b7; }
+th { letter-spacing: .06em; }
+hr, [class*="border-zinc-800"] { border-color: rgba(190,220,185,.11) !important; }
+
+/* Evita animaciones excesivas si el usuario lo solicita en el sistema */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* Tablet y móvil: conserva la barra inferior original */
+@media (max-width: 900px) {
+  main.max-w-5xl {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding: 18px 14px 116px !important;
+  }
+  nav[class*="fixed"][class*="bottom-4"] {
+    left: 50% !important;
+    top: auto !important;
+    bottom: 12px !important;
+    transform: translateX(-50%) !important;
+    width: max-content;
+    max-width: 96vw !important;
+    max-height: none;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto !important;
+    padding: 8px !important;
+    border-radius: 18px !important;
+  }
+  nav[class*="fixed"][class*="bottom-4"] button {
+    width: auto;
+    min-height: 42px;
+    justify-content: center;
+    padding: 10px !important;
+  }
+  nav[class*="fixed"][class*="bottom-4"] button span { display: none !important; }
+}
+@media (max-width: 520px) {
+  header.sticky { padding: 12px !important; }
+  header h1 { font-size: 1.2rem !important; }
+  main.max-w-5xl { padding-inline: 12px !important; }
+}
