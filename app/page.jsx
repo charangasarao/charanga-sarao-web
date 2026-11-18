@@ -1880,7 +1880,7 @@ export default function CharangaSaraoApp() {
     setBoloDisponibilidadAbiertoId(
       !esPerfilExtra &&
       bolo.estadoBolo !== 'presupuestado' &&
-      !disponibilidad?.estado
+      (!disponibilidad?.estado || disponibilidad.estado === 'no')
         ? boloId
         : null
     );
@@ -3434,7 +3434,9 @@ export default function CharangaSaraoApp() {
                         const mesFormateado = String(mesSeleccionado.mes + 1).padStart(2, '0');
                         const diaFormateado = String(diaNum).padStart(2, '0');
                         const fechaStr = `${mesSeleccionado.anio}-${mesFormateado}-${diaFormateado}`;
-                        const bolosDelDia = bolos.filter(b => b.fecha === fechaStr);
+                        const bolosDelDia = bolos
+                  .filter(b => b.fecha === fechaStr)
+                  .sort((a, b) => (a.horaInicio || '99:99').localeCompare(b.horaInicio || '99:99'));
                         const tieneConfirmado = bolosDelDia.some(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo');
                         const tienePresupuestado = bolosDelDia.some(b => b.estadoBolo === 'presupuestado');
                         const tieneEnsayo = bolosDelDia.some(b => b.estadoBolo === 'ensayo');
@@ -4671,10 +4673,16 @@ export default function CharangaSaraoApp() {
                 const guardadoEnNube = await guardarEnNube(null, nuevosBolos, null);
                 if (guardadoEnNube) {
                   await enviarNotificacionAUsuarios({
-                    titulo: esEns ? 'Nuevo ensayo en el calendario' : 'Nuevo bolo en el calendario',
+                    titulo: esEns
+                      ? 'Nuevo ensayo en el calendario'
+                      : tipoCreacionEvento === 'presupuestado'
+                        ? 'Nuevo bolo presupuestado'
+                        : 'Nuevo bolo en el calendario',
                     mensaje: esEns
                       ? `Tenemos nuevo ENSAYO fijado panzabucheeee: ${nuevoBolo.lugar}`
-                      : `Tenemos nuevo BOLO croquetoooooo: ${nuevoBolo.titulo || nuevoBolo.lugar}`
+                      : tipoCreacionEvento === 'presupuestado'
+                        ? `Ha salido un nuevo bolo y se ha presupuestado: ${nuevoBolo.lugar}`
+                        : `Tenemos nuevo BOLO croquetoooooo: ${nuevoBolo.titulo || nuevoBolo.lugar}`
                   });
                 }
               }} className="space-y-3">
