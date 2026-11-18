@@ -1070,7 +1070,6 @@ export default function CharangaSaraoApp() {
       return;
     }
 
-    const boloQueSeConfirma = bolos.find(b => b.id === presupuestoAConfirmarId);
     registrarSnapshot();
     const nuevosBolos = bolos.map(b => b.id === presupuestoAConfirmarId
       ? { ...guardarDatosPresupuestoEnRevision(b), presupuestacionConfirmada: true, estadoBolo: 'confirmado' }
