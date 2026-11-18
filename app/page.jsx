@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 import { db } from './firebase';
-import { collection, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import PushNotifications from './PushNotifications';
 
 const CONFIG_CUERDAS = {
@@ -470,56 +470,6 @@ export default function CharangaSaraoApp() {
     }
   };
 
-  const enviarNotificacionAUsuarios = async ({ titulo, mensaje }) => {
-    try {
-      const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
-      const tokens = [...new Set(
-        snapshot.docs
-          .map(docSnap => docSnap.data()?.token)
-          .filter(token => typeof token === 'string' && token.trim())
-          .map(token => token.trim())
-      )];
-
-      if (tokens.length === 0) {
-        console.warn('No hay tokens FCM guardados para enviar la notificación.');
-        alert('El cambio se guardó, pero no hay dispositivos registrados para notificar.');
-        return;
-      }
-
-      let successCount = 0;
-      let failureCount = 0;
-      for (let index = 0; index < tokens.length; index += 500) {
-        const response = await fetch('/api/enviar-notificacion', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            titulo,
-            mensaje,
-            tokens: tokens.slice(index, index + 500)
-          })
-        });
-        const result = await response.json();
-        if (!response.ok || result.success !== true) {
-          throw new Error(result.error || 'No se pudo enviar la notificación.');
-        }
-
-        successCount += result.response?.successCount || 0;
-        failureCount += result.response?.failureCount || 0;
-      }
-
-      if (failureCount > 0) {
-        console.warn('Algunos dispositivos no recibieron la notificación:', {
-          successCount,
-          failureCount
-        });
-        alert(`Notificación enviada a ${successCount} dispositivo(s); falló en ${failureCount}.`);
-      }
-    } catch (error) {
-      console.error('Error enviando la notificación:', error);
-      alert('El cambio se guardó, pero no se pudieron enviar las notificaciones. Revisa la consola.');
-    }
-  };
-
   const registrarSnapshot = () => {
     setHistorialEstados(prev => [
       ...prev.slice(-15),
@@ -914,7 +864,6 @@ export default function CharangaSaraoApp() {
     }
 
     registrarSnapshot();
-    const creandoNuevoEnsayo = !ensayoEditandoId;
     let nuevosBolos;
 
     if (ensayoEditandoId) {
@@ -958,13 +907,7 @@ export default function CharangaSaraoApp() {
     setFechaEnsayo('');
     setHoraEnsayo('');
     setRepertorioEnsayo('');
-    const guardadoEnNube = await guardarEnNube(null, nuevosBolos, null);
-    if (guardadoEnNube && creandoNuevoEnsayo) {
-      await enviarNotificacionAUsuarios({
-        titulo: 'Nuevo ensayo en el calendario',
-        mensaje: `Tenemos nuevo ENSAYO fijado panzabucheeee: ${lugarEnsayo.trim()}`
-      });
-    }
+    await guardarEnNube(null, nuevosBolos, null);
   };
 
   const eliminarEnsayo = async (ensayoId, ensayoLugar, ensayoFecha) => {
@@ -4447,13 +4390,7 @@ export default function CharangaSaraoApp() {
                 setPlazasTrayecto('4');
                 setExtraAsignadoTrayectoId('');
                 setShowModalTrayectoBolo(false);
-                const guardadoEnNube = await guardarEnNube(null, nuevosBolos, null);
-                if (guardadoEnNube) {
-                  await enviarNotificacionAUsuarios({
-                    titulo: 'Nueva ruta publicada',
-                    mensaje: `${usuarioActual.nombre || nuevoCar.conductor} ha puesto su putivuelta para este bolo: ${boloActual.lugar}`
-                  });
-                }
+                await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
 
                 {(boloActual.musicosExtras || []).length > 0 && (
@@ -4636,15 +4573,7 @@ export default function CharangaSaraoApp() {
                 setNuevoPresupuestoBolo(''); setNuevoConFacturaBolo(false);
                 setNuevoRepertorioEnsayo('');
                 setShowModalBolo(false);
-                const guardadoEnNube = await guardarEnNube(null, nuevosBolos, null);
-                if (guardadoEnNube) {
-                  await enviarNotificacionAUsuarios({
-                    titulo: esEns ? 'Nuevo ensayo en el calendario' : 'Nuevo bolo en el calendario',
-                    mensaje: esEns
-                      ? `Tenemos nuevo ENSAYO fijado panzabucheeee: ${nuevoBolo.lugar}`
-                      : `Tenemos nuevo BOLO croquetoooooo: ${nuevoBolo.titulo || nuevoBolo.lugar}`
-                  });
-                }
+                await guardarEnNube(null, nuevosBolos, null);
               }} className="space-y-3">
 
                 <div className="grid grid-cols-3 gap-1.5 p-1 bg-black rounded-xl border border-zinc-800">

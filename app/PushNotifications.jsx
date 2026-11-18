@@ -93,6 +93,7 @@ async function registerNotificationDevice(user, vapidPublicKey) {
       token: messagingToken,
       userId,
       userName: user.nombre || "",
+      pushSubscriptionId: subscriptionId,
       updatedAt: new Date().toISOString(),
     },
     { merge: true },
