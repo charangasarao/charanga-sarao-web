@@ -520,6 +520,23 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  // Avisos nuevos de cambios: flujo independiente del sistema antiguo.
+  const enviarNotificacionCambio = async ({ type, previousEvent, currentEvent = null }) => {
+    try {
+      const response = await fetch('/api/notificar-cambio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, previousEvent, currentEvent })
+      });
+      const result = await response.json();
+      if (!response.ok || result.success !== true) {
+        console.error('No se pudo enviar el aviso del cambio:', result.error || result);
+      }
+    } catch (error) {
+      console.error('Error enviando el aviso nuevo del cambio:', error);
+    }
+  };
+
   const registrarSnapshot = () => {
     setHistorialEstados(prev => [
       ...prev.slice(-15),
@@ -745,9 +762,14 @@ export default function CharangaSaraoApp() {
   const cambiarVestuarioBolo = async (boloId, nuevoVestuario) => {
     if (!esGestorBolos) return;
     registrarSnapshot();
+    const boloAnterior = bolos.find(b => b.id === boloId);
     const nuevosBolos = bolos.map(b => b.id === boloId ? { ...b, vestuario: nuevoVestuario } : b);
+    const boloActualizado = nuevosBolos.find(b => b.id === boloId);
     setBolos(nuevosBolos);
-    await guardarEnNube(null, nuevosBolos, null);
+    const guardado = await guardarEnNube(null, nuevosBolos, null);
+    if (guardado && boloAnterior?.estadoBolo === 'confirmado' && boloAnterior.vestuario !== nuevoVestuario) {
+      await enviarNotificacionCambio({ type: 'vestuario', previousEvent: boloAnterior, currentEvent: boloActualizado });
+    }
   };
 
   // =========================================================================
@@ -857,6 +879,7 @@ export default function CharangaSaraoApp() {
     }
 
     registrarSnapshot();
+    const boloAnterior = bolos.find(b => b.id === boloEditandoId);
     const nuevosBolos = bolos.map(b => {
       if (b.id === boloEditandoId) {
         const esEns = b.estadoBolo === 'ensayo';
@@ -878,7 +901,12 @@ export default function CharangaSaraoApp() {
     setBolos(nuevosBolos);
     setBoloEditandoId(null);
     setShowModalEditarBolos(false);
-    await guardarEnNube(null, nuevosBolos, null);
+    const guardado = await guardarEnNube(null, nuevosBolos, null);
+    const boloActualizado = nuevosBolos.find(b => b.id === boloEditandoId);
+    if (guardado && boloAnterior?.estadoBolo === 'confirmado' && boloActualizado?.estadoBolo === 'confirmado' &&
+        (boloAnterior.fecha !== boloActualizado.fecha || boloAnterior.horaInicio !== boloActualizado.horaInicio)) {
+      await enviarNotificacionCambio({ type: 'fecha', previousEvent: boloAnterior, currentEvent: boloActualizado });
+    }
   };
 
   // =========================================================================
@@ -1049,6 +1077,7 @@ export default function CharangaSaraoApp() {
     if (!esGestorBolos) return;
     if (confirm(`¿Eliminar "${boloLugar}" definitivamente del calendario?`)) {
       registrarSnapshot();
+      const boloCancelado = bolos.find(b => b.id === boloId);
       const nuevosBolos = bolos.filter(b => b.id !== boloId);
       const nuevosMiembros = miembros.map(m => {
         const disp = { ...m.disponibilidadBolos };
@@ -1058,7 +1087,10 @@ export default function CharangaSaraoApp() {
       if (boloSeleccionadoId === boloId) setBoloSeleccionadoId(null);
       setBolos(nuevosBolos);
       setMiembros(nuevosMiembros);
-      await guardarEnNube(nuevosMiembros, nuevosBolos, null);
+      const guardado = await guardarEnNube(nuevosMiembros, nuevosBolos, null);
+      if (guardado && boloCancelado?.estadoBolo === 'confirmado') {
+        await enviarNotificacionCambio({ type: 'cancelacion', previousEvent: boloCancelado });
+      }
     }
   };
 
