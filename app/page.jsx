@@ -3713,12 +3713,14 @@ export default function CharangaSaraoApp() {
                   }}
                   onTouchMove={e => {
                     if (e.touches.length === 2 && calendarPinchRef.current) {
+                      e.preventDefault();
                       const dx = e.touches[0].clientX - e.touches[1].clientX;
                       const dy = e.touches[0].clientY - e.touches[1].clientY;
                       const distance = Math.hypot(dx, dy);
-                      setCalendarZoom(Math.min(1.45, Math.max(0.65, calendarPinchRef.current.zoom * distance / calendarPinchRef.current.distance)));
+                      setCalendarZoom(Math.min(1.65, Math.max(0.55, calendarPinchRef.current.zoom * distance / calendarPinchRef.current.distance)));
                     }
                   }}
+                  style={{ touchAction: 'pan-x pan-y' }}
                   onTouchEnd={e => { if (e.touches.length < 2) calendarPinchRef.current = null; }}
                 >
                   <div style={{ zoom: calendarZoom }} className="min-w-[680px]">
@@ -4377,10 +4379,10 @@ export default function CharangaSaraoApp() {
                                       </span>
                                       <p className="font-bold text-sm text-zinc-100 mt-0.5">{m.nombre}</p>
                                       <p className="text-xs text-emerald-300 font-bold">Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
-                                      {String(m.id) === String(usuarioActual.id) && boloActual.estadoBolo === 'confirmado' && !esAdmin && !esPerfilExtra && !idsBajaUrgencia.includes(String(usuarioActual.id)) && (
+                                      {String(m.id) === String(usuarioActual.id) && boloActual.estadoBolo === 'confirmado' && !esPerfilExtra && !idsBajaUrgencia.includes(String(usuarioActual.id)) && (
                                         <button
                                           onClick={() => registrarBajaUrgencia(boloActual.id)}
-                                          className="mt-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 border border-rose-400/50 text-white font-black text-[10px] px-3 py-1.5 rounded-lg shadow-lg transition"
+                                          className="mt-2 inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 border border-rose-300/70 text-white font-black text-[11px] px-3.5 py-2 rounded-xl shadow-[0_4px_16px_rgba(225,29,72,0.3)] transition"
                                         >
                                           No disponibilidad
                                         </button>
@@ -5603,8 +5605,8 @@ export default function CharangaSaraoApp() {
 
       {/* BARRA INFERIOR */}
       <nav
-        className="fixed bottom-3 left-1/2 -translate-x-1/2 bg-white/10 border border-white/30 px-2.5 py-2 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-2xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto scrollbar-none select-none"
-        style={{ WebkitBackdropFilter: 'blur(28px) saturate(200%)', scrollbarWidth: 'none', touchAction: 'none' }}
+        className="fixed bottom-3 left-1/2 -translate-x-1/2 bg-white/12 border border-white/35 px-2 py-2 rounded-[2.2rem] shadow-[0_14px_42px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.58),inset_0_-1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto scrollbar-none select-none"
+        style={{ WebkitBackdropFilter: 'blur(32px) saturate(230%)', scrollbarWidth: 'none', touchAction: 'none', backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.24), rgba(255,255,255,0.045) 52%, rgba(255,255,255,0.14))' }}
         onTouchStart={e => {
           if (e.touches.length !== 1) return;
           const t = e.touches[0];
