@@ -2700,6 +2700,61 @@ export default function CharangaSaraoApp() {
                             </p>
                           )}
                         </div>
+
+                        {!esPerfilExtra && (
+                          <div className="pt-3 border-t border-amber-500/20 space-y-2">
+                            <p className="text-[11px] font-bold text-zinc-300">Tu disponibilidad para este presupuesto:</p>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {[
+                                { estado: 'puedo', label: 'Puedo', style: 'bg-emerald-500 text-black' },
+                                { estado: 'tal_vez', label: 'Tal vez', style: 'bg-amber-400 text-black' },
+                                { estado: 'no', label: 'No puedo', style: 'bg-rose-500 text-white' }
+                              ].map(opcion => (
+                                <button
+                                  key={opcion.estado}
+                                  type="button"
+                                  onClick={() => setDisponibilidadBolo(b.id, opcion.estado)}
+                                  className={`rounded-lg px-2 py-2 text-[11px] font-black transition ${
+                                    usuarioActual.disponibilidadBolos?.[b.id]?.estado === opcion.estado
+                                      ? `${opcion.style} ring-2 ring-white`
+                                      : 'bg-black/50 border border-zinc-700 text-zinc-300 hover:border-zinc-400'
+                                  }`}
+                                >
+                                  {opcion.label}
+                                </button>
+                              ))}
+                            </div>
+                            {usuarioActual.disponibilidadBolos?.[b.id]?.estado && (
+                              <p className="text-[10px] text-zinc-400">
+                                Tu respuesta: <strong className="text-white">{
+                                  usuarioActual.disponibilidadBolos[b.id].estado === 'puedo'
+                                    ? 'Puedo'
+                                    : usuarioActual.disponibilidadBolos[b.id].estado === 'tal_vez'
+                                      ? 'Tal vez'
+                                      : 'No puedo'
+                                }</strong>. Puedes cambiarla cuando quieras.
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {esGestorBolos && (() => {
+                          const respuestas = miembros.map(m => m.disponibilidadBolos?.[b.id]?.estado).filter(Boolean);
+                          const puedo = respuestas.filter(estado => estado === 'puedo').length;
+                          const talVez = respuestas.filter(estado => estado === 'tal_vez').length;
+                          const noPuedo = respuestas.filter(estado => estado === 'no').length;
+                          return (
+                            <div className="pt-3 border-t border-amber-500/20">
+                              <p className="text-[10px] font-black uppercase tracking-wide text-amber-300 mb-1.5">Disponibilidad de la plantilla</p>
+                              <div className="flex flex-wrap gap-2 text-[11px] font-bold">
+                                <span className="text-emerald-300">Puedo: {puedo}</span>
+                                <span className="text-amber-300">Tal vez: {talVez}</span>
+                                <span className="text-rose-300">No puedo: {noPuedo}</span>
+                                <span className="text-zinc-400">Sin responder: {Math.max(0, miembros.length - respuestas.length)}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {esGestorBolos ? (
