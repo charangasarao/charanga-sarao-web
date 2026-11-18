@@ -2129,49 +2129,12 @@ export default function CharangaSaraoApp() {
           <span>Coche: <strong className="text-white">{pago.usoCoche ? 'Sí' : 'No'}</strong></span>
           <span>Gasolina: <strong className="text-amber-300">{(Number(pago.gasolina) || 0).toFixed(2)} €</strong></span>
           <span>Km: <strong className="text-white">{Number(pago.kilometros) || 0}</strong></span>
-          <span>Asistencia: <strong className={
-            disponibilidadPersona?.estado === 'no' || (pago.asistenciaValidadaManualmente && pago.asistenciaRegistrada && !pago.asistio)
-              ? 'text-rose-300'
-              : disponibilidadPersona?.estado === 'tal_vez'
-                ? 'text-amber-300'
-                : pago.asistenciaValidadaManualmente && pago.asistenciaRegistrada
-                  ? 'text-emerald-300'
-                  : 'text-zinc-400'
-          }>
-            {disponibilidadPersona?.estado === 'no'
-              ? 'No disponible'
-              : disponibilidadPersona?.estado === 'tal_vez'
-                ? 'En duda'
-                : pago.asistenciaValidadaManualmente && pago.asistenciaRegistrada
-                  ? (pago.asistio ? 'Realizado' : 'No asistió')
-                  : 'Sin confirmar'}
-          </strong></span>
-          <span className={pago.pagado ? 'text-emerald-300' : 'text-zinc-400'}>{pago.pagado ? 'Pagado' : 'Pendiente de pago'}</span>
+          <span className={(Number(pago.importeMusica) || 0) > 0 ? 'text-emerald-300' : 'text-zinc-400'}>
+            {(Number(pago.importeMusica) || 0) > 0 ? 'Pagado' : 'Pendiente de pago'}
+          </span>
         </div>
         {esAdmin && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-            <label className="text-zinc-300">
-              Asistencia real
-              <select
-                value={pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true
-                  ? (pago.asistio ? 'si' : 'no')
-                  : 'pendiente'}
-                onChange={e => {
-                  if (e.target.value !== 'pendiente') {
-                    guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', e.target.value === 'si');
-                  }
-                }}
-                className="mt-1 w-full bg-black border border-zinc-700 rounded-lg px-2 py-1.5 text-white"
-              >
-                <option value="pendiente">Sin registrar</option>
-                <option value="si">Asistió</option>
-                <option value="no">No asistió</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-1.5 text-zinc-300">
-              <input type="checkbox" checked={pago.pagado === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'pagado', e.target.checked)} />
-              Pagado
-            </label>
             <label className="flex items-center gap-1.5 text-zinc-300">
               <input type="checkbox" checked={pago.usoCoche === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'usoCoche', e.target.checked)} />
               Usó coche
