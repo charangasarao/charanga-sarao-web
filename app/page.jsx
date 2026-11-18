@@ -1030,7 +1030,18 @@ export default function CharangaSaraoApp() {
     setShowModalConfirmarPresupuesto(true);
   };
 
-  const confirmarBoloPresupuestadoDefinitivo = async (e) => {
+  const guardarDatosPresupuestoEnRevision = (bolo) => ({
+    ...bolo,
+    lugar: editLugarBolo.trim(),
+    titulo: editTituloBolo.trim() || 'Actuación',
+    fecha: editFechaBolo,
+    horaInicio: editHoraInicioBolo,
+    horaFin: editHoraFinBolo,
+    presupuesto: parseFloat(editPresupuestoBolo) || 0,
+    conFactura: editConFacturaBolo
+  });
+
+  const confirmarPresupuestacion = async (e) => {
     e.preventDefault();
     if (!esGestorBolos || !presupuestoAConfirmarId) return;
     if (!editLugarBolo.trim() || !editFechaBolo) {
@@ -1039,27 +1050,42 @@ export default function CharangaSaraoApp() {
     }
 
     registrarSnapshot();
-    const nuevosBolos = bolos.map(b => {
-      if (b.id === presupuestoAConfirmarId) {
-        return {
-          ...b,
-          lugar: editLugarBolo.trim(),
-          titulo: editTituloBolo.trim() || 'Actuación',
-          fecha: editFechaBolo,
-          horaInicio: editHoraInicioBolo,
-          horaFin: editHoraFinBolo,
-          presupuesto: parseFloat(editPresupuestoBolo) || 0,
-          conFactura: editConFacturaBolo,
-          estadoBolo: 'confirmado'
-        };
-      }
-      return b;
-    });
-
+    const nuevosBolos = bolos.map(b => b.id === presupuestoAConfirmarId
+      ? { ...guardarDatosPresupuestoEnRevision(b), presupuestacionConfirmada: true, estadoBolo: 'presupuestado' }
+      : b
+    );
     setBolos(nuevosBolos);
+    const guardado = await guardarEnNube(null, nuevosBolos, null);
+    if (!guardado) return;
     setShowModalConfirmarPresupuesto(false);
     setPresupuestoAConfirmarId(null);
-    await guardarEnNube(null, nuevosBolos, null);
+    alert(`Presupuestación de ${editLugarBolo.trim()} confirmada. Ahora puedes confirmar definitivamente el bolo cuando esté cerrado.`);
+  };
+
+  const confirmarBoloPresupuestadoDefinitivo = async (e) => {
+    e.preventDefault();
+    if (!esGestorBolos || !presupuestoAConfirmarId) return;
+    if (!editLugarBolo.trim() || !editFechaBolo) {
+      alert('El lugar y la fecha son obligatorios.');
+      return;
+    }
+
+    const boloQueSeConfirma = bolos.find(b => b.id === presupuestoAConfirmarId);
+    registrarSnapshot();
+    const nuevosBolos = bolos.map(b => b.id === presupuestoAConfirmarId
+      ? { ...guardarDatosPresupuestoEnRevision(b), presupuestacionConfirmada: true, estadoBolo: 'confirmado' }
+      : b
+    );
+
+    setBolos(nuevosBolos);
+    const guardado = await guardarEnNube(null, nuevosBolos, null);
+    if (!guardado) return;
+    setShowModalConfirmarPresupuesto(false);
+    setPresupuestoAConfirmarId(null);
+    await enviarNotificacionAUsuarios({
+      titulo: 'Bolo confirmado',
+      mensaje: `El bolo de ${editLugarBolo.trim()} ya está confirmado. ¡Ya puedes consultar los detalles y organizarte!`
+    });
     alert(`¡Bolo en ${editLugarBolo.trim()} confirmado! Ya aparece en color verde en el calendario oficial y en Próximos Bolos.`);
   };
 
@@ -2848,9 +2874,9 @@ export default function CharangaSaraoApp() {
                           <button
                             onClick={() => abrirModalConfirmarPresupuesto(b)}
                             className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition cursor-pointer"
-                            title="Revisar datos y confirmar bolo"
+                            title={b.presupuestacionConfirmada ? "Revisar datos y confirmar definitivamente el bolo" : "Revisar datos y confirmar que se ha presupuestado"}
                           >
-                            <Check className="w-4 h-4"/> ✓ Confirmar Bolo
+                            <Check className="w-4 h-4"/> ✓ {b.presupuestacionConfirmada ? 'Confirmar Bolo' : 'Confirmar Presupuestación'}
                           </button>
                           <button
                             onClick={() => rechazarBoloPresupuestado(b.id, b.lugar)}
@@ -2880,13 +2906,13 @@ export default function CharangaSaraoApp() {
             <div className="bg-zinc-900 border border-emerald-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center gap-2 mb-2">
                 <Check className="w-6 h-6 text-emerald-400"/>
-                <h3 className="text-lg font-black text-white">Confirmar Bolo Presupuestado</h3>
+                <h3 className="text-lg font-black text-white">{bolos.find(b => b.id === presupuestoAConfirmarId)?.presupuestacionConfirmada ? 'Confirmar Bolo Definitivamente' : 'Confirmar Presupuestación'}</h3>
               </div>
               <p className="text-xs text-zinc-400 mb-4">
-                Revisa o modifica cualquier dato (horario, precio final, fecha...) antes de confirmar. Al confirmar, pasará a color <strong>verde</strong> en el calendario y se abrirán las asistencias.
+                Revisa o modifica los datos del presupuesto. {bolos.find(b => b.id === presupuestoAConfirmarId)?.presupuestacionConfirmada ? 'Al confirmar definitivamente, el bolo pasará a color verde y se abrirán las asistencias.' : 'Al confirmar la presupuestación, el evento seguirá pendiente y podrás confirmar el bolo en un segundo paso.'}
               </p>
 
-              <form onSubmit={confirmarBoloPresupuestadoDefinitivo} className="space-y-3">
+              <form onSubmit={bolos.find(b => b.id === presupuestoAConfirmarId)?.presupuestacionConfirmada ? confirmarBoloPresupuestadoDefinitivo : confirmarPresupuestacion} className="space-y-3">
                 <div>
                   <label className="text-[11px] font-bold text-emerald-400 block mb-1">Lugar del Bolo:</label>
                   <input
@@ -2970,7 +2996,7 @@ export default function CharangaSaraoApp() {
 
                 <div className="flex gap-2 pt-3">
                   <button type="submit" className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black py-2.5 rounded-xl text-sm shadow-lg cursor-pointer">
-                    ✓ Confirmar Bolo
+                    ✓ {bolos.find(b => b.id === presupuestoAConfirmarId)?.presupuestacionConfirmada ? 'Confirmar Bolo' : 'Confirmar Presupuestación'}
                   </button>
                   <button
                     type="button"
@@ -3713,7 +3739,7 @@ export default function CharangaSaraoApp() {
                                 onClick={() => abrirModalConfirmarPresupuesto(boloActual)}
                                 className="flex-1 sm:flex-none justify-center bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow cursor-pointer"
                               >
-                                <Check className="w-4 h-4"/> ✓ Confirmar Bolo
+                                <Check className="w-4 h-4"/> ✓ {boloActual.presupuestacionConfirmada ? 'Confirmar Bolo' : 'Confirmar Presupuestación'}
                               </button>
                               <button
                                 onClick={() => rechazarBoloPresupuestado(boloActual.id, boloActual.lugar)}
