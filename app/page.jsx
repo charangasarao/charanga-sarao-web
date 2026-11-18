@@ -520,6 +520,43 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  const enviarNotificacionBoloConEnlace = async ({ titulo, mensaje, url }) => {
+    try {
+      const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
+      const tokens = [...new Set(
+        snapshot.docs
+          .map(docSnap => docSnap.data()?.token)
+          .filter(token => typeof token === 'string' && token.trim())
+          .map(token => token.trim())
+      )];
+
+      if (tokens.length === 0) {
+        console.warn('No hay tokens FCM guardados para enviar la notificación del bolo.');
+        return;
+      }
+
+      for (let index = 0; index < tokens.length; index += 500) {
+        const response = await fetch('/api/enviar-notificacion-bolo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo,
+            mensaje,
+            url,
+            tokens: tokens.slice(index, index + 500)
+          })
+        });
+        const result = await response.json();
+        if (!response.ok || result.success !== true) {
+          throw new Error(result.error || 'No se pudo enviar la notificación del bolo.');
+        }
+      }
+    } catch (error) {
+      console.error('Error enviando la notificación del bolo:', error);
+      alert('El bolo se ha guardado, pero no se pudo enviar la notificación push.');
+    }
+  };
+
   // Avisos nuevos de cambios: flujo independiente del sistema antiguo.
   const enviarNotificacionCambio = async ({ type, previousEvent, currentEvent = null }) => {
     try {
@@ -4925,18 +4962,20 @@ export default function CharangaSaraoApp() {
                 setShowModalBolo(false);
                 const guardadoEnNube = await guardarEnNube(null, nuevosBolos, null);
                 if (guardadoEnNube) {
-                  await enviarNotificacionAUsuarios({
-                    titulo: esEns
-                      ? 'Nuevo ensayo en el calendario'
-                      : tipoCreacionEvento === 'presupuestado'
-                        ? 'Solicitud de presupuesto'
-                        : 'Nuevo bolo en el calendario',
-                    mensaje: esEns
-                      ? `Tenemos nuevo ENSAYO fijado panzabucheeee: ${nuevoBolo.lugar}`
-                      : tipoCreacionEvento === 'presupuestado'
-                        ? `Nos han solicitado presupuesto para este bolo: ${nuevoBolo.lugar}`
+                  if (tipoCreacionEvento === 'presupuestado') {
+                    await enviarNotificacionBoloConEnlace({
+                      titulo: 'Solicitud de presupuesto',
+                      mensaje: `Nos han solicitado presupuesto para este bolo: ${nuevoBolo.lugar}`,
+                      url: `/?evento=${encodeURIComponent(String(nuevoBolo.id))}`
+                    });
+                  } else {
+                    await enviarNotificacionAUsuarios({
+                      titulo: esEns ? 'Nuevo ensayo en el calendario' : 'Nuevo bolo en el calendario',
+                      mensaje: esEns
+                        ? `Tenemos nuevo ENSAYO fijado panzabucheeee: ${nuevoBolo.lugar}`
                         : `Tenemos nuevo BOLO croquetoooooo: ${nuevoBolo.titulo || nuevoBolo.lugar}`
-                  });
+                    });
+                  }
                 }
               }} className="space-y-3">
 
