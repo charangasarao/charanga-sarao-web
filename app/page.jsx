@@ -691,6 +691,74 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  const notificarBajaUrgencia = async (bolo, miembro) => {
+    try {
+      const responsables = miembros.filter(m =>
+        m.roles?.includes('admin') ||
+        (m.roles?.includes('jefe_cuerda') && m.cuerda === miembro.cuerda)
+      );
+      const idsResponsables = new Set(responsables.map(m => String(m.id ?? m.nombre)));
+      const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
+      const tokens = [...new Set(snapshot.docs
+        .filter(d => idsResponsables.has(String(d.data()?.userId)))
+        .map(d => d.data()?.token)
+        .filter(token => typeof token === 'string' && token.trim())
+        .map(token => token.trim())
+      )];
+      if (!tokens.length) {
+        console.warn('No hay dispositivos registrados para el jefe de cuerda o administración de esta baja.');
+        return;
+      }
+      for (let i = 0; i < tokens.length; i += 500) {
+        const response = await fetch('/api/enviar-notificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo: 'Baja de disponibilidad por urgencia',
+            mensaje: `${miembro.nombre} finalmente no puede asistir al bolo de ${bolo.lugar} (${bolo.fecha}).`,
+            tokens: tokens.slice(i, i + 500)
+          })
+        });
+        const result = await response.json();
+        if (!response.ok || result.success !== true) {
+          throw new Error(result.error || 'No se pudo enviar el aviso de baja.');
+        }
+      }
+    } catch (error) {
+      console.error('Error notificando la baja por urgencia:', error);
+      alert('La baja se ha guardado, pero no se pudo enviar la notificación al jefe de cuerda y administración.');
+    }
+  };
+
+  const registrarBajaUrgencia = async (boloId) => {
+    const bolo = bolos.find(b => String(b.id) === String(boloId));
+    const miembro = miembros.find(m => String(m.id) === String(usuarioActual.id)) || usuarioActual;
+    if (!bolo || bolo.estadoBolo !== 'confirmado' || bolo.estadoBolo === 'ensayo') return;
+    if (miembro.disponibilidadBolos?.[boloId]?.estado !== 'puedo') {
+      alert('Esta opción solo está disponible si habías confirmado que podías asistir.');
+      return;
+    }
+    if ((bolo.bajasUrgencia || []).some(b => String(b.miembroId) === String(miembro.id))) {
+      alert('Ya has comunicado que no puedes asistir a este bolo.');
+      return;
+    }
+    if (!confirm(`¿Comunicar que finalmente no puedes asistir al bolo de ${bolo.lugar}? Se te retirará del organigrama y se avisará a tu jefe de cuerda y administración.`)) return;
+    registrarSnapshot();
+    const nuevaBaja = {
+      miembroId: miembro.id,
+      nombre: miembro.nombre,
+      cuerda: miembro.cuerda,
+      fecha: new Date().toISOString()
+    };
+    const nuevosBolos = bolos.map(b => String(b.id) === String(boloId)
+      ? { ...b, bajasUrgencia: [...(b.bajasUrgencia || []).filter(x => String(x.miembroId) !== String(miembro.id)), nuevaBaja] }
+      : b
+    );
+    setBolos(nuevosBolos);
+    const guardado = await guardarEnNube(null, nuevosBolos, null);
+    if (guardado) await notificarBajaUrgencia(bolo, miembro);
+  };
+
   const setDisponibilidadBolo = async (boloId, estado, instrumentoElegido = null) => {
     registrarSnapshot();
 
@@ -2897,10 +2965,14 @@ export default function CharangaSaraoApp() {
                         )}
 
                         {esGestorBolos && (() => {
-                          const respuestas = miembros.map(m => m.disponibilidadBolos?.[b.id]?.estado).filter(Boolean);
+                          const respuestasMiembros = miembros
+                            .map(m => ({ ...m, respuesta: m.disponibilidadBolos?.[b.id]?.estado }))
+                            .filter(m => ['puedo', 'tal_vez', 'no'].includes(m.respuesta));
+                          const respuestas = respuestasMiembros.map(m => m.respuesta);
                           const puedo = respuestas.filter(estado => estado === 'puedo').length;
                           const talVez = respuestas.filter(estado => estado === 'tal_vez').length;
                           const noPuedo = respuestas.filter(estado => estado === 'no').length;
+                          const listaPorEstado = estado => respuestasMiembros.filter(m => m.respuesta === estado);
                           return (
                             <div className="pt-3 border-t border-amber-500/20">
                               <p className="text-[10px] font-black uppercase tracking-wide text-amber-300 mb-1.5">Disponibilidad de la plantilla</p>
@@ -2909,6 +2981,22 @@ export default function CharangaSaraoApp() {
                                 <span className="text-amber-300">Tal vez: {talVez}</span>
                                 <span className="text-rose-300">No puedo: {noPuedo}</span>
                                 <span className="text-zinc-400">Sin responder: {Math.max(0, miembros.length - respuestas.length)}</span>
+                              </div>
+                              <div className="mt-3 grid gap-2 text-[11px]">
+                                {[
+                                  { estado: 'puedo', titulo: 'Puedo', color: 'text-emerald-300' },
+                                  { estado: 'tal_vez', titulo: 'Tal vez', color: 'text-amber-300' },
+                                  { estado: 'no', titulo: 'No puedo', color: 'text-rose-300' }
+                                ].map(grupo => (
+                                  <div key={grupo.estado}>
+                                    <p className={`font-black ${grupo.color}`}>{grupo.titulo}</p>
+                                    <p className="text-zinc-300">
+                                      {listaPorEstado(grupo.estado).length
+                                        ? listaPorEstado(grupo.estado).map(m => m.nombre).join(' · ')
+                                        : 'Nadie todavía'}
+                                    </p>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           );
@@ -3862,9 +3950,12 @@ export default function CharangaSaraoApp() {
                   }
 
                   const idsDesconvocados = (boloActual.desconvocados || []).map(String);
+                  const bajasUrgencia = boloActual.bajasUrgencia || [];
+                  const idsBajaUrgencia = bajasUrgencia.map(b => String(b.miembroId));
                   const dispoPuedo = miembros.filter(m =>
                     m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo' &&
-                    !idsDesconvocados.includes(String(m.id))
+                    !idsDesconvocados.includes(String(m.id)) &&
+                    !idsBajaUrgencia.includes(String(m.id))
                   );
                   const listaDesconvocados = miembros.filter(m =>
                     idsDesconvocados.includes(String(m.id)) &&
@@ -3872,11 +3963,13 @@ export default function CharangaSaraoApp() {
                   );
                   const dispoTalVez = miembros.filter(m =>
                     m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez' &&
-                    !idsDesconvocados.includes(String(m.id))
+                    !idsDesconvocados.includes(String(m.id)) &&
+                    !idsBajaUrgencia.includes(String(m.id))
                   );
                   const dispoNo = miembros.filter(m =>
                     m.disponibilidadBolos?.[boloActual.id]?.estado === 'no' &&
-                    !idsDesconvocados.includes(String(m.id))
+                    !idsDesconvocados.includes(String(m.id)) &&
+                    !idsBajaUrgencia.includes(String(m.id))
                   );
                   const musicosExtras = boloActual.musicosExtras || [];
                   const vestuarioActual = OPCIONES_VESTUARIO.find(v => v.id === boloActual.vestuario) || OPCIONES_VESTUARIO[0];
@@ -3953,6 +4046,16 @@ export default function CharangaSaraoApp() {
                               🔄 Cambiar asistencia
                             </button>
                           )}
+                          {boloActual.estadoBolo === 'confirmado' && !esAdmin && !esPerfilExtra &&
+                            miDispo?.estado === 'puedo' &&
+                            !idsBajaUrgencia.includes(String(usuarioActual.id)) && (
+                              <button
+                                onClick={() => registrarBajaUrgencia(boloActual.id)}
+                                className="text-xs bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 font-black px-3 py-2 rounded-xl transition"
+                              >
+                                No puedo (urgencia)
+                              </button>
+                            )}
                         </div>
                       </div>
 
@@ -4232,6 +4335,21 @@ export default function CharangaSaraoApp() {
                             )}
                           </div>
                         </>
+                      )}
+
+                      {bajasUrgencia.length > 0 && (
+                        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
+                          <h4 className="font-bold text-rose-300 text-xs uppercase tracking-wider mb-2">
+                            🚨 Bajas por urgencia ({bajasUrgencia.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {bajasUrgencia.map(baja => (
+                              <span key={String(baja.miembroId)} className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-xs text-rose-200">
+                                {baja.nombre} · {baja.cuerda}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       )}
 
                       {/* PARTICIPANTES: CONFIRMADOS */}
