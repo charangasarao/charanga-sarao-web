@@ -731,7 +731,7 @@ export default function CharangaSaraoApp() {
             tipo,
             nombre: persona.nombre,
             [campo]: valor,
-            ...(campo === 'asistio' ? { asistenciaRegistrada: true } : {})
+            ...(campo === 'asistio' ? { asistenciaRegistrada: true, asistenciaValidadaManualmente: true } : {})
           }
         }
       };
@@ -1942,11 +1942,11 @@ export default function CharangaSaraoApp() {
   );
   const misBolosAsistidos = misBolosDisponibles.filter(b => {
     const pago = b.pagosMiembros?.[`miembro-${usuarioActual.id}`] || {};
-    return pago.asistenciaRegistrada === true && pago.asistio === true;
+    return pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true && pago.asistio === true;
   });
   const misBolosNoAsistidos = misBolosDisponibles.filter(b => {
     const pago = b.pagosMiembros?.[`miembro-${usuarioActual.id}`] || {};
-    return pago.asistenciaRegistrada === true && pago.asistio === false;
+    return pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true && pago.asistio === false;
   });
   const porcentajeAsistencia = misBolosDisponibles.length > 0
     ? Math.round((misBolosAsistidos.length / misBolosDisponibles.length) * 100)
@@ -1989,11 +1989,11 @@ export default function CharangaSaraoApp() {
           <span>Gasolina: <strong className="text-amber-300">{(Number(pago.gasolina) || 0).toFixed(2)} €</strong></span>
           <span>Km: <strong className="text-white">{Number(pago.kilometros) || 0}</strong></span>
           <span>Asistencia: <strong className={
-            disponibilidadPersona?.estado === 'no' || (pago.asistenciaRegistrada && !pago.asistio)
+            disponibilidadPersona?.estado === 'no' || (pago.asistenciaValidadaManualmente && pago.asistenciaRegistrada && !pago.asistio)
               ? 'text-rose-300'
               : disponibilidadPersona?.estado === 'tal_vez'
                 ? 'text-amber-300'
-                : pago.asistenciaRegistrada
+                : pago.asistenciaValidadaManualmente && pago.asistenciaRegistrada
                   ? 'text-emerald-300'
                   : 'text-zinc-400'
           }>
@@ -2001,7 +2001,7 @@ export default function CharangaSaraoApp() {
               ? 'No disponible'
               : disponibilidadPersona?.estado === 'tal_vez'
                 ? 'En duda'
-                : pago.asistenciaRegistrada
+                : pago.asistenciaValidadaManualmente && pago.asistenciaRegistrada
                   ? (pago.asistio ? 'Realizado' : 'No asistió')
                   : 'Sin confirmar'}
           </strong></span>
@@ -2010,7 +2010,7 @@ export default function CharangaSaraoApp() {
         {esAdmin && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
             <label className="flex items-center gap-1.5 text-zinc-300">
-              <input type="checkbox" checked={pago.asistenciaRegistrada === true && pago.asistio === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', e.target.checked)} />
+              <input type="checkbox" checked={pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true && pago.asistio === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', e.target.checked)} />
               Asistió
             </label>
             <label className="flex items-center gap-1.5 text-zinc-300">
