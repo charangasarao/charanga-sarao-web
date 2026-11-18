@@ -2964,7 +2964,7 @@ export default function CharangaSaraoApp() {
                           </div>
                         )}
 
-                        {esGestorBolos && (() => {
+                        {esAdmin && (() => {
                           const respuestasMiembros = miembros
                             .map(m => ({ ...m, respuesta: m.disponibilidadBolos?.[b.id]?.estado }))
                             .filter(m => ['puedo', 'tal_vez', 'no'].includes(m.respuesta));
