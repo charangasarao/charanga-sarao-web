@@ -2211,7 +2211,7 @@ export default function CharangaSaraoApp() {
                 <span className="text-xs font-bold text-fuchsia-400 mt-4 block">&rarr; Ver canciones ({CANCIONES.length})</span>
               </button>
 
-              <div onClick={() => setPestañaActiva('presupuestos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-amber-500/30 hover:border-amber-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
+              <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-amber-500/30 hover:border-amber-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
                 <div>
                   <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><ClipboardList className="w-6 h-6"/></div>
                   <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bolos Presupuestados</h3>
@@ -3663,7 +3663,7 @@ export default function CharangaSaraoApp() {
                           )}
                         </div>
                         <p className="text-xs text-zinc-400 border-t border-amber-500/20 pt-3">
-                          Este bolo aún no ha sido aceptado. En cuanto se confirme con el tick (✓), pasará a color verde y se habilitará la votación de asistencia, coches y vestuario.
+                          Este bolo aún está pendiente de aceptación. Ya puedes indicar tu disponibilidad; tu respuesta se conservará si el bolo se confirma. Cuando pase a verde, se habilitarán también la gestión de coches y el vestuario.
                         </p>
                       </div>
                     );
