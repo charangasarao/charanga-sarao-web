@@ -275,6 +275,8 @@ export default function CharangaSaraoApp() {
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
   const [boloDisponibilidadAbiertoId, setBoloDisponibilidadAbiertoId] = useState(null);
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
+  const [calendarZoom, setCalendarZoom] = useState(1);
+  const calendarPinchRef = React.useRef(null);
 
   // Modales Bolos (Añadir, Editar, Eliminar)
   const [showModalBolo, setShowModalBolo] = useState(false);
@@ -3663,6 +3665,12 @@ export default function CharangaSaraoApp() {
                     </h3>
                   </div>
 
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => setCalendarZoom(z => Math.max(0.65, +(z - 0.1).toFixed(2)))} className="w-8 h-8 rounded-lg bg-zinc-800 text-white font-black" aria-label="Alejar calendario">−</button>
+                    <span className="text-[10px] text-zinc-400 tabular-nums w-10 text-center">{Math.round(calendarZoom * 100)}%</span>
+                    <button type="button" onClick={() => setCalendarZoom(z => Math.min(1.45, +(z + 0.1).toFixed(2)))} className="w-8 h-8 rounded-lg bg-zinc-800 text-white font-black" aria-label="Acercar calendario">+</button>
+                    <button type="button" onClick={() => setCalendarZoom(1)} className="text-[10px] text-green-300 font-bold px-1.5">Reset</button>
+                  </div>
                   <select
                     value={mesIndexActivo}
                     onChange={e => setMesIndexActivo(parseInt(e.target.value))}
@@ -3674,8 +3682,26 @@ export default function CharangaSaraoApp() {
                   </select>
                 </div>
 
-                <div className="max-h-[420px] overflow-auto rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-2 scrollbar-thin scrollbar-thumb-zinc-700">
-                  <div className="min-w-[680px]">
+                <div
+                  className="max-h-[420px] overflow-auto rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-2 scrollbar-thin scrollbar-thumb-zinc-700"
+                  onTouchStart={e => {
+                    if (e.touches.length === 2) {
+                      const dx = e.touches[0].clientX - e.touches[1].clientX;
+                      const dy = e.touches[0].clientY - e.touches[1].clientY;
+                      calendarPinchRef.current = { distance: Math.hypot(dx, dy), zoom: calendarZoom };
+                    }
+                  }}
+                  onTouchMove={e => {
+                    if (e.touches.length === 2 && calendarPinchRef.current) {
+                      const dx = e.touches[0].clientX - e.touches[1].clientX;
+                      const dy = e.touches[0].clientY - e.touches[1].clientY;
+                      const distance = Math.hypot(dx, dy);
+                      setCalendarZoom(Math.min(1.45, Math.max(0.65, calendarPinchRef.current.zoom * distance / calendarPinchRef.current.distance)));
+                    }
+                  }}
+                  onTouchEnd={e => { if (e.touches.length < 2) calendarPinchRef.current = null; }}
+                >
+                  <div style={{ zoom: calendarZoom }} className="min-w-[680px]">
                     
                     <div className="grid grid-cols-7 gap-2 text-center text-xs sticky top-0 bg-zinc-950/95 backdrop-blur-md z-20 py-2 border-b border-zinc-800 mb-2">
                       {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(d => (
@@ -4005,16 +4031,7 @@ export default function CharangaSaraoApp() {
                               🔄 Cambiar asistencia
                             </button>
                           )}
-                          {boloActual.estadoBolo === 'confirmado' && !esAdmin && !esPerfilExtra &&
-                            miDispo?.estado === 'puedo' &&
-                            !idsBajaUrgencia.includes(String(usuarioActual.id)) && (
-                              <button
-                                onClick={() => registrarBajaUrgencia(boloActual.id)}
-                                className="text-xs bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 font-black px-3 py-2 rounded-xl transition"
-                              >
-                                No puedo (urgencia)
-                              </button>
-                            )}
+
                         </div>
                       </div>
 
@@ -4340,6 +4357,14 @@ export default function CharangaSaraoApp() {
                                       </span>
                                       <p className="font-bold text-sm text-zinc-100 mt-0.5">{m.nombre}</p>
                                       <p className="text-xs text-emerald-300 font-bold">Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
+                                      {String(m.id) === String(usuarioActual.id) && boloActual.estadoBolo === 'confirmado' && !esAdmin && !esPerfilExtra && !idsBajaUrgencia.includes(String(usuarioActual.id)) && (
+                                        <button
+                                          onClick={() => registrarBajaUrgencia(boloActual.id)}
+                                          className="mt-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 border border-rose-400/50 text-white font-black text-[10px] px-3 py-1.5 rounded-lg shadow-lg transition"
+                                        >
+                                          No disponibilidad
+                                        </button>
+                                      )}
                                     </div>
                                     <div className="flex items-center gap-1">
                                       {puedeDesconvocarMiembro(m.cuerda) && (
@@ -5557,7 +5582,7 @@ export default function CharangaSaraoApp() {
       </main>
 
       {/* BARRA INFERIOR */}
-      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-2.5 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto">
+      <nav className="fixed bottom-3 left-1/2 -translate-x-1/2 bg-white/10 border border-white/25 px-2.5 py-2 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-2xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto overscroll-x-contain touch-pan-x snap-x scrollbar-none" style={{ WebkitBackdropFilter: 'blur(24px) saturate(190%)', scrollbarWidth: 'none' }}>
         {[
           { id: 'landing', label: 'Inicio', icon: Home },
           { id: 'bolos', label: 'Bolos', icon: CalendarIcon },
@@ -5572,7 +5597,7 @@ export default function CharangaSaraoApp() {
           const Icon = tab.icon;
           const activa = pestañaActiva === tab.id;
           return (
-            <button key={tab.id} onClick={() => { setPestañaActiva(tab.id); if (tab.id !== 'bolos') setBoloSeleccionadoId(null); }} className={`flex items-center gap-1.5 px-2.5 py-2.5 rounded-xl text-xs font-black transition shrink-0 ${activa ? 'bg-green-500 text-black shadow-lg scale-105' : 'text-zinc-400 hover:text-white'}`}>
+            <button key={tab.id} onClick={() => { setPestañaActiva(tab.id); if (tab.id !== 'bolos') setBoloSeleccionadoId(null); }} className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-black transition-all duration-200 shrink-0 snap-center ${activa ? 'bg-white/85 text-zinc-950 shadow-[0_2px_12px_rgba(255,255,255,0.28)]' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
               <Icon className="w-4 h-4"/>
               <span className="hidden md:inline">{tab.label}</span>
             </button>
