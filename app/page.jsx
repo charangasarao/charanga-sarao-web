@@ -2112,10 +2112,6 @@ export default function CharangaSaraoApp() {
   const renderDetallePago = (persona, tipo) => {
     const clavePago = `${tipo}-${persona.id}`;
     const pago = boloActual?.pagosMiembros?.[clavePago] || {};
-    const disponibilidadPersona = tipo === 'miembro'
-      ? (miembros.find(miembro => miembro.id === persona.id) || (usuarioActual.id === persona.id ? usuarioActual : null))
-        ?.disponibilidadBolos?.[boloActual?.id]
-      : null;
     const guardarImporte = (campo, valor) => {
       const importe = Number.parseFloat(valor);
       guardarPagoMiembro(boloActual.id, persona, tipo, campo, Number.isFinite(importe) ? importe : 0);
