@@ -176,7 +176,8 @@ export async function GET(request) {
   try {
     const app = getAdminApp();
     const db = getFirestore(app);
-    const messaging = getMessaging(app);
+    const dryRun = new URL(request.url).searchParams.get("dryRun") === "1";
+    const messaging = dryRun ? null : getMessaging(app);
     const [dataSnapshot, tokenSnapshot] = await Promise.all([
       db.collection("charanga").doc("datos_generales").get(),
       db.collection("tokens_notificaciones").get(),
@@ -193,6 +194,8 @@ export async function GET(request) {
     let sent = 0;
     let skipped = 0;
     const errors = [];
+    const preview = [];
+    const withoutRegisteredDevice = [];
 
     for (const event of events) {
       if (!event?.id || !["confirmado", "ensayo"].includes(event.estadoBolo)) continue;
@@ -208,6 +211,40 @@ export async function GET(request) {
         else if (event.estadoBolo === "ensayo" && daysUntil === 1) type = "ensayo-24h";
         if (!type) continue;
 
+        if (dryRun) {
+          const userId = memberId(member);
+          const tokens = [...new Set(tokenDocs
+            .filter((item) => String(item.userId ?? "").trim() === userId)
+            .map((item) => String(item.token || "").trim())
+            .filter(Boolean))];
+          if (!tokens.length) {
+            withoutRegisteredDevice.push({
+              member: member.nombre || userId,
+              event: eventTitle(event),
+              type,
+            });
+            continue;
+          }
+
+          const markerId = dedupeId(type, event.id, userId, today);
+          const previousDelivery = await db.collection("notificaciones_programadas").doc(markerId).get();
+          let payload;
+          if (type === "availability") payload = availabilityReminder(event);
+          else if (type === "bolo-48h") payload = boloReminder(event, member);
+          else payload = ensayoReminder(event);
+
+          preview.push({
+            member: member.nombre || userId,
+            event: eventTitle(event),
+            eventDate: event.fecha,
+            type,
+            tokenDevices: tokens.length,
+            alreadyProcessedToday: previousDelivery.exists,
+            notification: payload,
+          });
+          continue;
+        }
+
         try {
           const result = await sendToMember({ db, messaging, tokenDocs, member, event, type, today });
           sent += result.sent;
@@ -216,6 +253,19 @@ export async function GET(request) {
           errors.push({ eventId: String(event.id), memberId: memberId(member), error: error instanceof Error ? error.message : "Error de envío" });
         }
       }
+    }
+
+    if (dryRun) {
+      return NextResponse.json({
+        success: true,
+        dryRun: true,
+        message: "Simulación completada: no se ha enviado ninguna notificación ni se ha modificado Firestore.",
+        date: today,
+        planned: preview.length,
+        alreadyProcessedToday: preview.filter((item) => item.alreadyProcessedToday).length,
+        withoutRegisteredDevice,
+        preview,
+      });
     }
 
     return NextResponse.json({ success: errors.length === 0, date: today, sent, skipped, errors });
