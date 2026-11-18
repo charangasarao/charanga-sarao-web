@@ -3794,7 +3794,10 @@ export default function CharangaSaraoApp() {
                     m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo' &&
                     !idsDesconvocados.includes(String(m.id))
                   );
-                  const listaDesconvocados = miembros.filter(m => idsDesconvocados.includes(String(m.id)));
+                  const listaDesconvocados = miembros.filter(m =>
+                    idsDesconvocados.includes(String(m.id)) &&
+                    (esAdmin || (esJefeCuerda && m.cuerda === usuarioActual.cuerda))
+                  );
                   const dispoTalVez = miembros.filter(m =>
                     m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez' &&
                     !idsDesconvocados.includes(String(m.id))
