@@ -277,6 +277,26 @@ export default function CharangaSaraoApp() {
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
   const [calendarZoom, setCalendarZoom] = useState(1);
   const calendarPinchRef = React.useRef(null);
+  const navGestureRef = React.useRef(null);
+  const [navGestureTab, setNavGestureTab] = useState(null);
+  const seleccionarPestanaInferior = (id) => {
+    setPestañaActiva(id);
+    if (id !== 'bolos') setBoloSeleccionadoId(null);
+  };
+  const detectarPestanaBajoDedo = (nav, x, y) => {
+    const botones = [...nav.querySelectorAll('button[data-nav-tab]')];
+    const encontrado = botones.find(b => {
+      const r = b.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top - 16 && y <= r.bottom + 16;
+    });
+    if (encontrado) return encontrado.dataset.navTab;
+    return botones.reduce((mejor, b) => {
+      const r = b.getBoundingClientRect();
+      const distancia = Math.abs(x - (r.left + r.right) / 2);
+      return !mejor || distancia < mejor.distancia ? { id: b.dataset.navTab, distancia } : mejor;
+    }, null)?.id || null;
+  };
+
 
   // Modales Bolos (Añadir, Editar, Eliminar)
   const [showModalBolo, setShowModalBolo] = useState(false);
@@ -5582,7 +5602,35 @@ export default function CharangaSaraoApp() {
       </main>
 
       {/* BARRA INFERIOR */}
-      <nav className="fixed bottom-3 left-1/2 -translate-x-1/2 bg-white/10 border border-white/25 px-2.5 py-2 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-2xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto overscroll-x-contain touch-pan-x snap-x scrollbar-none" style={{ WebkitBackdropFilter: 'blur(24px) saturate(190%)', scrollbarWidth: 'none' }}>
+      <nav
+        className="fixed bottom-3 left-1/2 -translate-x-1/2 bg-white/10 border border-white/30 px-2.5 py-2 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-2xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto scrollbar-none select-none"
+        style={{ WebkitBackdropFilter: 'blur(28px) saturate(200%)', scrollbarWidth: 'none', touchAction: 'none' }}
+        onTouchStart={e => {
+          if (e.touches.length !== 1) return;
+          const t = e.touches[0];
+          const id = detectarPestanaBajoDedo(e.currentTarget, t.clientX, t.clientY);
+          navGestureRef.current = { id, x: t.clientX, y: t.clientY, moved: false };
+        }}
+        onTouchMove={e => {
+          if (!navGestureRef.current || e.touches.length !== 1) return;
+          const t = e.touches[0];
+          const nav = e.currentTarget;
+          if (Math.abs(t.clientX - navGestureRef.current.x) > 7 || Math.abs(t.clientY - navGestureRef.current.y) > 7) navGestureRef.current.moved = true;
+          const id = detectarPestanaBajoDedo(nav, t.clientX, t.clientY);
+          navGestureRef.current.id = id;
+          setNavGestureTab(id);
+          const rect = nav.getBoundingClientRect();
+          if (t.clientX > rect.right - 24) nav.scrollLeft += 12;
+          else if (t.clientX < rect.left + 24) nav.scrollLeft -= 12;
+        }}
+        onTouchEnd={() => {
+          const gesto = navGestureRef.current;
+          navGestureRef.current = null;
+          setNavGestureTab(null);
+          if (gesto?.moved && gesto.id) seleccionarPestanaInferior(gesto.id);
+        }}
+        onTouchCancel={() => { navGestureRef.current = null; setNavGestureTab(null); }}
+      >
         {[
           { id: 'landing', label: 'Inicio', icon: Home },
           { id: 'bolos', label: 'Bolos', icon: CalendarIcon },
@@ -5597,7 +5645,7 @@ export default function CharangaSaraoApp() {
           const Icon = tab.icon;
           const activa = pestañaActiva === tab.id;
           return (
-            <button key={tab.id} onClick={() => { setPestañaActiva(tab.id); if (tab.id !== 'bolos') setBoloSeleccionadoId(null); }} className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-black transition-all duration-200 shrink-0 snap-center ${activa ? 'bg-white/85 text-zinc-950 shadow-[0_2px_12px_rgba(255,255,255,0.28)]' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
+            <button key={tab.id} data-nav-tab={tab.id} aria-label={tab.label} aria-current={activa ? 'page' : undefined} onClick={() => seleccionarPestanaInferior(tab.id)} className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-black transition-all duration-200 shrink-0 snap-center ${(navGestureTab || pestañaActiva) === tab.id ? 'bg-white/90 text-zinc-950 shadow-[0_2px_16px_rgba(255,255,255,0.38)] scale-110' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
               <Icon className="w-4 h-4"/>
               <span className="hidden md:inline">{tab.label}</span>
             </button>
