@@ -15,6 +15,7 @@ const {
   buildAvailabilityReminder,
   buildBoloReminder,
   buildEnsayoReminder,
+  getEventReminderDedupeKey,
   getFcmTokenGroups,
   getCalendarNotifications,
   getEventStart,
@@ -586,7 +587,12 @@ async function queueTimedEventReminders(calendarData, scheduledTime) {
 
           enqueueTasks.push(
             enqueueNotification({
-              dedupeKey: `bolo-48h:${eventId}`,
+              dedupeKey: getEventReminderDedupeKey(
+                "bolo-48h",
+                eventId,
+                calendarEvent.fecha,
+                calendarEvent.horaInicio,
+              ),
               userId,
               eventId,
               payload: buildBoloReminder(calendarEvent, member),
@@ -607,7 +613,12 @@ async function queueTimedEventReminders(calendarData, scheduledTime) {
 
           enqueueTasks.push(
             enqueueNotification({
-              dedupeKey: `ensayo-24h:${eventId}`,
+              dedupeKey: getEventReminderDedupeKey(
+                "ensayo-24h",
+                eventId,
+                calendarEvent.fecha,
+                calendarEvent.horaInicio,
+              ),
               userId,
               eventId,
               payload: buildEnsayoReminder(calendarEvent),

@@ -4,6 +4,7 @@ const {
   buildAvailabilityReminder,
   buildBoloReminder,
   buildEnsayoReminder,
+  getEventReminderDedupeKey,
   getFcmTokenGroups,
   getCalendarNotifications,
   getEventStart,
@@ -286,7 +287,7 @@ test("interpreta las horas del calendario en la zona horaria de Madrid", () => {
   );
 });
 
-test("activa los recordatorios de bolo y ensayo en el minuto exacto previsto", () => {
+test("activa los recordatorios en su hora exacta y tolera ejecuciones retrasadas", () => {
   const event = confirmedEvent({ fecha: "2027-08-15", horaInicio: "13:00h" });
   const boloReminderTime = new Date("2027-08-13T11:00:00.000Z");
   const ensayo = { ...event, estadoBolo: "ensayo" };
@@ -294,7 +295,11 @@ test("activa los recordatorios de bolo y ensayo en el minuto exacto previsto", (
   assert.equal(isEventReminderDue(event, 48, boloReminderTime), true);
   assert.equal(
     isEventReminderDue(event, 48, new Date("2027-08-13T11:01:00.000Z")),
-    false,
+    true,
+  );
+  assert.equal(
+    isEventReminderDue(event, 48, new Date("2027-08-13T12:15:00.000Z")),
+    true,
   );
   assert.equal(
     isEventReminderDue(event, 48, new Date("2027-08-13T10:59:59.000Z")),
@@ -305,6 +310,14 @@ test("activa los recordatorios de bolo y ensayo en el minuto exacto previsto", (
     true,
   );
   assert.equal(
+    isEventReminderDue(ensayo, 24, new Date("2027-08-14T12:10:00.000Z")),
+    true,
+  );
+  assert.equal(
+    isEventReminderDue(event, 48, new Date("2027-08-15T11:00:00.000Z")),
+    false,
+  );
+  assert.equal(
     isEventReminderDue(
       { ...event, fecha: "2027-08-15", horaInicio: "incompleta" },
       48,
@@ -312,6 +325,25 @@ test("activa los recordatorios de bolo y ensayo en el minuto exacto previsto", (
     ),
     false,
   );
+});
+
+test("mantiene clave estable en ejecuciones concurrentes y la cambia al reprogramar", async () => {
+  const getKey = (eventDate, eventTime, memberId = "member-1") =>
+    `${getEventReminderDedupeKey(
+      "bolo-48h",
+      "bolo-1",
+      eventDate,
+      eventTime,
+    )}:${memberId}`;
+  const expectedKey = getKey("2027-08-15", "13:00h");
+  const concurrentKeys = await Promise.all(
+    Array.from({ length: 20 }, async () => getKey("2027-08-15", "13:00h")),
+  );
+
+  assert.deepEqual(new Set(concurrentKeys), new Set([expectedKey]));
+  assert.notEqual(getKey("2027-08-16", "13:00h"), expectedKey);
+  assert.notEqual(getKey("2027-08-15", "14:00h"), expectedKey);
+  assert.notEqual(getKey("2027-08-15", "13:00h", "member-2"), expectedKey);
 });
 
 test("vuelve a validar disponibilidad antes del envío para detener avisos en cola", () => {
@@ -422,6 +454,16 @@ test("solo mantiene recordatorios de bolo para asistentes y eventos todavía vig
     isReminderDeliveryRelevant(
       reminder,
       { ...event, fecha: "2027-08-16" },
+      member,
+      "2027-08-13",
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    isReminderDeliveryRelevant(
+      reminder,
+      { ...event, horaInicio: "14:00h" },
       member,
       "2027-08-13",
       now,

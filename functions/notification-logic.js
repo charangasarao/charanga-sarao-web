@@ -56,6 +56,15 @@ function getMemberIds(members) {
   ];
 }
 
+function getEventReminderDedupeKey(
+  deliveryType,
+  eventId,
+  eventDate,
+  eventTime,
+) {
+  return `${deliveryType}:${getId(eventId)}:${eventDate}:${eventTime}`;
+}
+
 function getFcmTokenGroups(tokenDocuments) {
   const tokens = new Map();
   for (const document of Array.isArray(tokenDocuments) ? tokenDocuments : []) {
@@ -314,11 +323,9 @@ function isEventReminderDue(calendarEvent, hoursBefore, scheduledTime) {
   const reminderTime = new Date(
     eventStart.getTime() - hoursBefore * 60 * 60 * 1000,
   );
-  const difference = scheduledTime.getTime() - reminderTime.getTime();
+  const scheduledAt = scheduledTime.getTime();
   return (
-    difference >= 0 &&
-    difference < 60 * 1000 &&
-    eventStart.getTime() > scheduledTime.getTime()
+    scheduledAt >= reminderTime.getTime() && scheduledAt < eventStart.getTime()
   );
 }
 
@@ -492,6 +499,7 @@ module.exports = {
   buildBoloReminder,
   buildEnsayoReminder,
   formatDate,
+  getEventReminderDedupeKey,
   getFcmTokenGroups,
   getAssignedRoute,
   getCalendarNotifications,
