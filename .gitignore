@@ -5,6 +5,7 @@
 /functions/node_modules/
 .env*.local
 .env
+functions/.secret.local
 .next/
 out/
 build/

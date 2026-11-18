@@ -46,6 +46,22 @@ Configura la clave pública en el entorno de ejecución de Next.js como `VAPID_P
 
 Las Cloud Functions usan Node.js 22. `notifyOnCalendarChanges` conserva los avisos de nuevos bolos confirmados, ensayos y rutas; además avisa de cancelaciones de bolos confirmados y cambios de fecha, hora y vestuario. `sendAvailabilityReminders` se ejecuta a las 09:00 de `Europe/Madrid`, y `sendScheduledNotifications` comprueba cada minuto los recordatorios de 48 y 24 horas. Las entregas pendientes se registran en `push_notification_deliveries`, con deduplicación, exclusión de suscripciones caducadas y reintentos. La colección la administra Functions mediante Admin SDK; no requiere cambios en las reglas de Firestore ni índices compuestos. El acceso del cliente a `push_subscriptions` debe seguir limitado por las reglas existentes.
 
+La app web requiere Node.js 24.12 o posterior dentro de la serie 24.x, fijado para desarrollo en `.nvmrc`, por los requisitos de motor de las dependencias Firebase actuales. Cloud Functions conserva Node.js 22, compatible con `firebase-admin` y configurado independientemente en `functions/package.json`. El override de `@grpc/grpc-js` mantiene la versión corregida 1.14.7 dentro de Firebase Firestore; validar tras cada actualización de Firebase.
+
+Las pruebas integradas se pueden ejecutar sin conectar con producción, usando Java 21 o superior y un archivo local `functions/.secret.local` con valores ficticios (nunca copies claves reales):
+
+   ```env
+   VAPID_PUBLIC_KEY=emulator-not-a-key
+   VAPID_PRIVATE_KEY=emulator-not-a-private-key
+   VAPID_SUBJECT=mailto:emulator@example.invalid
+   ```
+
+   ```bash
+   npx --yes firebase-tools@15.36.0 emulators:exec --project demo-charanga-sarao --only firestore,functions,pubsub "npm --prefix functions test"
+   ```
+
+El archivo `functions/.secret.local` está excluido de Git. La prueba usa solo el proyecto `demo-charanga-sarao`, no hace envíos reales y elimina sus datos sintéticos.
+
 Para desplegar posteriormente, con autorización:
 
    ```bash

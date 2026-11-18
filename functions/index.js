@@ -12,6 +12,10 @@ const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const webpush = require("web-push");
 const {
+  createPendingDelivery,
+  getDeliveryId,
+} = require("./notification-delivery-store");
+const {
   buildAvailabilityReminder,
   buildBoloReminder,
   buildEnsayoReminder,
@@ -41,18 +45,6 @@ const DELIVERY_BATCH_SIZE = 100;
 const DELIVERY_LEASE_MS = 15 * 60 * 1000;
 const FCM_TOKEN_COLLECTION = "tokens_notificaciones";
 
-function getDeliveryId(value) {
-  return crypto.createHash("sha256").update(value).digest("hex");
-}
-
-function isAlreadyExists(error) {
-  return (
-    error?.code === 6 ||
-    error?.code === "already-exists" ||
-    error?.code === "ALREADY_EXISTS"
-  );
-}
-
 async function getSubscriptions(userId) {
   const subscriptions = await db
     .collection("push_subscriptions")
@@ -61,23 +53,6 @@ async function getSubscriptions(userId) {
   return subscriptions.docs.filter(
     (document) => !document.data().disabled && document.data().subscription,
   );
-}
-
-async function createPendingDelivery(deliveryId, deliveryData) {
-  const deliveryRef = db.collection(DELIVERY_COLLECTION).doc(deliveryId);
-  try {
-    await deliveryRef.create({
-      ...deliveryData,
-      status: "pending",
-      attemptCount: 0,
-      deliveredSubscriptionIds: [],
-      nextAttemptAt: Timestamp.fromMillis(0),
-      createdAt: FieldValue.serverTimestamp(),
-    });
-  } catch (error) {
-    if (isAlreadyExists(error)) return;
-    throw error;
-  }
 }
 
 async function enqueueNotification({
@@ -94,13 +69,14 @@ async function enqueueNotification({
   if (!userId) return;
 
   const deliveryId = getDeliveryId(`${dedupeKey}:${userId}`);
-  await createPendingDelivery(deliveryId, {
+  await createPendingDelivery(db, deliveryId, {
     userId,
     eventId: getId(eventId),
     payload,
-    ...(deliveryType
-      ? { deliveryType, eventDate, eventTime, reminderDate }
-      : {}),
+    ...(deliveryType ? { deliveryType } : {}),
+    ...(eventDate != null ? { eventDate } : {}),
+    ...(eventTime != null ? { eventTime } : {}),
+    ...(reminderDate != null ? { reminderDate } : {}),
     ...(excludeFcmDuplicates ? { excludeFcmDuplicates: true } : {}),
   });
 }
@@ -153,6 +129,7 @@ async function enqueueFcmRouteNotifications({ dedupeKey, eventId, payload }) {
   await Promise.all(
     tokens.map(({ token, documentIds }) =>
       createPendingDelivery(
+        db,
         getDeliveryId(`${dedupeKey}:fcm:${getDeliveryId(token)}`),
         {
           eventId: getId(eventId),
@@ -429,6 +406,7 @@ async function processDelivery(deliveryDocument, now) {
       }
 
       try {
+        configureWebPush();
         await webpush.sendNotification(
           subscriptionDocument.data().subscription,
           JSON.stringify(payload),
@@ -683,7 +661,6 @@ exports.sendScheduledNotifications = onSchedule(
       await queueTimedEventReminders(calendarData, scheduledTime);
     }
 
-    configureWebPush();
     await processDueDeliveries(new Date());
   },
 );
@@ -707,7 +684,6 @@ exports.sendAvailabilityReminders = onSchedule(
       await queueAvailabilityReminders(calendarSnapshot.data(), scheduledTime);
     }
 
-    configureWebPush();
     await processDueDeliveries(new Date());
   },
 );
