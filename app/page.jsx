@@ -2328,6 +2328,11 @@ export default function CharangaSaraoApp() {
                   </div>
                 </div>
               )}
+              {!esPerfilExtra && (
+                <p className="text-[10px] text-zinc-500 mt-2">
+                  El porcentaje se calcula sobre los bolos en los que respondiste «Puedo», excluyendo los que después te desconvocaron. «Tal vez» no cuenta como disponibilidad. La asistencia debe quedar registrada desde la ficha del bolo.
+                </p>
+              )}
 
               {esPerfilExtra ? (
                 <div className="mt-5 overflow-x-auto rounded-xl border border-zinc-800">
@@ -4287,7 +4292,7 @@ export default function CharangaSaraoApp() {
                           </div>
                         )}
 
-                        {listaDesconvocados.length > 0 && (
+                        {(esAdmin || esJefeCuerda) && listaDesconvocados.length > 0 && (
                           <div className="pt-3 border-t border-amber-500/20">
                             <h4 className="font-bold text-amber-300 text-xs uppercase tracking-wider mb-2">
                               🟠 Desconvocados ({listaDesconvocados.length})
