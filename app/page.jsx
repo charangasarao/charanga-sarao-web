@@ -703,8 +703,8 @@ export default function CharangaSaraoApp() {
               personaId: usuarioActual.id,
               tipo: 'miembro',
               nombre: usuarioActual.nombre,
-              asistio: estado === 'puedo',
-              asistenciaRegistrada: estado === 'puedo'
+              // La disponibilidad no registra por sí sola la asistencia real.
+              // La asistencia se marca después desde la ficha de pagos del evento.
             }
           }
         };
@@ -1936,6 +1936,22 @@ export default function CharangaSaraoApp() {
         : null) ||
       {}
   })).filter(({ pago }) => !esPerfilExtra || pago.asistio === true);
+  const misBolosDisponibles = bolosPerfil.filter(b =>
+    usuarioActual.disponibilidadBolos?.[b.id]?.estado === 'puedo' &&
+    !(b.desconvocados || []).map(String).includes(String(usuarioActual.id))
+  );
+  const misBolosAsistidos = misBolosDisponibles.filter(b => {
+    const pago = b.pagosMiembros?.[`miembro-${usuarioActual.id}`] || {};
+    return pago.asistenciaRegistrada === true && pago.asistio === true;
+  });
+  const misBolosNoAsistidos = misBolosDisponibles.filter(b => {
+    const pago = b.pagosMiembros?.[`miembro-${usuarioActual.id}`] || {};
+    return pago.asistenciaRegistrada === true && pago.asistio === false;
+  });
+  const porcentajeAsistencia = misBolosDisponibles.length > 0
+    ? Math.round((misBolosAsistidos.length / misBolosDisponibles.length) * 100)
+    : 0;
+
   const resumenPerfil = pagosPerfil.reduce((resumen, { pago }) => {
     if (pago.asistio !== true) return resumen;
     resumen.bolos += 1;
@@ -1993,6 +2009,10 @@ export default function CharangaSaraoApp() {
         </div>
         {esAdmin && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+            <label className="flex items-center gap-1.5 text-zinc-300">
+              <input type="checkbox" checked={pago.asistenciaRegistrada === true && pago.asistio === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', e.target.checked)} />
+              Asistió
+            </label>
             <label className="flex items-center gap-1.5 text-zinc-300">
               <input type="checkbox" checked={pago.pagado === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'pagado', e.target.checked)} />
               Pagado
