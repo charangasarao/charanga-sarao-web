@@ -688,7 +688,8 @@ export default function CharangaSaraoApp() {
 
     setMiembros(listaActualizada);
     let nuevosBolos = bolos;
-    if (estado) {
+    const boloDeDisponibilidad = bolos.find(b => b.id === boloId);
+    if (estado && boloDeDisponibilidad?.estadoBolo !== 'presupuestado') {
       nuevosBolos = bolos.map(b => {
         if (b.id !== boloId) return b;
         const clavePago = `miembro-${usuarioActual.id}`;
@@ -710,7 +711,7 @@ export default function CharangaSaraoApp() {
       });
       setBolos(nuevosBolos);
     }
-    await guardarEnNube(listaActualizada, estado ? nuevosBolos : null, null);
+    await guardarEnNube(listaActualizada, nuevosBolos !== bolos ? nuevosBolos : null, null);
   };
 
   const guardarPagoMiembro = async (boloId, persona, tipo, campo, valor) => {
@@ -2626,7 +2627,7 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* SECCIÓN: BOLOS PRESUPUESTADOS */}
-        {pestañaActiva === 'presupuestos' && (
+        {pestañaActiva === 'bolos' && (
           <div className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
@@ -5190,7 +5191,6 @@ export default function CharangaSaraoApp() {
           { id: 'perfil', label: 'Mi ficha', icon: Wallet },
           { id: 'ensayos', label: 'Ensayos', icon: Music },
           { id: 'letras', label: 'Letras de canciones', icon: FileText },
-          { id: 'presupuestos', label: 'Presupuestos', icon: ClipboardList },
           { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
           { id: 'facturas', label: 'Facturas', icon: FileText },
