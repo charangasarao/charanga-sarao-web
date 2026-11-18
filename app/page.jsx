@@ -2330,7 +2330,7 @@ export default function CharangaSaraoApp() {
               )}
               {!esPerfilExtra && (
                 <p className="text-[10px] text-zinc-500 mt-2">
-                  El porcentaje se calcula sobre los bolos en los que respondiste «Puedo», excluyendo los que después te desconvocaron. «Tal vez» no cuenta como disponibilidad. La asistencia debe quedar registrada desde la ficha del bolo.
+                  El porcentaje se calcula sobre los bolos en los que respondiste «Puedo», excluyendo los que después te desconvocaron. «Tal vez» no cuenta como disponibilidad. La asistencia se valida manualmente desde administración; los registros antiguos sin esa validación no se incluyen en estas estadísticas.
                 </p>
               )}
 
@@ -2381,14 +2381,15 @@ export default function CharangaSaraoApp() {
                     <p className="text-xs text-zinc-500 py-5">Todavía no hay bolos en el calendario.</p>
                   ) : pagosPerfil.map(({ bolo, pago }) => {
                     const disponibilidad = usuarioActual.disponibilidadBolos?.[bolo.id];
-                    const perdido = disponibilidad?.estado === 'no' || (pago.asistenciaRegistrada && pago.asistio === false);
+                    const asistenciaManual = pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true;
+                    const perdido = disponibilidad?.estado === 'no' || (asistenciaManual && pago.asistio === false);
                     const pagado = pago.asistio === true && pago.pagado === true;
                     return (
                       <button key={bolo.id} onClick={() => seleccionarBolo(bolo.id)} className={`snap-start shrink-0 w-48 text-left p-3.5 rounded-xl border transition ${perdido ? 'bg-rose-500/10 border-rose-500/40 text-rose-300' : pagado ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-black/50 border-zinc-700 text-zinc-100'}`}>
                         <span className={`block text-[10px] font-bold ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.fecha}</span>
                         <span className={`block mt-1 font-black truncate ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.lugar}</span>
                         <span className={`block mt-2 text-[10px] font-bold ${perdido ? 'text-rose-300' : pagado ? 'text-emerald-300' : 'text-zinc-400'}`}>
-                          {disponibilidad?.estado === 'no' ? 'No disponible' : perdido ? 'No asistió' : pagado ? 'Pagado' : pago.asistio === true ? 'Realizado · pendiente' : disponibilidad?.estado === 'tal_vez' ? 'En duda' : 'Sin confirmar'}
+                          {disponibilidad?.estado === 'no' ? 'No disponible'  : perdido ? 'No asistió' : pagado ? 'Pagado' : asistenciaManual && pago.asistio === true ? 'Realizado · pendiente' : disponibilidad?.estado === 'tal_vez' ? 'En duda' : 'Sin confirmar'}
                         </span>
                         {pago.asistio === true && (
                           <span className="block mt-1.5 space-y-0.5 text-[10px] text-zinc-300">
