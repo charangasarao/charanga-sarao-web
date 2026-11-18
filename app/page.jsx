@@ -1937,6 +1937,7 @@ export default function CharangaSaraoApp() {
       {}
   })).filter(({ pago }) => !esPerfilExtra || pago.asistio === true);
   const misBolosDisponibles = bolosPerfil.filter(b =>
+    !esBoloVigente(b.fecha) &&
     usuarioActual.disponibilidadBolos?.[b.id]?.estado === 'puedo' &&
     !(b.desconvocados || []).map(String).includes(String(usuarioActual.id))
   );
