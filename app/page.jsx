@@ -3662,44 +3662,44 @@ export default function CharangaSaraoApp() {
               {/* CONTENEDOR DEL CALENDARIO SCROLLEABLE CON CELDAS GRANDES */}
               <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 sm:p-4 mb-5">
                 
-                <div className="flex justify-between items-center mb-3 gap-2">
-                  <div className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between mb-3 gap-1.5 min-w-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => setMesIndexActivo(prev => Math.max(0, prev - 1))}
                       disabled={mesIndexActivo === 0}
-                      className="p-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
+                      className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
                       title="Mes anterior"
+                      aria-label="Mes anterior"
                     >
                       <ChevronLeft className="w-4 h-4"/>
                     </button>
                     <button
                       onClick={() => setMesIndexActivo(prev => Math.min(MESES_PERMITIDOS.length - 1, prev + 1))}
                       disabled={mesIndexActivo === MESES_PERMITIDOS.length - 1}
-                      className="p-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
+                      className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
                       title="Mes siguiente"
+                      aria-label="Mes siguiente"
                     >
                       <ChevronRight className="w-4 h-4"/>
                     </button>
-                    <h3 className="text-base sm:text-lg font-black text-white ml-1">
-                      {mesSeleccionado.label}
-                    </h3>
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => setCalendarZoom(z => Math.max(0.65, +(z - 0.1).toFixed(2)))} className="w-8 h-8 rounded-lg bg-zinc-800 text-white font-black" aria-label="Alejar calendario">−</button>
-                    <span className="text-[10px] text-zinc-400 tabular-nums w-10 text-center">{Math.round(calendarZoom * 100)}%</span>
-                    <button type="button" onClick={() => setCalendarZoom(z => Math.min(1.45, +(z + 0.1).toFixed(2)))} className="w-8 h-8 rounded-lg bg-zinc-800 text-white font-black" aria-label="Acercar calendario">+</button>
-                    <button type="button" onClick={() => setCalendarZoom(1)} className="text-[10px] text-green-300 font-bold px-1.5">Reset</button>
+                  <div className="flex items-center justify-end gap-1 min-w-0 flex-1">
+                    <button type="button" onClick={() => setCalendarZoom(z => Math.max(0.65, +(z - 0.1).toFixed(2)))} className="w-7 h-8 sm:w-8 sm:h-9 shrink-0 rounded-lg bg-zinc-800 text-white font-black" aria-label="Alejar calendario">−</button>
+                    <span className="text-[9px] sm:text-[10px] text-zinc-400 tabular-nums w-7 sm:w-9 text-center shrink-0">{Math.round(calendarZoom * 100)}%</span>
+                    <button type="button" onClick={() => setCalendarZoom(z => Math.min(1.45, +(z + 0.1).toFixed(2)))} className="w-7 h-8 sm:w-8 sm:h-9 shrink-0 rounded-lg bg-zinc-800 text-white font-black" aria-label="Acercar calendario">+</button>
+                    <button type="button" onClick={() => setCalendarZoom(1)} className="text-[9px] sm:text-[10px] text-green-300 font-bold px-1 shrink-0">Reset</button>
+                    <select
+                      value={mesIndexActivo}
+                      onChange={e => setMesIndexActivo(parseInt(e.target.value))}
+                      aria-label="Seleccionar mes y año"
+                      className="min-w-0 w-[104px] sm:w-[145px] bg-zinc-900 border border-zinc-700 text-[10px] sm:text-xs text-green-300 font-bold rounded-xl px-1.5 sm:px-2.5 py-2 outline-none focus:border-green-500"
+                    >
+                      {MESES_PERMITIDOS.map((m, idx) => (
+                        <option key={idx} value={idx}>{m.label}</option>
+                      ))}
+                    </select>
                   </div>
-                  <select
-                    value={mesIndexActivo}
-                    onChange={e => setMesIndexActivo(parseInt(e.target.value))}
-                    className="bg-zinc-900 border border-zinc-700 text-xs text-green-300 font-bold rounded-xl px-2.5 py-2 outline-none focus:border-green-500"
-                  >
-                    {MESES_PERMITIDOS.map((m, idx) => (
-                      <option key={idx} value={idx}>{m.label}</option>
-                    ))}
-                  </select>
                 </div>
 
                 <div
