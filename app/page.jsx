@@ -4196,9 +4196,18 @@ export default function CharangaSaraoApp() {
                                       <span className="text-[9px] font-black uppercase text-amber-300">{m.cuerda}</span>
                                       <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
                                     </div>
-                                    {puedeGestionarEste && (
-                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4"/></button>
-                                    )}
+                                    <div className="flex items-center gap-1">
+                                      {puedeDesconvocarMiembro(m.cuerda) && (
+                                        <button onClick={() => actualizarDesconvocatoria(m.id, m.cuerda, m.nombre, true)} className="text-amber-300 text-[10px] font-black px-1.5 py-1 rounded-lg hover:bg-amber-500/20">
+                                          Desconvocar
+                                        </button>
+                                      )}
+                                      {puedeGestionarEste && (
+                                        <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5" title="Borrar respuesta">
+                                          <Trash2 className="w-4 h-4"/>
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })}
@@ -4218,9 +4227,18 @@ export default function CharangaSaraoApp() {
                                       <span className="text-[9px] font-black uppercase text-rose-300">{m.cuerda}</span>
                                       <p className="font-bold text-sm text-rose-200 line-through decoration-rose-400/70 decoration-1">{m.nombre}</p>
                                     </div>
-                                    {puedeGestionarEste && (
-                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4"/></button>
-                                    )}
+                                    <div className="flex items-center gap-1">
+                                      {puedeDesconvocarMiembro(m.cuerda) && (
+                                        <button onClick={() => actualizarDesconvocatoria(m.id, m.cuerda, m.nombre, true)} className="text-amber-300 text-[10px] font-black px-1.5 py-1 rounded-lg hover:bg-amber-500/20">
+                                          Desconvocar
+                                        </button>
+                                      )}
+                                      {puedeGestionarEste && (
+                                        <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5" title="Borrar respuesta">
+                                          <Trash2 className="w-4 h-4"/>
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })}
