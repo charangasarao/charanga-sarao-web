@@ -1059,6 +1059,16 @@ export default function CharangaSaraoApp() {
     if (!guardado) return;
     setShowModalConfirmarPresupuesto(false);
     setPresupuestoAConfirmarId(null);
+    const fechaPresupuesto = editFechaBolo
+      ? new Date(`${editFechaBolo}T00:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : 'fecha por definir';
+    const horarioPresupuesto = editHoraInicioBolo?.trim()
+      ? ` a las ${editHoraInicioBolo.trim()}${editHoraFinBolo?.trim() ? ` - ${editHoraFinBolo.trim()}` : ''}`
+      : '';
+    await enviarNotificacionAUsuarios({
+      titulo: 'Presupuestación confirmada',
+      mensaje: `El bolo del ${fechaPresupuesto}${horarioPresupuesto} en ${editLugarBolo.trim()} se ha presupuestado.`
+    });
     alert(`Presupuestación de ${editLugarBolo.trim()} confirmada. Ahora puedes confirmar definitivamente el bolo cuando esté cerrado.`);
   };
 
@@ -4919,12 +4929,12 @@ export default function CharangaSaraoApp() {
                     titulo: esEns
                       ? 'Nuevo ensayo en el calendario'
                       : tipoCreacionEvento === 'presupuestado'
-                        ? 'Nuevo bolo presupuestado'
+                        ? 'Solicitud de presupuesto'
                         : 'Nuevo bolo en el calendario',
                     mensaje: esEns
                       ? `Tenemos nuevo ENSAYO fijado panzabucheeee: ${nuevoBolo.lugar}`
                       : tipoCreacionEvento === 'presupuestado'
-                        ? `Ha salido un nuevo bolo y se ha presupuestado: ${nuevoBolo.lugar}`
+                        ? `Nos han solicitado presupuesto para este bolo: ${nuevoBolo.lugar}`
                         : `Tenemos nuevo BOLO croquetoooooo: ${nuevoBolo.titulo || nuevoBolo.lugar}`
                   });
                 }
