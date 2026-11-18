@@ -2009,9 +2009,23 @@ export default function CharangaSaraoApp() {
         </div>
         {esAdmin && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-            <label className="flex items-center gap-1.5 text-zinc-300">
-              <input type="checkbox" checked={pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true && pago.asistio === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', e.target.checked)} />
-              Asistió
+            <label className="text-zinc-300">
+              Asistencia real
+              <select
+                value={pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true
+                  ? (pago.asistio ? 'si' : 'no')
+                  : 'pendiente'}
+                onChange={e => {
+                  if (e.target.value !== 'pendiente') {
+                    guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', e.target.value === 'si');
+                  }
+                }}
+                className="mt-1 w-full bg-black border border-zinc-700 rounded-lg px-2 py-1.5 text-white"
+              >
+                <option value="pendiente">Sin registrar</option>
+                <option value="si">Asistió</option>
+                <option value="no">No asistió</option>
+              </select>
             </label>
             <label className="flex items-center gap-1.5 text-zinc-300">
               <input type="checkbox" checked={pago.pagado === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'pagado', e.target.checked)} />
