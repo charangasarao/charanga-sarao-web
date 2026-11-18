@@ -3779,8 +3779,14 @@ export default function CharangaSaraoApp() {
                     !idsDesconvocados.includes(String(m.id))
                   );
                   const listaDesconvocados = miembros.filter(m => idsDesconvocados.includes(String(m.id)));
-                  const dispoTalVez = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez');
-                  const dispoNo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'no');
+                  const dispoTalVez = miembros.filter(m =>
+                    m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez' &&
+                    !idsDesconvocados.includes(String(m.id))
+                  );
+                  const dispoNo = miembros.filter(m =>
+                    m.disponibilidadBolos?.[boloActual.id]?.estado === 'no' &&
+                    !idsDesconvocados.includes(String(m.id))
+                  );
                   const musicosExtras = boloActual.musicosExtras || [];
                   const vestuarioActual = OPCIONES_VESTUARIO.find(v => v.id === boloActual.vestuario) || OPCIONES_VESTUARIO[0];
 
