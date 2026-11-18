@@ -3483,7 +3483,7 @@ export default function CharangaSaraoApp() {
                               )}
                             </div>
 
-                            <div className="space-y-1.5 mt-2">
+                            <div className="space-y-1 mt-1">
                               {bolosDelDia.map(b => {
                                 const esPres = b.estadoBolo === 'presupuestado';
                                 const esEns = b.estadoBolo === 'ensayo';
@@ -3494,7 +3494,7 @@ export default function CharangaSaraoApp() {
                                       e.stopPropagation();
                                       seleccionarBolo(b.id);
                                     }}
-                                    className={`p-2 rounded-xl cursor-pointer shadow transition text-left ${
+                                    className={`px-1.5 py-1 rounded-md cursor-pointer shadow transition text-left min-w-0 ${
                                       esEns
                                         ? 'bg-cyan-400 text-black hover:bg-cyan-300'
                                         : esPres
@@ -3505,26 +3505,21 @@ export default function CharangaSaraoApp() {
                                     {esEns ? (
                                       <>
                                         <p className="text-xs font-black leading-tight break-words">
-                                          🎵 Ensayo
+                                          Ensayo
                                         </p>
                                         <p className="text-[10px] font-bold opacity-90 leading-tight mt-0.5 break-words">
-                                          📍 {b.lugar}
+                                          {b.lugar}
                                         </p>
                                       </>
                                     ) : (
                                       <>
                                         <p className="text-xs font-black leading-tight break-words">
-                                          📍 {b.lugar}
+                                          {b.lugar}
                                         </p>
-                                        {b.titulo && (
-                                          <p className="text-[10px] font-bold opacity-85 leading-tight mt-0.5 break-words">
-                                            {b.titulo}
-                                          </p>
-                                        )}
                                       </>
                                     )}
-                                    <p className="text-[10px] font-extrabold mt-1 flex items-center gap-1 bg-black/15 px-1.5 py-0.5 rounded w-fit">
-                                      ⏰ {b.horaInicio || '13:00h'}{!esEns && b.horaFin ? ` - ${b.horaFin}` : ''}
+                                    <p className="text-[9px] font-semibold mt-0.5 leading-tight tabular-nums">
+                                      {b.horaInicio || 'Hora por definir'}{b.horaFin ? ` – ${b.horaFin}` : ''}
                                     </p>
                                   </div>
                                 );
