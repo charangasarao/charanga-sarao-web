@@ -1,8 +1,9 @@
 @import "tailwindcss";
+@import "./sarao-redesign.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #090d0a;
+  --foreground: #f3f7f1;
 }
 
 @theme inline {
@@ -12,15 +13,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
+  background:
+    radial-gradient(ellipse at 78% 0%, rgba(112, 190, 65, .09), transparent 34rem),
+    var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

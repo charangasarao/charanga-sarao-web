@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Charanga Sarao",
-  description: "Calendario y organización de Charanga Sarao",
+  title: "Sarao | Gestión interna",
+  description: "Panel de organización y gestión de Charanga Sarao.",
   appleWebApp: {
     capable: true,
     title: "Sarao",
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
