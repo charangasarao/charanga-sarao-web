@@ -1101,6 +1101,30 @@ export default function CharangaSaraoApp() {
     return false;
   };
 
+  const puedeDesconvocarMiembro = (cuerdaMiembro) =>
+    esAdmin || (esJefeCuerda && usuarioActual.cuerda === cuerdaMiembro);
+
+  const actualizarDesconvocatoria = async (miembroId, cuerdaMiembro, nombreMiembro, desconvocar) => {
+    if (!puedeDesconvocarMiembro(cuerdaMiembro)) {
+      alert('Solo administración o el jefe de la cuerda correspondiente pueden gestionar desconvocatorias.');
+      return;
+    }
+    const accion = desconvocar ? 'Desconvocar' : 'Volver a convocar';
+    if (!confirm(`¿${accion} a ${nombreMiembro} para este bolo?`)) return;
+    registrarSnapshot();
+    const nuevosBolos = bolos.map(b => {
+      if (b.id !== boloSeleccionadoId) return b;
+      const actuales = (b.desconvocados || []).map(String);
+      const id = String(miembroId);
+      const actualizados = desconvocar
+        ? [...new Set([...actuales, id])]
+        : actuales.filter(item => item !== id);
+      return { ...b, desconvocados: actualizados };
+    });
+    setBolos(nuevosBolos);
+    await guardarEnNube(null, nuevosBolos, null);
+  };
+
   const eliminarDisponibilidadMiembro = async (miembroId, cuerdaMiembro, nombreMiembro) => {
     if (!puedeEliminarAsistencia(cuerdaMiembro)) {
       alert(`Como jefe de cuerda, solo puedes descartar músicos de tu cuerda (${usuarioActual.cuerda}).`);
@@ -3703,7 +3727,12 @@ export default function CharangaSaraoApp() {
                     );
                   }
 
-                  const dispoPuedo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo');
+                  const idsDesconvocados = (boloActual.desconvocados || []).map(String);
+                  const dispoPuedo = miembros.filter(m =>
+                    m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo' &&
+                    !idsDesconvocados.includes(String(m.id))
+                  );
+                  const listaDesconvocados = miembros.filter(m => idsDesconvocados.includes(String(m.id)));
                   const dispoTalVez = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez');
                   const dispoNo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'no');
                   const musicosExtras = boloActual.musicosExtras || [];
@@ -4092,15 +4121,26 @@ export default function CharangaSaraoApp() {
                                       <p className="font-bold text-sm text-zinc-100 mt-0.5">{m.nombre}</p>
                                       <p className="text-xs text-emerald-300 font-bold">Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
                                     </div>
-                                    {puedeGestionarEste && (
-                                      <button 
-                                        onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} 
-                                        className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
-                                        title={`Descartar a ${m.nombre}`}
-                                      >
-                                        <Trash2 className="w-4 h-4"/>
-                                      </button>
-                                    )}
+                                    <div className="flex items-center gap-1">
+                                      {puedeDesconvocarMiembro(m.cuerda) && (
+                                        <button
+                                          onClick={() => actualizarDesconvocatoria(m.id, m.cuerda, m.nombre, true)}
+                                          className="text-amber-300 hover:bg-amber-500/20 p-1.5 rounded-xl transition text-[10px] font-black"
+                                          title={`Desconvocar a ${m.nombre}`}
+                                        >
+                                          Desconvocar
+                                        </button>
+                                      )}
+                                      {puedeGestionarEste && (
+                                        <button
+                                          onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)}
+                                          className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
+                                          title={`Borrar respuesta de ${m.nombre}`}
+                                        >
+                                          <Trash2 className="w-4 h-4"/>
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                   {renderDetallePago(m, 'miembro')}
                                 </div>
@@ -4184,6 +4224,44 @@ export default function CharangaSaraoApp() {
                                   </div>
                                 );
                               })}
+                            </div>
+                          </div>
+                        )}
+
+                        {listaDesconvocados.length > 0 && (
+                          <div className="pt-3 border-t border-amber-500/20">
+                            <h4 className="font-bold text-amber-300 text-xs uppercase tracking-wider mb-2">
+                              🟠 Desconvocados ({listaDesconvocados.length})
+                            </h4>
+                            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                              {listaDesconvocados
+                                .filter(m => esAdmin || (esJefeCuerda && m.cuerda === usuarioActual.cuerda))
+                                .map(m => (
+                                  <div key={m.id} className="p-3 rounded-2xl border bg-amber-500/10 border-amber-500/30 flex items-center justify-between gap-2">
+                                    <div>
+                                      <span className="text-[9px] font-black uppercase text-amber-300">{m.cuerda}</span>
+                                      <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
+                                      <p className="text-[10px] text-zinc-400">
+                                        Disponibilidad original: {m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo'
+                                          ? 'Puedo'
+                                          : m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez'
+                                            ? 'Tal vez'
+                                            : m.disponibilidadBolos?.[boloActual.id]?.estado === 'no'
+                                              ? 'No puedo'
+                                              : 'Sin respuesta'}
+                                      </p>
+                                    </div>
+                                    {puedeDesconvocarMiembro(m.cuerda) && (
+                                      <button
+                                        onClick={() => actualizarDesconvocatoria(m.id, m.cuerda, m.nombre, false)}
+                                        className="text-emerald-300 hover:bg-emerald-500/20 p-2 rounded-xl text-[10px] font-black"
+                                        title={`Volver a convocar a ${m.nombre}`}
+                                      >
+                                        Reactivar
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
                             </div>
                           </div>
                         )}
