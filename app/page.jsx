@@ -2308,6 +2308,27 @@ export default function CharangaSaraoApp() {
                 </span>
               </div>
 
+              {!esPerfilExtra && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5">
+                  <div className="bg-black/50 border border-emerald-500/20 rounded-2xl p-3">
+                    <p className="text-[10px] uppercase font-black text-emerald-300">Asistidos</p>
+                    <p className="text-2xl font-black text-white tabular-nums">{misBolosAsistidos.length}</p>
+                  </div>
+                  <div className="bg-black/50 border border-rose-500/20 rounded-2xl p-3">
+                    <p className="text-[10px] uppercase font-black text-rose-300">No asistidos</p>
+                    <p className="text-2xl font-black text-white tabular-nums">{misBolosNoAsistidos.length}</p>
+                  </div>
+                  <div className="bg-black/50 border border-amber-500/20 rounded-2xl p-3">
+                    <p className="text-[10px] uppercase font-black text-amber-300">Disponibles</p>
+                    <p className="text-2xl font-black text-white tabular-nums">{misBolosDisponibles.length}</p>
+                  </div>
+                  <div className="bg-black/50 border border-sky-500/20 rounded-2xl p-3">
+                    <p className="text-[10px] uppercase font-black text-sky-300">% Asistencia</p>
+                    <p className="text-2xl font-black text-white tabular-nums">{porcentajeAsistencia}%</p>
+                  </div>
+                </div>
+              )}
+
               {esPerfilExtra ? (
                 <div className="mt-5 overflow-x-auto rounded-xl border border-zinc-800">
                   {pagosPerfil.length === 0 ? (
