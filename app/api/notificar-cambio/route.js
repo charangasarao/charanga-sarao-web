@@ -69,7 +69,26 @@ export async function POST(request) {
       .filter(Boolean))];
 
     if (!tokens.length) {
-      return NextResponse.json({ success: true, sent: 0, reason: "No hay dispositivos registrados." });
+      return NextResponse.json({
+        success: true,
+        dryRun: request.nextUrl.searchParams.get("dryRun") === "1",
+        sent: 0,
+        tokenDevices: 0,
+        notification,
+        reason: "No hay dispositivos registrados."
+      });
+    }
+
+    if (request.nextUrl.searchParams.get("dryRun") === "1") {
+      return NextResponse.json({
+        success: true,
+        dryRun: true,
+        message: "Simulación completada: no se ha enviado ninguna notificación ni se ha escrito en Firestore.",
+        type,
+        eventId: String(previousEvent.id),
+        tokenDevices: tokens.length,
+        notification
+      });
     }
 
     const signature = createHash("sha256")
