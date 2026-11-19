@@ -1916,10 +1916,9 @@ export default function CharangaSaraoApp() {
     const numerica = texto.match(/\\d{1,2}[/-](\\d{1,2})/);
     return numerica ? Math.max(0, Math.min(11, Number(numerica[1]) - 1)) : -1;
   };
-  const fechaActualFinanzas = new Date();
+  // Meses fijos para que el render del servidor y el del navegador sean idénticos.
   const datosMensualesFinanzas = Array.from({ length: 12 }, (_, index) => {
-    const fecha = new Date(fechaActualFinanzas.getFullYear(), index, 1);
-    const mes = fecha.getMonth();
+    const mes = index;
     const movimientosMes = movimientosContabilizados.filter(m => parsearMesMovimiento(m.fecha) === mes);
     return {
       mes: MESES_FINANZAS[mes].toUpperCase(),
