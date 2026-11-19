@@ -1917,8 +1917,8 @@ export default function CharangaSaraoApp() {
     return numerica ? Math.max(0, Math.min(11, Number(numerica[1]) - 1)) : -1;
   };
   const fechaActualFinanzas = new Date();
-  const datosMensualesFinanzas = Array.from({ length: 6 }, (_, index) => {
-    const fecha = new Date(fechaActualFinanzas.getFullYear(), fechaActualFinanzas.getMonth() - (5 - index), 1);
+  const datosMensualesFinanzas = Array.from({ length: 12 }, (_, index) => {
+    const fecha = new Date(fechaActualFinanzas.getFullYear(), index, 1);
     const mes = fecha.getMonth();
     const movimientosMes = movimientosContabilizados.filter(m => parsearMesMovimiento(m.fecha) === mes);
     return {
@@ -5307,7 +5307,7 @@ export default function CharangaSaraoApp() {
                       <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Análisis financiero</p>
                       <h3 className="text-xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Evolución de ingresos y gastos</h3>
                     </div>
-                    <span className="text-[10px] text-zinc-500">Últimos 6 meses · €</span>
+                    <span className="text-[10px] text-zinc-500">Histórico agrupado por mes · €</span>
                   </div>
                   <div className="flex gap-4 text-[10px] text-zinc-400 mb-4">
                     <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-emerald-400"/>Ingresos</span>
