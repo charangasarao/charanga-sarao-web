@@ -5621,6 +5621,7 @@ export default function CharangaSaraoApp() {
           const id = detectarPestanaBajoDedo(nav, t.clientX, t.clientY);
           navGestureRef.current.id = id;
           setNavGestureTab(id);
+          if (id && id !== pestañaActiva) seleccionarPestanaInferior(id);
           const rect = nav.getBoundingClientRect();
           if (t.clientX > rect.right - 24) nav.scrollLeft += 12;
           else if (t.clientX < rect.left + 24) nav.scrollLeft -= 12;
@@ -5647,7 +5648,9 @@ export default function CharangaSaraoApp() {
           const Icon = tab.icon;
           const activa = pestañaActiva === tab.id;
           return (
-            <button key={tab.id} data-nav-tab={tab.id} aria-label={tab.label} aria-current={activa ? 'page' : undefined} onClick={() => seleccionarPestanaInferior(tab.id)} className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-black transition-all duration-200 shrink-0 snap-center ${(navGestureTab || pestañaActiva) === tab.id ? 'bg-white/90 text-zinc-950 shadow-[0_2px_16px_rgba(255,255,255,0.38)] scale-110' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
+            <button key={tab.id} data-nav-tab={tab.id} aria-label={tab.label} aria-current={activa ? 'page' : undefined} onClick={() => seleccionarPestanaInferior(tab.id)} onMouseEnter={() => setNavGestureTab(tab.id)}
+              onMouseLeave={() => setNavGestureTab(null)}
+              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-black transition-all duration-200 shrink-0 snap-center ${(navGestureTab || pestañaActiva) === tab.id ? 'bg-emerald-300/90 text-emerald-950 shadow-[0_2px_16px_rgba(52,211,153,0.48)] scale-110' : 'text-white/80 hover:text-white hover:bg-emerald-300/15'}`}>
               <Icon className="w-4 h-4"/>
               <span className="hidden md:inline">{tab.label}</span>
             </button>
