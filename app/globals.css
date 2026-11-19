@@ -300,3 +300,101 @@ button,
   font-family: "Bangers", Impact, fantasy;
   letter-spacing: .035em;
 }
+
+
+/* Registro de bolos: composición de escritorio amplia; el móvil conserva el formulario original. */
+@media (min-width: 900px) {
+  .sarao-bolo-modal-overlay {
+    z-index: 10000 !important;
+    padding: 2.5rem !important;
+    align-items: center;
+  }
+  .sarao-bolo-modal {
+    width: min( min(1040px, calc(100vw - 6rem)), 1040px) !important;
+    max-width: 1040px !important;
+    max-height: min(820px, calc(100vh - 5rem)) !important;
+    padding: 2.1rem 2.3rem !important;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 2rem;
+    row-gap: .25rem;
+    align-content: start;
+    box-shadow: 0 30px 100px rgba(0,0,0,.62), 0 0 0 1px rgba(140,240,176,.06);
+  }
+  .sarao-bolo-modal-title,
+  .sarao-bolo-modal-description,
+  .sarao-bolo-form {
+    grid-column: 1 / -1;
+  }
+  .sarao-bolo-modal-title {
+    font-size: 2rem !important;
+    line-height: 1.1;
+    margin-bottom: .25rem !important;
+  }
+  .sarao-bolo-modal-description {
+    font-size: .82rem !important;
+    margin-bottom: 1rem !important;
+  }
+  .sarao-bolo-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 1.35rem;
+    row-gap: 1rem;
+    align-items: start;
+  }
+  .sarao-bolo-form > :first-child,
+  .sarao-bolo-form > :last-child {
+    grid-column: 1 / -1;
+  }
+  .sarao-bolo-form > :nth-child(2),
+  .sarao-bolo-form > :nth-child(3),
+  .sarao-bolo-form > :nth-child(4),
+  .sarao-bolo-form > :nth-child(5),
+  .sarao-bolo-form > :nth-child(6) {
+    min-width: 0;
+    align-self: stretch;
+  }
+  .sarao-bolo-form > :nth-child(2),
+  .sarao-bolo-form > :nth-child(4) { grid-column: 1; }
+  .sarao-bolo-form > :nth-child(3),
+  .sarao-bolo-form > :nth-child(5) { grid-column: 2; }
+  .sarao-bolo-form > :nth-child(6) { grid-column: 1; }
+  .sarao-bolo-form label {
+    font-size: .78rem !important;
+    letter-spacing: .01em;
+    margin-bottom: .45rem !important;
+  }
+  .sarao-bolo-form input:not([type="checkbox"]) {
+    min-height: 3.1rem;
+    padding: .8rem 1rem !important;
+    font-size: .95rem !important;
+  }
+  .sarao-bolo-form > :nth-child(5) {
+    padding-top: .2rem;
+    border-top: 1px solid rgba(173,205,183,.12);
+  }
+  .sarao-bolo-form > :nth-child(6) {
+    padding: .9rem 1rem !important;
+    border: 1px solid rgba(245,158,11,.2);
+    border-radius: 1rem;
+    background: rgba(245,158,11,.045);
+  }
+  .sarao-bolo-form > :last-child {
+    position: sticky;
+    bottom: -2.1rem;
+    z-index: 2;
+    padding: 1rem 0 .2rem;
+    margin-top: .25rem;
+    background: linear-gradient(180deg, rgba(17,25,20,.92), #111914 30%);
+    border-top: 1px solid rgba(173,205,183,.12);
+  }
+  .sarao-bolo-form > :last-child button {
+    min-height: 3.2rem;
+    font-size: .9rem !important;
+  }
+  .sarao-bolo-form > :first-child button {
+    min-height: 3rem;
+    font-size: .88rem !important;
+  }
+}
