@@ -2098,12 +2098,15 @@ export default function CharangaSaraoApp() {
         : null) ||
       {}
   })).filter(({ pago }) => !esPerfilExtra || pago.asistio === true);
+  // Leer la disponibilidad del roster actualizado: usuarioActual puede ser una
+  // copia de sesión anterior y quedarse desfasada tras responder en un bolo.
+  const miembroPerfilActual = miembros.find(m => String(m.id) === String(usuarioActual.id)) || usuarioActual;
   // Estadísticas personales: solo bolos confirmados ya celebrados.
   // "Disponible" significa haber respondido Puedo; Tal vez equivale a No.
   // La asistencia real solo se cuenta cuando administración la registra expresamente.
   const misBolosDisponibles = bolosPerfil.filter(b =>
     !esBoloVigente(b.fecha) &&
-    usuarioActual.disponibilidadBolos?.[b.id]?.estado === 'puedo' &&
+    miembroPerfilActual.disponibilidadBolos?.[b.id]?.estado === 'puedo' &&
     !(b.desconvocados || []).map(String).includes(String(usuarioActual.id)) &&
     !(b.bajasUrgencia || []).some(baja => String(baja.miembroId) === String(usuarioActual.id))
   );
@@ -2493,7 +2496,7 @@ export default function CharangaSaraoApp() {
                   {pagosPerfil.length === 0 ? (
                     <p className="text-xs text-zinc-500 py-5">Todavía no hay bolos en el calendario.</p>
                   ) : pagosPerfil.map(({ bolo, pago }) => {
-                    const disponibilidad = usuarioActual.disponibilidadBolos?.[bolo.id];
+                    const disponibilidad = miembroPerfilActual.disponibilidadBolos?.[bolo.id];
                     const asistenciaManual = pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true;
                     const perdido = disponibilidad?.estado === 'no' || (asistenciaManual && pago.asistio === false);
                     const pagado = pago.asistio === true && pago.pagado === true;
