@@ -454,3 +454,49 @@ button,
     font-size: .78rem !important;
   }
 }
+
+
+/* Liquid Crystal desktop: mostrar todos los apartados en una sola línea. */
+@media (min-width: 768px) {
+  nav.fixed {
+    width: max-content !important;
+    max-width: calc(100vw - 2rem) !important;
+    gap: .2rem !important;
+    padding: .45rem .65rem !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    justify-content: center;
+    scrollbar-width: none;
+  }
+  nav.fixed::-webkit-scrollbar { display: none; }
+  nav.fixed > button[data-nav-tab] {
+    gap: .35rem !important;
+    padding: .62rem .72rem !important;
+    font-size: 10px !important;
+    letter-spacing: -.015em;
+    transform: none;
+    white-space: nowrap;
+  }
+  nav.fixed > button[data-nav-tab] svg {
+    width: 14px !important;
+    height: 14px !important;
+    flex: 0 0 14px;
+  }
+  nav.fixed > button[data-nav-tab][aria-current="page"] {
+    transform: scale(1.025);
+    transform-origin: center;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1120px) {
+  nav.fixed > button[data-nav-tab] {
+    gap: .25rem !important;
+    padding: .55rem .52rem !important;
+    font-size: 9px !important;
+  }
+  nav.fixed > button[data-nav-tab] svg {
+    width: 13px !important;
+    height: 13px !important;
+    flex-basis: 13px;
+  }
+}
