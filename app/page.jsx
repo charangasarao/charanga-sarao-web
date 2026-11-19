@@ -3857,11 +3857,6 @@ export default function CharangaSaraoApp() {
                                         </p>
                                       </>
                                     )}
-                                    {!esEns && !esPres && (
-                                      <span className={`inline-flex mt-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${idsBolosCobrados.has(String(b.id)) ? 'bg-emerald-950 text-emerald-200' : 'bg-amber-950 text-amber-200'}`}>
-                                        {idsBolosCobrados.has(String(b.id)) ? 'Cobrado' : 'Pendiente de cobrar'}
-                                      </span>
-                                    )}
                                     <p className="text-[9px] font-semibold mt-0.5 leading-tight tabular-nums">
                                       {b.horaInicio || 'Hora por definir'}{b.horaFin ? ` – ${b.horaFin}` : ''}
                                     </p>
@@ -3877,6 +3872,41 @@ export default function CharangaSaraoApp() {
                   </div>
                 </div>
               </div>
+
+              {/* ESTADO DE COBRO DE LOS BOLOS */}
+              <section className="bg-black/40 border border-zinc-800 rounded-2xl p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <h3 className="text-2xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                      ESTADO DE COBRO DE LOS BOLOS
+                    </h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">Consulta qué actuaciones están cobradas y cuáles siguen pendientes.</p>
+                  </div>
+                  <span className="text-xs text-zinc-500">{bolosConfirmados.length} bolos</span>
+                </div>
+                {bolosConfirmados.length > 0 ? (
+                  <div className="divide-y divide-zinc-800">
+                    {[...bolosConfirmados]
+                      .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')))
+                      .map(b => {
+                        const cobrado = idsBolosCobrados.has(String(b.id));
+                        return (
+                          <div key={b.id} className="py-3 flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-white truncate">{b.titulo || b.lugar}</p>
+                              <p className="text-xs text-zinc-500 mt-0.5">{b.fecha || 'Fecha sin definir'}{Number(b.presupuesto) > 0 ? ` · ${Number(b.presupuesto).toFixed(2)} €` : ''}</p>
+                            </div>
+                            <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] font-black uppercase ${cobrado ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}`}>
+                              {cobrado ? 'Cobrado' : 'Pendiente de cobrar'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-500 py-3 text-center">Todavía no hay bolos confirmados.</p>
+                )}
+              </section>
 
               {/* DETALLES DEL EVENTO SELECCIONADO */}
               {boloActual ? (
