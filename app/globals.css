@@ -156,3 +156,135 @@ main > section, main > div > section {
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Identidad editorial propia para cada apartado. */
+[data-sarao-section] {
+  --section-accent: #8cf0b0;
+  --section-glow: rgba(85,217,149,.12);
+  position: relative;
+}
+[data-sarao-section] > div:first-child,
+[data-sarao-section] > section:first-child {
+  position: relative;
+}
+[data-sarao-section] > div:first-child[class*="bg-zinc-900"],
+[data-sarao-section] > section:first-child > div:first-child {
+  border-color: color-mix(in srgb, var(--section-accent) 23%, transparent) !important;
+  background-image:
+    radial-gradient(ellipse at 100% 0%, var(--section-glow), transparent 48%),
+    linear-gradient(145deg, rgba(255,255,255,.035), transparent 60%);
+}
+[data-sarao-section] h2 {
+  text-shadow: 0 5px 24px var(--section-glow);
+}
+[data-sarao-section] h2::selection,
+[data-sarao-section] h3::selection { background: var(--section-accent); }
+
+/* Mi ficha: panel personal cálido, cifras protagonistas y sensación de dashboard. */
+[data-sarao-section="perfil"] {
+  --section-accent: #8cf0b0;
+  --section-glow: rgba(52,211,153,.16);
+}
+[data-sarao-section="perfil"] > div:first-child {
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 95% 0%, rgba(52,211,153,.16), transparent 46%),
+    linear-gradient(135deg, rgba(20,38,27,.96), rgba(13,19,15,.96)) !important;
+}
+[data-sarao-section="perfil"] > div:first-child > div:nth-child(2) > div {
+  transition: transform .2s ease, border-color .2s ease;
+}
+[data-sarao-section="perfil"] > div:first-child > div:nth-child(2) > div:hover {
+  transform: translateY(-3px);
+  border-color: rgba(140,240,176,.38) !important;
+}
+
+/* Letras: estética de libreto / setlist, tarjetas tipo repertorio. */
+[data-sarao-section="letras"] { --section-accent: #d8b4fe; --section-glow: rgba(192,132,252,.14); }
+[data-sarao-section="letras"] article {
+  background:
+    linear-gradient(145deg, rgba(37,27,47,.72), rgba(16,17,22,.94)) !important;
+  border-color: rgba(192,132,252,.2) !important;
+  border-radius: 1.35rem !important;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+[data-sarao-section="letras"] article:hover {
+  transform: translateY(-3px);
+  border-color: rgba(216,180,254,.48) !important;
+  box-shadow: 0 16px 38px rgba(0,0,0,.24), 0 0 28px rgba(192,132,252,.07);
+}
+
+/* Ensayos: lenguaje de backstage y agenda técnica en turquesa. */
+[data-sarao-section="ensayos"] { --section-accent: #67e8f9; --section-glow: rgba(34,211,238,.14); }
+[data-sarao-section="ensayos"] > div:first-child {
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(34,211,238,.12), transparent 42%),
+    rgba(14,23,27,.94) !important;
+  border-color: rgba(103,232,249,.2) !important;
+}
+
+/* Bolos: acento verde lima, aspecto de agenda de actuaciones. */
+[data-sarao-section="bolos"] { --section-accent: #bef264; --section-glow: rgba(163,230,53,.13); }
+[data-sarao-section="bolos"] > div:first-child {
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(163,230,53,.11), transparent 42%),
+    rgba(17,23,17,.94) !important;
+  border-color: rgba(190,242,100,.2) !important;
+}
+
+/* Plantilla: fichas limpias, ordenadas por cuerda. */
+[data-sarao-section="miembros"] { --section-accent: #93c5fd; --section-glow: rgba(96,165,250,.13); }
+[data-sarao-section="miembros"] > div:first-child {
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(96,165,250,.11), transparent 42%),
+    rgba(15,20,29,.94) !important;
+  border-color: rgba(147,197,253,.2) !important;
+}
+[data-sarao-section="miembros"] [class*="rounded-2xl"],
+[data-sarao-section="miembros"] [class*="rounded-xl"] {
+  transition: border-color .18s ease, transform .18s ease;
+}
+
+/* Facturas: lenguaje financiero claro, azul petróleo y jerarquía de estados. */
+[data-sarao-section="facturas"] { --section-accent: #67e8f9; --section-glow: rgba(6,182,212,.14); }
+[data-sarao-section="facturas"] > div:first-child {
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(6,182,212,.12), transparent 42%),
+    rgba(13,23,27,.96) !important;
+  border-color: rgba(103,232,249,.2) !important;
+}
+
+/* Administración: panel de control diferenciado, sin competir con el resto. */
+[data-sarao-section="admin"] { --section-accent: #fda4af; --section-glow: rgba(244,63,94,.13); }
+[data-sarao-section="admin"] > div:first-child {
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(244,63,94,.1), transparent 42%),
+    rgba(25,17,20,.96) !important;
+  border-color: rgba(253,164,175,.2) !important;
+}
+
+/* Tesorería: panel de saldo y movimientos con acento oro. */
+[data-sarao-section="bote"] { --section-accent: #fcd34d; --section-glow: rgba(245,158,11,.14); }
+[data-sarao-section="bote"] > div:first-child {
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(245,158,11,.12), transparent 42%),
+    rgba(25,22,15,.96) !important;
+  border-color: rgba(252,211,77,.2) !important;
+}
+[data-sarao-section="bote"] h2 { color: #fef3c7; }
+
+/* Los botones principales se sienten más táctiles, conservando sus colores de función. */
+[data-sarao-section] button[class*="rounded-xl"],
+[data-sarao-section] button[class*="rounded-2xl"] {
+  box-shadow: 0 5px 16px rgba(0,0,0,.12);
+}
+[data-sarao-section] button[class*="bg-emerald-500"]:hover,
+[data-sarao-section] button[class*="bg-green-500"]:hover {
+  box-shadow: 0 7px 22px rgba(52,211,153,.18);
+}
+
+@media (max-width: 640px) {
+  [data-sarao-section] > div:first-child[class*="p-4"] { padding: 1rem; }
+  [data-sarao-section] h2 { line-height: 1.02; }
+}
