@@ -95,6 +95,29 @@ select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(85,217,149,.1);
 }
 
+/* Cabecera persistente: identidad Sarao clara y ligera en todas las vistas. */
+header.sticky {
+  background: rgba(8, 14, 10, .84) !important;
+  border-bottom-color: rgba(85, 217, 149, .18) !important;
+  box-shadow: 0 12px 36px rgba(0,0,0,.2);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+}
+header img {
+  filter: saturate(1.08);
+}
+header h1 {
+  text-shadow: 0 0 24px rgba(85,217,149,.12);
+}
+
+/* Cabeceras y textos secundarios más ordenados y legibles. */
+main h2 {
+  letter-spacing: -.025em;
+  text-wrap: balance;
+}
+main h3 { text-wrap: balance; }
+main p { text-wrap: pretty; }
+
 /* Los paneles interactivos ganan profundidad sin alterar sus colores de estado. */
 button[class*="border-zinc-800"]:hover,
 button[class*="border-zinc-700"]:hover {
@@ -122,7 +145,6 @@ main > section, main > div > section {
 
 @media (max-width: 640px) {
   body { background-attachment: scroll; }
-  main { padding-left: 1rem; padding-right: 1rem; }
   [class~="rounded-3xl"] { border-radius: 1.25rem; }
 }
 
