@@ -3688,7 +3688,7 @@ export default function CharangaSaraoApp() {
               {/* CONTENEDOR DEL CALENDARIO SCROLLEABLE CON CELDAS GRANDES */}
               <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 sm:p-4 mb-5">
                 
-                <div className="flex items-center justify-between mb-3 gap-1.5 min-w-0">
+                <div className="flex items-center justify-start mb-3 gap-3 min-w-0">
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => setMesIndexActivo(prev => Math.max(0, prev - 1))}
@@ -3710,7 +3710,7 @@ export default function CharangaSaraoApp() {
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-end gap-1 min-w-0 flex-1">
+                  <div className="flex items-center justify-start gap-1 min-w-0 flex-wrap">
                     <button type="button" onClick={() => setCalendarZoom(z => Math.max(0.65, +(z - 0.1).toFixed(2)))} className="w-7 h-8 sm:w-8 sm:h-9 shrink-0 rounded-lg bg-zinc-800 text-white font-black" aria-label="Alejar calendario">−</button>
                     <span className="text-[9px] sm:text-[10px] text-zinc-400 tabular-nums w-7 sm:w-9 text-center shrink-0">{Math.round(calendarZoom * 100)}%</span>
                     <button type="button" onClick={() => setCalendarZoom(z => Math.min(1.45, +(z + 0.1).toFixed(2)))} className="w-7 h-8 sm:w-8 sm:h-9 shrink-0 rounded-lg bg-zinc-800 text-white font-black" aria-label="Acercar calendario">+</button>
