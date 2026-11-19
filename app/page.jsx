@@ -1404,6 +1404,7 @@ export default function CharangaSaraoApp() {
     const nuevoMov = {
       id: Date.now(),
       concepto: conceptoBote.trim(),
+      categoriaGasto: tipoMovimientoBote === 'gasto' ? conceptoBote.trim() : null,
       cantidad: cantidadReal,
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
       tipo: tipoMovimientoBote,
@@ -5538,14 +5539,14 @@ export default function CharangaSaraoApp() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setTipoMovimientoBote('ingreso')}
+                      onClick={() => { setTipoMovimientoBote('ingreso'); setConceptoBote(''); }}
                       className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'ingreso' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-black border-zinc-800 text-zinc-400'}`}
                     >
                       + Ingreso (Cobro)
                     </button>
                     <button
                       type="button"
-                      onClick={() => setTipoMovimientoBote('gasto')}
+                      onClick={() => { setTipoMovimientoBote('gasto'); setConceptoBote('Otros gastos'); }}
                       className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'gasto' ? 'bg-rose-500/20 border-rose-500 text-rose-300' : 'bg-black border-zinc-800 text-zinc-400'}`}
                     >
                       - Gasto
@@ -5555,14 +5556,28 @@ export default function CharangaSaraoApp() {
 
                 <div>
                   <label className="text-xs text-zinc-400 block mb-1 font-bold">Concepto:</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Cobro Pasacalles o Compra Repuestos"
-                    value={conceptoBote}
-                    onChange={e => setConceptoBote(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
-                    required
-                  />
+                  {tipoMovimientoBote === 'gasto' ? (
+                    <select
+                      value={conceptoBote || 'Otros gastos'}
+                      onChange={e => setConceptoBote(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                      required
+                    >
+                      <option value="Ropa">Ropa</option>
+                      <option value="Pegatinas">Pegatinas</option>
+                      <option value="Material">Material</option>
+                      <option value="Otros gastos">Otros gastos</option>
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Ej: Cobro Pasacalles"
+                      value={conceptoBote}
+                      onChange={e => setConceptoBote(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                      required
+                    />
+                  )}
                 </div>
 
                 <div>
