@@ -2370,14 +2370,15 @@ export default function CharangaSaraoApp() {
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {[
-                  {id:'bolos',label:'Calendario',desc:'Bolos y ensayos',icon:CalendarIcon,tone:'emerald'},
-                  {id:'ensayos',label:'Ensayos',desc:`Agenda · ${listaEnsayos.length}`,icon:Music,tone:'cyan'},
-                  {id:'letras',label:'Repertorio',desc:`${CANCIONES.length} canciones`,icon:FileText,tone:'fuchsia'},
+                  {id:'landing',label:'Inicio',desc:'Panel principal',icon:Home,tone:'emerald'},
+                  {id:'bolos',label:'Bolos',desc:'Calendario de actuaciones',icon:CalendarIcon,tone:'emerald'},
                   {id:'perfil',label:'Mi ficha',desc:'Estadísticas y pagos',icon:Wallet,tone:'green'},
+                  {id:'ensayos',label:'Ensayos',desc:`Agenda · ${listaEnsayos.length}`,icon:Music,tone:'cyan'},
+                  {id:'letras',label:'Letras de canciones',desc:`${CANCIONES.length} canciones`,icon:FileText,tone:'fuchsia'},
+                  {id:'miembros',label:'Plantilla',desc:`${miembros.length} integrantes`,icon:Users,tone:'violet'},
                   {id:'bote',label:'Bote',desc:`${saldoTotal.toFixed(2)} €`,icon:Wallet,tone:'emerald'},
                   {id:'facturas',label:'Facturas',desc:'Envío y seguimiento',icon:FileText,tone:'cyan'},
-                  ...(esAdmin || esGestorBolos ? [{id:'bolos',label:'Presupuestos',desc:`${bolosPresupuestados.length} pendientes`,icon:ClipboardList,tone:'amber'}] : []),
-                  ...(esAdmin ? [{id:'miembros',label:'Plantilla',desc:`${miembros.length} integrantes`,icon:Users,tone:'violet'},{id:'admin',label:'Administración',desc:'Control y gestión',icon:Shield,tone:'rose'}] : [])
+                  ...(esAdmin ? [{id:'admin',label:'Admin',desc:'Control y gestión',icon:Shield,tone:'rose'}] : [])
                 ].map(item => {
                   const Icon = item.icon;
                   const tones = {
