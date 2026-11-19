@@ -3588,7 +3588,7 @@ export default function CharangaSaraoApp() {
 
         {/* CALENDARIO GENERAL (VERDE = CONFIRMADO, AMARILLO = PRESUPUESTADO, AZUL TURQUESA = ENSAYO) */}
         {pestañaActiva === 'bolos' && (
-          <div className="space-y-6">
+          <div data-sarao-section="bolos" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-3.5 sm:p-6">
               
               <div className="flex justify-between items-start flex-wrap gap-3 border-b border-zinc-800 pb-4 mb-4">
