@@ -2276,8 +2276,8 @@ export default function CharangaSaraoApp() {
 
         {/* INICIO / LANDING PAGE */}
         {pestañaActiva === 'landing' && (
-          <div data-sarao-section="landing" className="sarao-home space-y-7">
-            <section className="sarao-home-hero relative overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-[#07130e] p-5 sm:p-8 shadow-[0_24px_80px_rgba(16,185,129,0.10)]">
+          <div className="space-y-6">
+            <section className="relative overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-[#07130e] p-5 sm:p-8 shadow-[0_24px_80px_rgba(16,185,129,0.10)]">
               <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
               <div className="pointer-events-none absolute -bottom-28 left-1/3 h-56 w-56 rounded-full bg-green-500/10 blur-3xl" />
               <div className="relative z-10 grid gap-6 md:grid-cols-[1.3fr_0.7fr] md:items-end">
