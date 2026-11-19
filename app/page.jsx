@@ -275,6 +275,28 @@ export default function CharangaSaraoApp() {
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
   const [boloDisponibilidadAbiertoId, setBoloDisponibilidadAbiertoId] = useState(null);
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
+  const [calendarZoom, setCalendarZoom] = useState(1);
+  const calendarPinchRef = React.useRef(null);
+  const navGestureRef = React.useRef(null);
+  const [navGestureTab, setNavGestureTab] = useState(null);
+  const seleccionarPestanaInferior = (id) => {
+    setPestañaActiva(id);
+    if (id !== 'bolos') setBoloSeleccionadoId(null);
+  };
+  const detectarPestanaBajoDedo = (nav, x, y) => {
+    const botones = [...nav.querySelectorAll('button[data-nav-tab]')];
+    const encontrado = botones.find(b => {
+      const r = b.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top - 16 && y <= r.bottom + 16;
+    });
+    if (encontrado) return encontrado.dataset.navTab;
+    return botones.reduce((mejor, b) => {
+      const r = b.getBoundingClientRect();
+      const distancia = Math.abs(x - (r.left + r.right) / 2);
+      return !mejor || distancia < mejor.distancia ? { id: b.dataset.navTab, distancia } : mejor;
+    }, null)?.id || null;
+  };
+
 
   // Modales Bolos (Añadir, Editar, Eliminar)
   const [showModalBolo, setShowModalBolo] = useState(false);
@@ -520,6 +542,43 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  const enviarNotificacionBoloConEnlace = async ({ titulo, mensaje, url }) => {
+    try {
+      const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
+      const tokens = [...new Set(
+        snapshot.docs
+          .map(docSnap => docSnap.data()?.token)
+          .filter(token => typeof token === 'string' && token.trim())
+          .map(token => token.trim())
+      )];
+
+      if (tokens.length === 0) {
+        console.warn('No hay tokens FCM guardados para enviar la notificación del bolo.');
+        return;
+      }
+
+      for (let index = 0; index < tokens.length; index += 500) {
+        const response = await fetch('/api/enviar-notificacion-bolo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo,
+            mensaje,
+            url,
+            tokens: tokens.slice(index, index + 500)
+          })
+        });
+        const result = await response.json();
+        if (!response.ok || result.success !== true) {
+          throw new Error(result.error || 'No se pudo enviar la notificación del bolo.');
+        }
+      }
+    } catch (error) {
+      console.error('Error enviando la notificación del bolo:', error);
+      alert('El bolo se ha guardado, pero no se pudo enviar la notificación push.');
+    }
+  };
+
   // Avisos nuevos de cambios: flujo independiente del sistema antiguo.
   const enviarNotificacionCambio = async ({ type, previousEvent, currentEvent = null }) => {
     try {
@@ -654,6 +713,74 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  const notificarBajaUrgencia = async (bolo, miembro) => {
+    try {
+      const responsables = miembros.filter(m =>
+        m.roles?.includes('admin') ||
+        (m.roles?.includes('jefe_cuerda') && m.cuerda === miembro.cuerda)
+      );
+      const idsResponsables = new Set(responsables.map(m => String(m.id ?? m.nombre)));
+      const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
+      const tokens = [...new Set(snapshot.docs
+        .filter(d => idsResponsables.has(String(d.data()?.userId)))
+        .map(d => d.data()?.token)
+        .filter(token => typeof token === 'string' && token.trim())
+        .map(token => token.trim())
+      )];
+      if (!tokens.length) {
+        console.warn('No hay dispositivos registrados para el jefe de cuerda o administración de esta baja.');
+        return;
+      }
+      for (let i = 0; i < tokens.length; i += 500) {
+        const response = await fetch('/api/enviar-notificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo: 'Baja de disponibilidad por urgencia',
+            mensaje: `${miembro.nombre} finalmente no puede asistir al bolo de ${bolo.lugar} (${bolo.fecha}).`,
+            tokens: tokens.slice(i, i + 500)
+          })
+        });
+        const result = await response.json();
+        if (!response.ok || result.success !== true) {
+          throw new Error(result.error || 'No se pudo enviar el aviso de baja.');
+        }
+      }
+    } catch (error) {
+      console.error('Error notificando la baja por urgencia:', error);
+      alert('La baja se ha guardado, pero no se pudo enviar la notificación al jefe de cuerda y administración.');
+    }
+  };
+
+  const registrarBajaUrgencia = async (boloId) => {
+    const bolo = bolos.find(b => String(b.id) === String(boloId));
+    const miembro = miembros.find(m => String(m.id) === String(usuarioActual.id)) || usuarioActual;
+    if (!bolo || bolo.estadoBolo !== 'confirmado' || bolo.estadoBolo === 'ensayo') return;
+    if (miembro.disponibilidadBolos?.[boloId]?.estado !== 'puedo') {
+      alert('Esta opción solo está disponible si habías confirmado que podías asistir.');
+      return;
+    }
+    if ((bolo.bajasUrgencia || []).some(b => String(b.miembroId) === String(miembro.id))) {
+      alert('Ya has comunicado que no puedes asistir a este bolo.');
+      return;
+    }
+    if (!confirm(`¿Comunicar que finalmente no puedes asistir al bolo de ${bolo.lugar}? Se te retirará del organigrama y se avisará a tu jefe de cuerda y administración.`)) return;
+    registrarSnapshot();
+    const nuevaBaja = {
+      miembroId: miembro.id,
+      nombre: miembro.nombre,
+      cuerda: miembro.cuerda,
+      fecha: new Date().toISOString()
+    };
+    const nuevosBolos = bolos.map(b => String(b.id) === String(boloId)
+      ? { ...b, bajasUrgencia: [...(b.bajasUrgencia || []).filter(x => String(x.miembroId) !== String(miembro.id)), nuevaBaja] }
+      : b
+    );
+    setBolos(nuevosBolos);
+    const guardado = await guardarEnNube(null, nuevosBolos, null);
+    if (guardado) await notificarBajaUrgencia(bolo, miembro);
+  };
+
   const setDisponibilidadBolo = async (boloId, estado, instrumentoElegido = null) => {
     registrarSnapshot();
 
@@ -688,7 +815,8 @@ export default function CharangaSaraoApp() {
 
     setMiembros(listaActualizada);
     let nuevosBolos = bolos;
-    if (estado) {
+    const boloDeDisponibilidad = bolos.find(b => b.id === boloId);
+    if (estado && boloDeDisponibilidad?.estadoBolo !== 'presupuestado') {
       nuevosBolos = bolos.map(b => {
         if (b.id !== boloId) return b;
         const clavePago = `miembro-${usuarioActual.id}`;
@@ -702,15 +830,15 @@ export default function CharangaSaraoApp() {
               personaId: usuarioActual.id,
               tipo: 'miembro',
               nombre: usuarioActual.nombre,
-              asistio: estado === 'puedo',
-              asistenciaRegistrada: estado === 'puedo'
+              // La disponibilidad no registra por sí sola la asistencia real.
+              // La asistencia se marca después desde la ficha de pagos del evento.
             }
           }
         };
       });
       setBolos(nuevosBolos);
     }
-    await guardarEnNube(listaActualizada, estado ? nuevosBolos : null, null);
+    await guardarEnNube(listaActualizada, nuevosBolos !== bolos ? nuevosBolos : null, null);
   };
 
   const guardarPagoMiembro = async (boloId, persona, tipo, campo, valor) => {
@@ -730,7 +858,7 @@ export default function CharangaSaraoApp() {
             tipo,
             nombre: persona.nombre,
             [campo]: valor,
-            ...(campo === 'asistio' ? { asistenciaRegistrada: true } : {})
+            ...(campo === 'asistio' ? { asistenciaRegistrada: true, asistenciaValidadaManualmente: true } : {})
           }
         }
       };
@@ -1029,6 +1157,48 @@ export default function CharangaSaraoApp() {
     setShowModalConfirmarPresupuesto(true);
   };
 
+  const guardarDatosPresupuestoEnRevision = (bolo) => ({
+    ...bolo,
+    lugar: editLugarBolo.trim(),
+    titulo: editTituloBolo.trim() || 'Actuación',
+    fecha: editFechaBolo,
+    horaInicio: editHoraInicioBolo,
+    horaFin: editHoraFinBolo,
+    presupuesto: parseFloat(editPresupuestoBolo) || 0,
+    conFactura: editConFacturaBolo
+  });
+
+  const confirmarPresupuestacion = async (e) => {
+    e.preventDefault();
+    if (!esGestorBolos || !presupuestoAConfirmarId) return;
+    if (!editLugarBolo.trim() || !editFechaBolo) {
+      alert('El lugar y la fecha son obligatorios.');
+      return;
+    }
+
+    registrarSnapshot();
+    const nuevosBolos = bolos.map(b => b.id === presupuestoAConfirmarId
+      ? { ...guardarDatosPresupuestoEnRevision(b), presupuestacionConfirmada: true, estadoBolo: 'presupuestado' }
+      : b
+    );
+    setBolos(nuevosBolos);
+    const guardado = await guardarEnNube(null, nuevosBolos, null);
+    if (!guardado) return;
+    setShowModalConfirmarPresupuesto(false);
+    setPresupuestoAConfirmarId(null);
+    const fechaPresupuesto = editFechaBolo
+      ? new Date(`${editFechaBolo}T00:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : 'fecha por definir';
+    const horarioPresupuesto = editHoraInicioBolo?.trim()
+      ? ` a las ${editHoraInicioBolo.trim()}${editHoraFinBolo?.trim() ? ` - ${editHoraFinBolo.trim()}` : ''}`
+      : '';
+    await enviarNotificacionAUsuarios({
+      titulo: 'Presupuestación confirmada',
+      mensaje: `El bolo del ${fechaPresupuesto}${horarioPresupuesto} en ${editLugarBolo.trim()} se ha presupuestado.`
+    });
+    alert(`Presupuestación de ${editLugarBolo.trim()} confirmada. Ahora puedes confirmar definitivamente el bolo cuando esté cerrado.`);
+  };
+
   const confirmarBoloPresupuestadoDefinitivo = async (e) => {
     e.preventDefault();
     if (!esGestorBolos || !presupuestoAConfirmarId) return;
@@ -1038,27 +1208,20 @@ export default function CharangaSaraoApp() {
     }
 
     registrarSnapshot();
-    const nuevosBolos = bolos.map(b => {
-      if (b.id === presupuestoAConfirmarId) {
-        return {
-          ...b,
-          lugar: editLugarBolo.trim(),
-          titulo: editTituloBolo.trim() || 'Actuación',
-          fecha: editFechaBolo,
-          horaInicio: editHoraInicioBolo,
-          horaFin: editHoraFinBolo,
-          presupuesto: parseFloat(editPresupuestoBolo) || 0,
-          conFactura: editConFacturaBolo,
-          estadoBolo: 'confirmado'
-        };
-      }
-      return b;
-    });
+    const nuevosBolos = bolos.map(b => b.id === presupuestoAConfirmarId
+      ? { ...guardarDatosPresupuestoEnRevision(b), presupuestacionConfirmada: true, estadoBolo: 'confirmado' }
+      : b
+    );
 
     setBolos(nuevosBolos);
+    const guardado = await guardarEnNube(null, nuevosBolos, null);
+    if (!guardado) return;
     setShowModalConfirmarPresupuesto(false);
     setPresupuestoAConfirmarId(null);
-    await guardarEnNube(null, nuevosBolos, null);
+    await enviarNotificacionAUsuarios({
+      titulo: 'Bolo confirmado',
+      mensaje: `El bolo de ${editLugarBolo.trim()} ya está confirmado. ¡Ya puedes consultar los detalles y organizarte!`
+    });
     alert(`¡Bolo en ${editLugarBolo.trim()} confirmado! Ya aparece en color verde en el calendario oficial y en Próximos Bolos.`);
   };
 
@@ -1098,6 +1261,30 @@ export default function CharangaSaraoApp() {
     if (esAdmin || esGestorBolos) return true;
     if (esJefeCuerda && usuarioActual.cuerda === cuerdaMiembro) return true;
     return false;
+  };
+
+  const puedeDesconvocarMiembro = (cuerdaMiembro) =>
+    esAdmin || (esJefeCuerda && usuarioActual.cuerda === cuerdaMiembro);
+
+  const actualizarDesconvocatoria = async (miembroId, cuerdaMiembro, nombreMiembro, desconvocar) => {
+    if (!puedeDesconvocarMiembro(cuerdaMiembro)) {
+      alert('Solo administración o el jefe de la cuerda correspondiente pueden gestionar desconvocatorias.');
+      return;
+    }
+    const accion = desconvocar ? 'Desconvocar' : 'Volver a convocar';
+    if (!confirm(`¿${accion} a ${nombreMiembro} para este bolo?`)) return;
+    registrarSnapshot();
+    const nuevosBolos = bolos.map(b => {
+      if (b.id !== boloSeleccionadoId) return b;
+      const actuales = (b.desconvocados || []).map(String);
+      const id = String(miembroId);
+      const actualizados = desconvocar
+        ? [...new Set([...actuales, id])]
+        : actuales.filter(item => item !== id);
+      return { ...b, desconvocados: actualizados };
+    });
+    setBolos(nuevosBolos);
+    await guardarEnNube(null, nuevosBolos, null);
   };
 
   const eliminarDisponibilidadMiembro = async (miembroId, cuerdaMiembro, nombreMiembro) => {
@@ -1880,7 +2067,7 @@ export default function CharangaSaraoApp() {
     setBoloDisponibilidadAbiertoId(
       !esPerfilExtra &&
       bolo.estadoBolo !== 'presupuestado' &&
-      !disponibilidad?.estado
+      (!disponibilidad?.estado || disponibilidad.estado === 'no')
         ? boloId
         : null
     );
@@ -1911,6 +2098,39 @@ export default function CharangaSaraoApp() {
         : null) ||
       {}
   })).filter(({ pago }) => !esPerfilExtra || pago.asistio === true);
+  // Leer la disponibilidad del roster actualizado: usuarioActual puede ser una
+  // copia de sesión anterior y quedarse desfasada tras responder en un bolo.
+  const miembroPerfilActual = miembros.find(m => String(m.id) === String(usuarioActual.id)) || usuarioActual;
+  // Estadísticas personales: solo bolos confirmados ya celebrados.
+  // "Disponible" significa haber respondido Puedo; Tal vez equivale a No.
+  // La asistencia real solo se cuenta cuando administración la registra expresamente.
+  const misBolosDisponibles = bolosPerfil.filter(b =>
+    !esBoloVigente(b.fecha) &&
+    miembroPerfilActual.disponibilidadBolos?.[b.id]?.estado === 'puedo' &&
+    !(b.desconvocados || []).map(String).includes(String(usuarioActual.id)) &&
+    !(b.bajasUrgencia || []).some(baja => String(baja.miembroId) === String(usuarioActual.id))
+  );
+  const obtenerMiAsistencia = (bolo) =>
+    bolo.pagosMiembros?.[`miembro-${usuarioActual.id}`] || {};
+  const tieneAsistenciaValidada = (pago) =>
+    pago.asistenciaValidadaManualmente === true &&
+    pago.asistenciaRegistrada === true &&
+    typeof pago.asistio === 'boolean';
+  const misBolosAsistidos = misBolosDisponibles.filter(b => {
+    const pago = obtenerMiAsistencia(b);
+    return tieneAsistenciaValidada(pago) && pago.asistio === true;
+  });
+  const misBolosNoAsistidos = misBolosDisponibles.filter(b => {
+    const pago = obtenerMiAsistencia(b);
+    return tieneAsistenciaValidada(pago) && pago.asistio === false;
+  });
+  const misBolosPendientesAsistencia = misBolosDisponibles.filter(b =>
+    !tieneAsistenciaValidada(obtenerMiAsistencia(b))
+  );
+  const porcentajeAsistencia = misBolosDisponibles.length > 0
+    ? Math.round((misBolosAsistidos.length / misBolosDisponibles.length) * 100)
+    : 0;
+
   const resumenPerfil = pagosPerfil.reduce((resumen, { pago }) => {
     if (pago.asistio !== true) return resumen;
     resumen.bolos += 1;
@@ -1930,10 +2150,6 @@ export default function CharangaSaraoApp() {
   const renderDetallePago = (persona, tipo) => {
     const clavePago = `${tipo}-${persona.id}`;
     const pago = boloActual?.pagosMiembros?.[clavePago] || {};
-    const disponibilidadPersona = tipo === 'miembro'
-      ? (miembros.find(miembro => miembro.id === persona.id) || (usuarioActual.id === persona.id ? usuarioActual : null))
-        ?.disponibilidadBolos?.[boloActual?.id]
-      : null;
     const guardarImporte = (campo, valor) => {
       const importe = Number.parseFloat(valor);
       guardarPagoMiembro(boloActual.id, persona, tipo, campo, Number.isFinite(importe) ? importe : 0);
@@ -1947,31 +2163,29 @@ export default function CharangaSaraoApp() {
           <span>Coche: <strong className="text-white">{pago.usoCoche ? 'Sí' : 'No'}</strong></span>
           <span>Gasolina: <strong className="text-amber-300">{(Number(pago.gasolina) || 0).toFixed(2)} €</strong></span>
           <span>Km: <strong className="text-white">{Number(pago.kilometros) || 0}</strong></span>
-          <span>Asistencia: <strong className={
-            disponibilidadPersona?.estado === 'no' || (pago.asistenciaRegistrada && !pago.asistio)
-              ? 'text-rose-300'
-              : disponibilidadPersona?.estado === 'tal_vez'
-                ? 'text-amber-300'
-                : pago.asistenciaRegistrada
-                  ? 'text-emerald-300'
-                  : 'text-zinc-400'
-          }>
-            {disponibilidadPersona?.estado === 'no'
-              ? 'No disponible'
-              : disponibilidadPersona?.estado === 'tal_vez'
-                ? 'En duda'
-                : pago.asistenciaRegistrada
-                  ? (pago.asistio ? 'Realizado' : 'No asistió')
-                  : 'Sin confirmar'}
-          </strong></span>
-          <span className={pago.pagado ? 'text-emerald-300' : 'text-zinc-400'}>{pago.pagado ? 'Pagado' : 'Pendiente de pago'}</span>
+          <span className={(Number(pago.importeMusica) || 0) > 0 ? 'text-emerald-300' : 'text-zinc-400'}>
+            {(Number(pago.importeMusica) || 0) > 0 ? 'Pagado' : 'Pendiente de pago'}
+          </span>
         </div>
         {esAdmin && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-            <label className="flex items-center gap-1.5 text-zinc-300">
-              <input type="checkbox" checked={pago.pagado === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'pagado', e.target.checked)} />
-              Pagado
-            </label>
+          <div className="space-y-2 pt-1">
+            <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-2.5">
+              <p className="text-[10px] uppercase tracking-wide font-black text-sky-300 mb-2">Asistencia real · solo administración</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', true)}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] font-black border transition ${pago.asistenciaValidadaManualmente && pago.asistio === true ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-zinc-900 text-emerald-300 border-emerald-500/30'}`}>
+                  Sí asistió
+                </button>
+                <button type="button" onClick={() => guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', false)}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] font-black border transition ${pago.asistenciaValidadaManualmente && pago.asistio === false ? 'bg-rose-500 text-white border-rose-400' : 'bg-zinc-900 text-rose-300 border-rose-500/30'}`}>
+                  No asistió
+                </button>
+                <span className="self-center text-[10px] text-zinc-500">
+                  {pago.asistenciaValidadaManualmente ? 'Registro guardado' : 'Pendiente de registrar'}
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <label className="flex items-center gap-1.5 text-zinc-300">
               <input type="checkbox" checked={pago.usoCoche === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'usoCoche', e.target.checked)} />
               Usó coche
@@ -1985,6 +2199,7 @@ export default function CharangaSaraoApp() {
             <label className="text-zinc-400">Kilómetros
               <input type="number" min="0" step="1" defaultValue={pago.kilometros ?? ''} onBlur={e => guardarImporte('kilometros', e.target.value)} className="mt-1 w-full bg-black border border-zinc-700 rounded-lg px-2 py-1 text-white" />
             </label>
+            </div>
           </div>
         )}
       </div>
@@ -2062,191 +2277,134 @@ export default function CharangaSaraoApp() {
         {/* INICIO / LANDING PAGE */}
         {pestañaActiva === 'landing' && (
           <div className="space-y-6">
-            <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-5 sm:p-8 relative overflow-hidden shadow-2xl">
-              <div className="relative z-10">
-                <span className="bg-green-500/20 text-green-400 text-xs font-black px-3 py-1 rounded-full uppercase border border-green-500/30">
-                  En directo en la nube ☁️
-                </span>
-                <h2 className="text-3xl sm:text-4xl tracking-wide text-white mt-3" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                  Bienvenido a la app de gestión de Sarao
-                </h2>
-                <p className="text-zinc-300 text-sm mt-1 max-w-xl">
-                  {esAdmin 
-                    ? 'Modo Administrador: control de bolos, ensayos, presupuestos en curso, bote, plantilla y facturación.' 
-                    : esGestorBolos
-                      ? 'Rol Bolos activo: puedes gestionar el calendario, ensayos, vestuario y bolos presupuestados.'
-                      : 'Calendario de bolos, ensayos, confirmación de asistencia, plazas en coches, bote y facturas.'}
-                </p>
+            <section className="relative overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-[#07130e] p-5 sm:p-8 shadow-[0_24px_80px_rgba(16,185,129,0.10)]">
+              <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-28 left-1/3 h-56 w-56 rounded-full bg-green-500/10 blur-3xl" />
+              <div className="relative z-10 grid gap-6 md:grid-cols-[1.3fr_0.7fr] md:items-end">
+                <div>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
+                    Charanga Sarao · Backstage
+                  </span>
+                  <h2 className="mt-4 max-w-2xl text-4xl leading-[0.95] text-white sm:text-5xl" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    Que empiece el <span className="text-emerald-300">Sarao.</span>
+                  </h2>
+                  <p className="mt-3 max-w-xl text-sm leading-relaxed text-zinc-300">
+                    Hola, {usuarioActual.nombre}. Aquí tienes tus próximos eventos y los accesos rápidos para organizarte.
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => { setPestañaActiva('bolos'); setBoloSeleccionadoId(null); }}
+                      className="rounded-xl bg-emerald-400 px-4 py-2.5 text-xs font-black text-black shadow-lg shadow-emerald-950/40 transition hover:bg-emerald-300">
+                      <CalendarIcon className="mr-1.5 inline h-4 w-4" /> Abrir calendario
+                    </button>
+                    <button type="button" onClick={() => setPestañaActiva('perfil')}
+                      className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/10">
+                      <Wallet className="mr-1.5 inline h-4 w-4" /> Mi ficha
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Próximos bolos</p>
+                    <p className="mt-1 text-3xl font-black tabular-nums text-white">{proximosBolosConfirmados.length}</p>
+                  </div>
+                  <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-3.5 backdrop-blur">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-200/70">Presupuestados</p>
+                    <p className="mt-1 text-3xl font-black tabular-nums text-amber-200">{bolosPresupuestados.length}</p>
+                  </div>
+                  <div className="col-span-2 rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-3.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-200/70">Tu espacio</p>
+                    <p className="mt-1 text-sm font-bold text-white">{usuarioActual.instrumentos?.join(' · ') || usuarioActual.instrumento || 'Músico'} <span className="text-zinc-500">/</span> {usuarioActual.cuerda || 'Charanga Sarao'}</p>
+                  </div>
+                </div>
               </div>
-            </div>
+            </section>
 
-            {/* CARRUSEL DESLIZABLE HORIZONTAL: SOLO PRÓXIMOS BOLOS CONFIRMADOS Y VIGENTES */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center px-1">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5 text-green-400"/> Próximos Bolos
-                </h3>
-                <span className="text-xs text-zinc-500">Desliza &rarr;</span>
+            <section className="space-y-3">
+              <div className="flex items-end justify-between gap-3 px-1">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Agenda</p>
+                  <h3 className="text-2xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Próximos bolos</h3>
+                </div>
+                <button type="button" onClick={() => { setPestañaActiva('bolos'); setBoloSeleccionadoId(null); }} className="text-[11px] font-bold text-emerald-300 hover:text-white">Ver calendario →</button>
               </div>
-
               {proximosBolosConfirmados.length === 0 ? (
-                <div className="p-6 bg-zinc-900/50 rounded-3xl border border-zinc-800 text-center text-xs text-zinc-500">
-                  No hay próximos bolos confirmados pendientes a partir de hoy.
+                <div className="rounded-3xl border border-white/10 bg-zinc-900/70 p-7 text-center">
+                  <CalendarIcon className="mx-auto h-8 w-8 text-zinc-600" />
+                  <p className="mt-2 text-sm font-bold text-zinc-300">Todavía no hay bolos confirmados próximos.</p>
+                  <p className="mt-1 text-xs text-zinc-500">Cuando se confirme una actuación, aparecerá aquí.</p>
                 </div>
               ) : (
-                <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-zinc-700">
-                  {proximosBolosConfirmados.map(b => {
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {proximosBolosConfirmados.slice(0, 3).map(b => {
                     const dispMiembro = usuarioActual.disponibilidadBolos?.[b.id]?.estado;
                     const vest = OPCIONES_VESTUARIO.find(v => v.id === b.vestuario) || OPCIONES_VESTUARIO[0];
                     const numConfirmados = miembros.filter(m => m.disponibilidadBolos?.[b.id]?.estado === 'puedo').length + (b.musicosExtras?.length || 0);
-
                     return (
-                      <div
-                        key={b.id}
-                        onClick={() => seleccionarBolo(b.id)}
-                        className="snap-start shrink-0 w-[280px] sm:w-[320px] bg-zinc-900 border border-zinc-800 hover:border-green-500/70 rounded-3xl p-5 cursor-pointer transition shadow-xl hover:scale-[1.02] flex flex-col justify-between"
-                      >
-                        <div>
-                          <div className="flex justify-between items-start gap-2 mb-2">
-                            <span className="text-xs font-black px-3 py-1 rounded-full border bg-green-500/20 text-green-400 border-green-500/30">
-                              📅 {b.fecha}
-                            </span>
-
-                            {dispMiembro && (
-                              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                dispMiembro === 'puedo' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
-                                dispMiembro === 'tal_vez' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
-                                'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-                              }`}>
-                                {dispMiembro === 'puedo' ? 'Confirmado' : dispMiembro === 'tal_vez' ? 'En duda' : 'No vas'}
-                              </span>
-                            )}
-                          </div>
-
-                          <h4 className="text-2xl font-black text-white tracking-wide mt-1 line-clamp-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                            {b.lugar}
-                          </h4>
-                          {b.titulo && (
-                            <p className="text-xs font-semibold mt-0.5 text-green-300">
-                              {b.titulo}
-                            </p>
-                          )}
-
-                          <div className="mt-3 pt-3 border-t border-zinc-800/80 space-y-1.5 text-xs text-zinc-300">
-                            <p className="flex items-center gap-1.5 text-zinc-400">
-                              <Clock className="w-3.5 h-3.5 text-green-400"/> Horario: <strong className="text-white">{b.horaInicio || '13:00h'} - {b.horaFin || '17:00h'}</strong>
-                            </p>
-                            <p className="flex items-center gap-1.5 text-zinc-400">
-                              <Shirt className="w-3.5 h-3.5 text-amber-400"/> Ropa: <strong className="text-zinc-200">{vest.label}</strong>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 pt-3 border-t border-zinc-800/80 flex justify-between items-center">
-                          <span className="text-[11px] font-bold text-zinc-400">
-                            👥 <strong className="text-emerald-400">{numConfirmados}</strong> en plantilla
-                          </span>
-                          <span className="text-xs font-bold flex items-center gap-1 text-green-400">
-                            Ver detalles &rarr;
+                      <button type="button" key={b.id} onClick={() => seleccionarBolo(b.id)}
+                        className="group rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900 to-[#101713] p-4 text-left shadow-lg transition hover:-translate-y-1 hover:border-emerald-400/50">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="rounded-lg bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-300">{b.fecha}</span>
+                          <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${dispMiembro === 'puedo' ? 'bg-emerald-400/15 text-emerald-300' : dispMiembro === 'tal_vez' ? 'bg-amber-400/15 text-amber-300' : dispMiembro === 'no' ? 'bg-rose-400/15 text-rose-300' : 'bg-white/5 text-zinc-400'}`}>
+                            {dispMiembro === 'puedo' ? 'Disponible' : dispMiembro === 'tal_vez' ? 'En duda' : dispMiembro === 'no' ? 'No disponible' : 'Sin respuesta'}
                           </span>
                         </div>
-                      </div>
+                        <h4 className="mt-4 truncate text-2xl text-white group-hover:text-emerald-300" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>{b.lugar}</h4>
+                        <p className="mt-1 text-xs text-zinc-400">{b.titulo || 'Actuación'} · {b.horaInicio || 'Hora por confirmar'}{b.horaFin ? ` – ${b.horaFin}` : ''}</p>
+                        <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 text-[10px]">
+                          <span className="text-zinc-400"><Users className="mr-1 inline h-3.5 w-3.5" />{numConfirmados} disponibles</span>
+                          <span className="font-black text-emerald-300">Ver bolo ↗</span>
+                        </div>
+                        <p className="mt-2 text-[10px] text-zinc-500">Vestuario: {vest.label}</p>
+                      </button>
                     );
                   })}
                 </div>
               )}
-            </div>
+            </section>
 
-            {/* ACCESOS DIRECTOS */}
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-green-500/20 text-green-400 rounded-2xl w-fit mb-3"><CalendarIcon className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Calendario General</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Confirmados (verde), presupuestos (amarillo) y ensayos (azul).</p>
-                </div>
-                <span className="text-xs font-bold text-green-400 mt-4 block">&rarr; Ver calendario</span>
+            <section className="space-y-3">
+              <div className="px-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Accesos directos</p>
+                <h3 className="text-2xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Todo a mano</h3>
               </div>
-
-              <div onClick={() => setPestañaActiva('ensayos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-cyan-500/30 hover:border-cyan-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-2xl w-fit mb-3"><Music className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Ensayos</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Lugar, horario y repertorio de los ensayos fijados.</p>
-                </div>
-                <span className="text-xs font-bold text-cyan-400 mt-4 block">&rarr; Ver ensayos ({listaEnsayos.length})</span>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {[
+                  {id:'bolos',label:'Calendario',desc:'Bolos y ensayos',icon:CalendarIcon,tone:'emerald'},
+                  {id:'ensayos',label:'Ensayos',desc:`Agenda · ${listaEnsayos.length}`,icon:Music,tone:'cyan'},
+                  {id:'letras',label:'Repertorio',desc:`${CANCIONES.length} canciones`,icon:FileText,tone:'fuchsia'},
+                  {id:'perfil',label:'Mi ficha',desc:'Estadísticas y pagos',icon:Wallet,tone:'green'},
+                  {id:'bote',label:'Bote',desc:`${saldoTotal.toFixed(2)} €`,icon:Wallet,tone:'emerald'},
+                  {id:'facturas',label:'Facturas',desc:'Envío y seguimiento',icon:FileText,tone:'cyan'},
+                  ...(esAdmin || esGestorBolos ? [{id:'bolos',label:'Presupuestos',desc:`${bolosPresupuestados.length} pendientes`,icon:ClipboardList,tone:'amber'}] : []),
+                  ...(esAdmin ? [{id:'miembros',label:'Plantilla',desc:`${miembros.length} integrantes`,icon:Users,tone:'violet'},{id:'admin',label:'Administración',desc:'Control y gestión',icon:Shield,tone:'rose'}] : [])
+                ].map(item => {
+                  const Icon = item.icon;
+                  const tones = {
+                    emerald:'border-emerald-400/20 bg-emerald-400/5 text-emerald-300',
+                    green:'border-green-400/20 bg-green-400/5 text-green-300',
+                    cyan:'border-cyan-400/20 bg-cyan-400/5 text-cyan-300',
+                    fuchsia:'border-fuchsia-400/20 bg-fuchsia-400/5 text-fuchsia-300',
+                    amber:'border-amber-400/20 bg-amber-400/5 text-amber-300',
+                    violet:'border-violet-400/20 bg-violet-400/5 text-violet-300',
+                    rose:'border-rose-400/20 bg-rose-400/5 text-rose-300'
+                  };
+                  return (
+                    <button key={item.id + item.label} type="button" onClick={() => { setPestañaActiva(item.id); if (item.id !== 'bolos') setBoloSeleccionadoId(null); }}
+                      className={`flex min-h-28 flex-col justify-between rounded-2xl border p-3.5 text-left transition hover:-translate-y-0.5 hover:bg-white/5 ${tones[item.tone]}`}>
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-black/30"><Icon className="h-5 w-5" /></span>
+                      <span className="mt-3 block text-sm font-black text-white">{item.label}</span>
+                      <span className="mt-0.5 block text-[10px] text-zinc-400">{item.desc}</span>
+                    </button>
+                  );
+                })}
               </div>
-
-              <button type="button" onClick={() => setPestañaActiva('letras')} className="text-left bg-zinc-900/90 hover:bg-zinc-900 border border-fuchsia-500/30 hover:border-fuchsia-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Music className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Letras de canciones</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Consulta las canciones del repertorio y sus fragmentos.</p>
-                </div>
-                <span className="text-xs font-bold text-fuchsia-400 mt-4 block">&rarr; Ver canciones ({CANCIONES.length})</span>
-              </button>
-
-              <div onClick={() => setPestañaActiva('presupuestos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-amber-500/30 hover:border-amber-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><ClipboardList className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bolos Presupuestados</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Presupuestos enviados pendientes de confirmar o rechazar.</p>
-                </div>
-                <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Pendientes ({bolosPresupuestados.length})</span>
-              </div>
-
-              <div onClick={() => setPestañaActiva('miembros')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Users className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Plantilla</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Integrantes y asignación de roles.</p>
-                </div>
-                <span className="text-xs font-bold text-fuchsia-400 mt-4 block">&rarr; Ver plantilla ({miembros.length})</span>
-              </div>
-
-              <button type="button" onClick={() => setPestañaActiva('perfil')} className="text-left bg-zinc-900/90 hover:bg-zinc-900 border border-emerald-500/30 hover:border-emerald-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Ficha Personal</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Tus bolos realizados, pagos, gasolina y kilómetros.</p>
-                </div>
-                <span className="text-xs font-bold text-emerald-400 mt-4 block">&rarr; Ver resumen</span>
-              </button>
-
-              <div onClick={() => setPestañaActiva('bote')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bote</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Tesorería y kilometraje (0,20€/km).</p>
-                </div>
-                <span className="text-xs font-bold text-emerald-400 mt-4 block">&rarr; Saldo ({saldoTotal.toFixed(2)} €)</span>
-              </div>
-
-              <div onClick={() => setPestañaActiva('facturas')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-cyan-500/30 hover:border-cyan-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-2xl w-fit mb-3"><FileText className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Facturas</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Subir PDFs/fotos y control de facturación.</p>
-                </div>
-                <span className="text-xs font-bold text-cyan-400 mt-4 block">&rarr; Mi total: {miTotalFacturado.toFixed(2)} €</span>
-              </div>
-
-              {esAdmin && (
-                <div onClick={() => setPestañaActiva('admin')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-rose-500/40 hover:border-rose-500 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                  <div>
-                    <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl w-fit mb-3"><Shield className="w-6 h-6"/></div>
-                    <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Panel Admin</h3>
-                    <p className="text-xs text-zinc-400 mt-1">Estadísticas, roles y correo de facturas.</p>
-                  </div>
-                  <span className="text-xs font-bold text-rose-400 mt-4 block">&rarr; Gestionar</span>
-                </div>
-              )}
-            </div>
+            </section>
           </div>
         )}
 
         {pestañaActiva === 'perfil' && (
-          <section className="space-y-5">
+          <section data-sarao-section="perfil" className="space-y-5">
             <div className="bg-zinc-900 border border-emerald-500/30 rounded-3xl p-5 sm:p-6">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
@@ -2262,6 +2420,35 @@ export default function CharangaSaraoApp() {
                   {pagosPerfil.length} {esPerfilExtra ? 'bolos realizados' : 'bolos en calendario'}
                 </span>
               </div>
+
+              {!esPerfilExtra && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5">
+                  <div className="bg-black/50 border border-emerald-500/20 rounded-2xl p-3">
+                    <p className="text-[10px] uppercase font-black text-emerald-300">Asistidos</p>
+                    <p className="text-2xl font-black text-white tabular-nums">{misBolosAsistidos.length}</p>
+                  </div>
+                  <div className="bg-black/50 border border-rose-500/20 rounded-2xl p-3">
+                    <p className="text-[10px] uppercase font-black text-rose-300">No asistidos</p>
+                    <p className="text-2xl font-black text-white tabular-nums">{misBolosNoAsistidos.length}</p>
+                  </div>
+                  <div className="bg-black/50 border border-amber-500/20 rounded-2xl p-3">
+                    <p className="text-[10px] uppercase font-black text-amber-300">Disponibles</p>
+                    <p className="text-2xl font-black text-white tabular-nums">{misBolosDisponibles.length}</p>
+                  </div>
+                  <div className="bg-black/50 border border-sky-500/20 rounded-2xl p-3">
+                    <p className="text-[10px] uppercase font-black text-sky-300">% Asistencia</p>
+                    <p className="text-2xl font-black text-white tabular-nums">{porcentajeAsistencia}%</p>
+                  </div>
+                  <div className="col-span-2 sm:col-span-4 bg-black/30 border border-white/5 rounded-xl px-3 py-2">
+                    <p className="text-[10px] text-zinc-400">Pendientes de registrar asistencia real: <strong className="text-white">{misBolosPendientesAsistencia.length}</strong></p>
+                  </div>
+                </div>
+              )}
+              {!esPerfilExtra && (
+                <p className="text-[10px] text-zinc-500 mt-2">
+                  El porcentaje se calcula sobre los bolos en los que respondiste «Puedo», excluyendo los que después te desconvocaron. «Tal vez» no cuenta como disponibilidad. La asistencia se valida manualmente desde administración; los registros antiguos sin esa validación no se incluyen en estas estadísticas.
+                </p>
+              )}
 
               {esPerfilExtra ? (
                 <div className="mt-5 overflow-x-auto rounded-xl border border-zinc-800">
@@ -2309,15 +2496,16 @@ export default function CharangaSaraoApp() {
                   {pagosPerfil.length === 0 ? (
                     <p className="text-xs text-zinc-500 py-5">Todavía no hay bolos en el calendario.</p>
                   ) : pagosPerfil.map(({ bolo, pago }) => {
-                    const disponibilidad = usuarioActual.disponibilidadBolos?.[bolo.id];
-                    const perdido = disponibilidad?.estado === 'no' || (pago.asistenciaRegistrada && pago.asistio === false);
+                    const disponibilidad = miembroPerfilActual.disponibilidadBolos?.[bolo.id];
+                    const asistenciaManual = pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true;
+                    const perdido = disponibilidad?.estado === 'no' || (asistenciaManual && pago.asistio === false);
                     const pagado = pago.asistio === true && pago.pagado === true;
                     return (
                       <button key={bolo.id} onClick={() => seleccionarBolo(bolo.id)} className={`snap-start shrink-0 w-48 text-left p-3.5 rounded-xl border transition ${perdido ? 'bg-rose-500/10 border-rose-500/40 text-rose-300' : pagado ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-black/50 border-zinc-700 text-zinc-100'}`}>
                         <span className={`block text-[10px] font-bold ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.fecha}</span>
                         <span className={`block mt-1 font-black truncate ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.lugar}</span>
                         <span className={`block mt-2 text-[10px] font-bold ${perdido ? 'text-rose-300' : pagado ? 'text-emerald-300' : 'text-zinc-400'}`}>
-                          {disponibilidad?.estado === 'no' ? 'No disponible' : perdido ? 'No asistió' : pagado ? 'Pagado' : pago.asistio === true ? 'Realizado · pendiente' : disponibilidad?.estado === 'tal_vez' ? 'En duda' : 'Sin confirmar'}
+                          {disponibilidad?.estado === 'no' ? 'No disponible'  : perdido ? 'No asistió' : pagado ? 'Pagado' : asistenciaManual && pago.asistio === true ? 'Realizado · pendiente' : disponibilidad?.estado === 'tal_vez' ? 'En duda' : 'Sin confirmar'}
                         </span>
                         {pago.asistio === true && (
                           <span className="block mt-1.5 space-y-0.5 text-[10px] text-zinc-300">
@@ -2383,7 +2571,7 @@ export default function CharangaSaraoApp() {
 
         {/* SECCIÓN: LETRAS DE CANCIONES */}
         {pestañaActiva === 'letras' && (
-          <section className="space-y-5">
+          <section data-sarao-section="letras" className="space-y-5">
             <div className="bg-zinc-900 border border-fuchsia-500/30 rounded-3xl p-5 sm:p-6">
               <div className="flex items-center gap-3">
                 <Music className="w-6 h-6 text-fuchsia-400"/>
@@ -2428,7 +2616,7 @@ export default function CharangaSaraoApp() {
 
         {/* SECCIÓN: ENSAYOS */}
         {pestañaActiva === 'ensayos' && (
-          <div className="space-y-6">
+          <div data-sarao-section="ensayos" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
@@ -2626,8 +2814,8 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* SECCIÓN: BOLOS PRESUPUESTADOS */}
-        {pestañaActiva === 'presupuestos' && (
-          <div className="space-y-6">
+        {pestañaActiva === 'bolos' && (
+          <div data-sarao-section="bolos" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
@@ -2699,6 +2887,81 @@ export default function CharangaSaraoApp() {
                             </p>
                           )}
                         </div>
+
+                        {!esPerfilExtra && (
+                          <div className="pt-3 border-t border-amber-500/20 space-y-2">
+                            <p className="text-[11px] font-bold text-zinc-300">Tu disponibilidad para este presupuesto:</p>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {[
+                                { estado: 'puedo', label: 'Puedo', style: 'bg-emerald-500 text-black' },
+                                { estado: 'tal_vez', label: 'Tal vez', style: 'bg-amber-400 text-black' },
+                                { estado: 'no', label: 'No puedo', style: 'bg-rose-500 text-white' }
+                              ].map(opcion => (
+                                <button
+                                  key={opcion.estado}
+                                  type="button"
+                                  onClick={() => setDisponibilidadBolo(b.id, opcion.estado)}
+                                  className={`rounded-lg px-2 py-2 text-[11px] font-black transition ${
+                                    usuarioActual.disponibilidadBolos?.[b.id]?.estado === opcion.estado
+                                      ? `${opcion.style} ring-2 ring-white`
+                                      : 'bg-black/50 border border-zinc-700 text-zinc-300 hover:border-zinc-400'
+                                  }`}
+                                >
+                                  {opcion.label}
+                                </button>
+                              ))}
+                            </div>
+                            {usuarioActual.disponibilidadBolos?.[b.id]?.estado && (
+                              <p className="text-[10px] text-zinc-400">
+                                Tu respuesta: <strong className="text-white">{
+                                  usuarioActual.disponibilidadBolos[b.id].estado === 'puedo'
+                                    ? 'Puedo'
+                                    : usuarioActual.disponibilidadBolos[b.id].estado === 'tal_vez'
+                                      ? 'Tal vez'
+                                      : 'No puedo'
+                                }</strong>. Puedes cambiarla cuando quieras.
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {esAdmin && (() => {
+                          const respuestasMiembros = miembros
+                            .map(m => ({ ...m, respuesta: m.disponibilidadBolos?.[b.id]?.estado }))
+                            .filter(m => ['puedo', 'tal_vez', 'no'].includes(m.respuesta));
+                          const respuestas = respuestasMiembros.map(m => m.respuesta);
+                          const puedo = respuestas.filter(estado => estado === 'puedo').length;
+                          const talVez = respuestas.filter(estado => estado === 'tal_vez').length;
+                          const noPuedo = respuestas.filter(estado => estado === 'no').length;
+                          const listaPorEstado = estado => respuestasMiembros.filter(m => m.respuesta === estado);
+                          return (
+                            <div className="pt-3 border-t border-amber-500/20">
+                              <p className="text-[10px] font-black uppercase tracking-wide text-amber-300 mb-1.5">Disponibilidad de la plantilla</p>
+                              <div className="flex flex-wrap gap-2 text-[11px] font-bold">
+                                <span className="text-emerald-300">Puedo: {puedo}</span>
+                                <span className="text-amber-300">Tal vez: {talVez}</span>
+                                <span className="text-rose-300">No puedo: {noPuedo}</span>
+                                <span className="text-zinc-400">Sin responder: {Math.max(0, miembros.length - respuestas.length)}</span>
+                              </div>
+                              <div className="mt-3 grid gap-2 text-[11px]">
+                                {[
+                                  { estado: 'puedo', titulo: 'Puedo', color: 'text-emerald-300' },
+                                  { estado: 'tal_vez', titulo: 'Tal vez', color: 'text-amber-300' },
+                                  { estado: 'no', titulo: 'No puedo', color: 'text-rose-300' }
+                                ].map(grupo => (
+                                  <div key={grupo.estado}>
+                                    <p className={`font-black ${grupo.color}`}>{grupo.titulo}</p>
+                                    <p className="text-zinc-300">
+                                      {listaPorEstado(grupo.estado).length
+                                        ? listaPorEstado(grupo.estado).map(m => m.nombre).join(' · ')
+                                        : 'Nadie todavía'}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {esGestorBolos ? (
@@ -2706,9 +2969,9 @@ export default function CharangaSaraoApp() {
                           <button
                             onClick={() => abrirModalConfirmarPresupuesto(b)}
                             className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition cursor-pointer"
-                            title="Revisar datos y confirmar bolo"
+                            title={b.presupuestacionConfirmada ? "Revisar datos y confirmar definitivamente el bolo" : "Revisar datos y confirmar que se ha presupuestado"}
                           >
-                            <Check className="w-4 h-4"/> ✓ Confirmar Bolo
+                            <Check className="w-4 h-4"/> ✓ {b.presupuestacionConfirmada ? 'Confirmar Bolo' : 'Confirmar Presupuestación'}
                           </button>
                           <button
                             onClick={() => rechazarBoloPresupuestado(b.id, b.lugar)}
@@ -2738,13 +3001,13 @@ export default function CharangaSaraoApp() {
             <div className="bg-zinc-900 border border-emerald-500/50 rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center gap-2 mb-2">
                 <Check className="w-6 h-6 text-emerald-400"/>
-                <h3 className="text-lg font-black text-white">Confirmar Bolo Presupuestado</h3>
+                <h3 className="text-lg font-black text-white">{bolos.find(b => b.id === presupuestoAConfirmarId)?.presupuestacionConfirmada ? 'Confirmar Bolo Definitivamente' : 'Confirmar Presupuestación'}</h3>
               </div>
               <p className="text-xs text-zinc-400 mb-4">
-                Revisa o modifica cualquier dato (horario, precio final, fecha...) antes de confirmar. Al confirmar, pasará a color <strong>verde</strong> en el calendario y se abrirán las asistencias.
+                Revisa o modifica los datos del presupuesto. {bolos.find(b => b.id === presupuestoAConfirmarId)?.presupuestacionConfirmada ? 'Al confirmar definitivamente, el bolo pasará a color verde y se abrirán las asistencias.' : 'Al confirmar la presupuestación, el evento seguirá pendiente y podrás confirmar el bolo en un segundo paso.'}
               </p>
 
-              <form onSubmit={confirmarBoloPresupuestadoDefinitivo} className="space-y-3">
+              <form onSubmit={bolos.find(b => b.id === presupuestoAConfirmarId)?.presupuestacionConfirmada ? confirmarBoloPresupuestadoDefinitivo : confirmarPresupuestacion} className="space-y-3">
                 <div>
                   <label className="text-[11px] font-bold text-emerald-400 block mb-1">Lugar del Bolo:</label>
                   <input
@@ -2828,7 +3091,7 @@ export default function CharangaSaraoApp() {
 
                 <div className="flex gap-2 pt-3">
                   <button type="submit" className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-black py-2.5 rounded-xl text-sm shadow-lg cursor-pointer">
-                    ✓ Confirmar Bolo
+                    ✓ {bolos.find(b => b.id === presupuestoAConfirmarId)?.presupuestacionConfirmada ? 'Confirmar Bolo' : 'Confirmar Presupuestación'}
                   </button>
                   <button
                     type="button"
@@ -2848,7 +3111,7 @@ export default function CharangaSaraoApp() {
 
         {/* PLANTILLA */}
         {pestañaActiva === 'miembros' && (
-          <div className="space-y-6">
+          <div data-sarao-section="miembros" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
@@ -2929,7 +3192,7 @@ export default function CharangaSaraoApp() {
 
         {/* SECCIÓN: FACTURAS */}
         {pestañaActiva === 'facturas' && (
-          <div className="space-y-6">
+          <div data-sarao-section="facturas" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
@@ -3194,7 +3457,7 @@ export default function CharangaSaraoApp() {
 
         {/* PANEL ADMIN */}
         {pestañaActiva === 'admin' && esAdmin && (
-          <div className="space-y-6">
+          <div data-sarao-section="admin" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
@@ -3325,7 +3588,7 @@ export default function CharangaSaraoApp() {
 
         {/* CALENDARIO GENERAL (VERDE = CONFIRMADO, AMARILLO = PRESUPUESTADO, AZUL TURQUESA = ENSAYO) */}
         {pestañaActiva === 'bolos' && (
-          <div className="space-y-6">
+          <div data-sarao-section="bolos" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-3.5 sm:p-6">
               
               <div className="flex justify-between items-start flex-wrap gap-3 border-b border-zinc-800 pb-4 mb-4">
@@ -3379,42 +3642,68 @@ export default function CharangaSaraoApp() {
               {/* CONTENEDOR DEL CALENDARIO SCROLLEABLE CON CELDAS GRANDES */}
               <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 sm:p-4 mb-5">
                 
-                <div className="flex justify-between items-center mb-3 gap-2">
-                  <div className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between mb-3 gap-1.5 min-w-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => setMesIndexActivo(prev => Math.max(0, prev - 1))}
                       disabled={mesIndexActivo === 0}
-                      className="p-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
+                      className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
                       title="Mes anterior"
+                      aria-label="Mes anterior"
                     >
                       <ChevronLeft className="w-4 h-4"/>
                     </button>
                     <button
                       onClick={() => setMesIndexActivo(prev => Math.min(MESES_PERMITIDOS.length - 1, prev + 1))}
                       disabled={mesIndexActivo === MESES_PERMITIDOS.length - 1}
-                      className="p-2 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
+                      className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 rounded-xl text-white"
                       title="Mes siguiente"
+                      aria-label="Mes siguiente"
                     >
                       <ChevronRight className="w-4 h-4"/>
                     </button>
-                    <h3 className="text-base sm:text-lg font-black text-white ml-1">
-                      {mesSeleccionado.label}
-                    </h3>
                   </div>
 
-                  <select
-                    value={mesIndexActivo}
-                    onChange={e => setMesIndexActivo(parseInt(e.target.value))}
-                    className="bg-zinc-900 border border-zinc-700 text-xs text-green-300 font-bold rounded-xl px-2.5 py-2 outline-none focus:border-green-500"
-                  >
-                    {MESES_PERMITIDOS.map((m, idx) => (
-                      <option key={idx} value={idx}>{m.label}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-end gap-1 min-w-0 flex-1">
+                    <button type="button" onClick={() => setCalendarZoom(z => Math.max(0.65, +(z - 0.1).toFixed(2)))} className="w-7 h-8 sm:w-8 sm:h-9 shrink-0 rounded-lg bg-zinc-800 text-white font-black" aria-label="Alejar calendario">−</button>
+                    <span className="text-[9px] sm:text-[10px] text-zinc-400 tabular-nums w-7 sm:w-9 text-center shrink-0">{Math.round(calendarZoom * 100)}%</span>
+                    <button type="button" onClick={() => setCalendarZoom(z => Math.min(1.45, +(z + 0.1).toFixed(2)))} className="w-7 h-8 sm:w-8 sm:h-9 shrink-0 rounded-lg bg-zinc-800 text-white font-black" aria-label="Acercar calendario">+</button>
+                    <button type="button" onClick={() => setCalendarZoom(1)} className="text-[9px] sm:text-[10px] text-green-300 font-bold px-1 shrink-0">Reset</button>
+                    <select
+                      value={mesIndexActivo}
+                      onChange={e => setMesIndexActivo(parseInt(e.target.value))}
+                      aria-label="Seleccionar mes y año"
+                      className="min-w-0 w-[104px] sm:w-[145px] bg-zinc-900 border border-zinc-700 text-[10px] sm:text-xs text-green-300 font-bold rounded-xl px-1.5 sm:px-2.5 py-2 outline-none focus:border-green-500"
+                    >
+                      {MESES_PERMITIDOS.map((m, idx) => (
+                        <option key={idx} value={idx}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                <div className="max-h-[420px] overflow-auto rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-2 scrollbar-thin scrollbar-thumb-zinc-700">
-                  <div className="min-w-[680px]">
+                <div
+                  className="max-h-[420px] overflow-auto rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-2 scrollbar-thin scrollbar-thumb-zinc-700"
+                  onTouchStart={e => {
+                    if (e.touches.length === 2) {
+                      const dx = e.touches[0].clientX - e.touches[1].clientX;
+                      const dy = e.touches[0].clientY - e.touches[1].clientY;
+                      calendarPinchRef.current = { distance: Math.hypot(dx, dy), zoom: calendarZoom };
+                    }
+                  }}
+                  onTouchMove={e => {
+                    if (e.touches.length === 2 && calendarPinchRef.current) {
+                      e.preventDefault();
+                      const dx = e.touches[0].clientX - e.touches[1].clientX;
+                      const dy = e.touches[0].clientY - e.touches[1].clientY;
+                      const distance = Math.hypot(dx, dy);
+                      setCalendarZoom(Math.min(1.65, Math.max(0.55, calendarPinchRef.current.zoom * distance / calendarPinchRef.current.distance)));
+                    }
+                  }}
+                  style={{ touchAction: 'pan-x pan-y' }}
+                  onTouchEnd={e => { if (e.touches.length < 2) calendarPinchRef.current = null; }}
+                >
+                  <div style={{ zoom: calendarZoom }} className="min-w-[680px]">
                     
                     <div className="grid grid-cols-7 gap-2 text-center text-xs sticky top-0 bg-zinc-950/95 backdrop-blur-md z-20 py-2 border-b border-zinc-800 mb-2">
                       {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(d => (
@@ -3434,7 +3723,9 @@ export default function CharangaSaraoApp() {
                         const mesFormateado = String(mesSeleccionado.mes + 1).padStart(2, '0');
                         const diaFormateado = String(diaNum).padStart(2, '0');
                         const fechaStr = `${mesSeleccionado.anio}-${mesFormateado}-${diaFormateado}`;
-                        const bolosDelDia = bolos.filter(b => b.fecha === fechaStr);
+                        const bolosDelDia = bolos
+                  .filter(b => b.fecha === fechaStr)
+                  .sort((a, b) => (a.horaInicio || '99:99').localeCompare(b.horaInicio || '99:99'));
                         const tieneConfirmado = bolosDelDia.some(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo');
                         const tienePresupuestado = bolosDelDia.some(b => b.estadoBolo === 'presupuestado');
                         const tieneEnsayo = bolosDelDia.some(b => b.estadoBolo === 'ensayo');
@@ -3481,7 +3772,7 @@ export default function CharangaSaraoApp() {
                               )}
                             </div>
 
-                            <div className="space-y-1.5 mt-2">
+                            <div className="space-y-1 mt-1">
                               {bolosDelDia.map(b => {
                                 const esPres = b.estadoBolo === 'presupuestado';
                                 const esEns = b.estadoBolo === 'ensayo';
@@ -3492,7 +3783,7 @@ export default function CharangaSaraoApp() {
                                       e.stopPropagation();
                                       seleccionarBolo(b.id);
                                     }}
-                                    className={`p-2 rounded-xl cursor-pointer shadow transition text-left ${
+                                    className={`px-1.5 py-1 rounded-md cursor-pointer shadow transition text-left min-w-0 ${
                                       esEns
                                         ? 'bg-cyan-400 text-black hover:bg-cyan-300'
                                         : esPres
@@ -3503,26 +3794,21 @@ export default function CharangaSaraoApp() {
                                     {esEns ? (
                                       <>
                                         <p className="text-xs font-black leading-tight break-words">
-                                          🎵 Ensayo
+                                          Ensayo
                                         </p>
                                         <p className="text-[10px] font-bold opacity-90 leading-tight mt-0.5 break-words">
-                                          📍 {b.lugar}
+                                          {b.lugar}
                                         </p>
                                       </>
                                     ) : (
                                       <>
                                         <p className="text-xs font-black leading-tight break-words">
-                                          📍 {b.lugar}
+                                          {b.lugar}
                                         </p>
-                                        {b.titulo && (
-                                          <p className="text-[10px] font-bold opacity-85 leading-tight mt-0.5 break-words">
-                                            {b.titulo}
-                                          </p>
-                                        )}
                                       </>
                                     )}
-                                    <p className="text-[10px] font-extrabold mt-1 flex items-center gap-1 bg-black/15 px-1.5 py-0.5 rounded w-fit">
-                                      ⏰ {b.horaInicio || '13:00h'}{!esEns && b.horaFin ? ` - ${b.horaFin}` : ''}
+                                    <p className="text-[9px] font-semibold mt-0.5 leading-tight tabular-nums">
+                                      {b.horaInicio || 'Hora por definir'}{b.horaFin ? ` – ${b.horaFin}` : ''}
                                     </p>
                                   </div>
                                 );
@@ -3574,7 +3860,7 @@ export default function CharangaSaraoApp() {
                                 onClick={() => abrirModalConfirmarPresupuesto(boloActual)}
                                 className="flex-1 sm:flex-none justify-center bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow cursor-pointer"
                               >
-                                <Check className="w-4 h-4"/> ✓ Confirmar Bolo
+                                <Check className="w-4 h-4"/> ✓ {boloActual.presupuestacionConfirmada ? 'Confirmar Bolo' : 'Confirmar Presupuestación'}
                               </button>
                               <button
                                 onClick={() => rechazarBoloPresupuestado(boloActual.id, boloActual.lugar)}
@@ -3586,7 +3872,7 @@ export default function CharangaSaraoApp() {
                           )}
                         </div>
                         <p className="text-xs text-zinc-400 border-t border-amber-500/20 pt-3">
-                          Este bolo aún no ha sido aceptado. En cuanto se confirme con el tick (✓), pasará a color verde y se habilitará la votación de asistencia, coches y vestuario.
+                          Este bolo aún está pendiente de aceptación. Ya puedes indicar tu disponibilidad; tu respuesta se conservará si el bolo se confirma. Cuando pase a verde, se habilitarán también la gestión de coches y el vestuario.
                         </p>
                       </div>
                     );
@@ -3650,9 +3936,28 @@ export default function CharangaSaraoApp() {
                     );
                   }
 
-                  const dispoPuedo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo');
-                  const dispoTalVez = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez');
-                  const dispoNo = miembros.filter(m => m.disponibilidadBolos?.[boloActual.id]?.estado === 'no');
+                  const idsDesconvocados = (boloActual.desconvocados || []).map(String);
+                  const bajasUrgencia = boloActual.bajasUrgencia || [];
+                  const idsBajaUrgencia = bajasUrgencia.map(b => String(b.miembroId));
+                  const dispoPuedo = miembros.filter(m =>
+                    m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo' &&
+                    !idsDesconvocados.includes(String(m.id)) &&
+                    !idsBajaUrgencia.includes(String(m.id))
+                  );
+                  const listaDesconvocados = miembros.filter(m =>
+                    idsDesconvocados.includes(String(m.id)) &&
+                    (esAdmin || (esJefeCuerda && m.cuerda === usuarioActual.cuerda))
+                  );
+                  const dispoTalVez = miembros.filter(m =>
+                    m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez' &&
+                    !idsDesconvocados.includes(String(m.id)) &&
+                    !idsBajaUrgencia.includes(String(m.id))
+                  );
+                  const dispoNo = miembros.filter(m =>
+                    m.disponibilidadBolos?.[boloActual.id]?.estado === 'no' &&
+                    !idsDesconvocados.includes(String(m.id)) &&
+                    !idsBajaUrgencia.includes(String(m.id))
+                  );
                   const musicosExtras = boloActual.musicosExtras || [];
                   const vestuarioActual = OPCIONES_VESTUARIO.find(v => v.id === boloActual.vestuario) || OPCIONES_VESTUARIO[0];
 
@@ -3728,6 +4033,7 @@ export default function CharangaSaraoApp() {
                               🔄 Cambiar asistencia
                             </button>
                           )}
+
                         </div>
                       </div>
 
@@ -4009,6 +4315,21 @@ export default function CharangaSaraoApp() {
                         </>
                       )}
 
+                      {bajasUrgencia.length > 0 && (
+                        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
+                          <h4 className="font-bold text-rose-300 text-xs uppercase tracking-wider mb-2">
+                            🚨 Bajas por urgencia ({bajasUrgencia.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {bajasUrgencia.map(baja => (
+                              <span key={String(baja.miembroId)} className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-xs text-rose-200">
+                                {baja.nombre} · {baja.cuerda}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* PARTICIPANTES: CONFIRMADOS */}
                       <div className="space-y-4">
                         <div>
@@ -4038,16 +4359,35 @@ export default function CharangaSaraoApp() {
                                       </span>
                                       <p className="font-bold text-sm text-zinc-100 mt-0.5">{m.nombre}</p>
                                       <p className="text-xs text-emerald-300 font-bold">Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
+                                      {String(m.id) === String(usuarioActual.id) && boloActual.estadoBolo === 'confirmado' && !esPerfilExtra && !idsBajaUrgencia.includes(String(usuarioActual.id)) && (
+                                        <button
+                                          onClick={() => registrarBajaUrgencia(boloActual.id)}
+                                          className="mt-2 inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 border border-rose-300/70 text-white font-black text-[11px] px-3.5 py-2 rounded-xl shadow-[0_4px_16px_rgba(225,29,72,0.3)] transition"
+                                        >
+                                          No disponibilidad
+                                        </button>
+                                      )}
                                     </div>
-                                    {puedeGestionarEste && (
-                                      <button 
-                                        onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} 
-                                        className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
-                                        title={`Descartar a ${m.nombre}`}
-                                      >
-                                        <Trash2 className="w-4 h-4"/>
-                                      </button>
-                                    )}
+                                    <div className="flex items-center gap-1">
+                                      {puedeDesconvocarMiembro(m.cuerda) && (
+                                        <button
+                                          onClick={() => actualizarDesconvocatoria(m.id, m.cuerda, m.nombre, true)}
+                                          className="text-amber-300 hover:bg-amber-500/20 p-1.5 rounded-xl transition text-[10px] font-black"
+                                          title={`Desconvocar a ${m.nombre}`}
+                                        >
+                                          Desconvocar
+                                        </button>
+                                      )}
+                                      {puedeGestionarEste && (
+                                        <button
+                                          onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)}
+                                          className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
+                                          title={`Borrar respuesta de ${m.nombre}`}
+                                        >
+                                          <Trash2 className="w-4 h-4"/>
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                   {renderDetallePago(m, 'miembro')}
                                 </div>
@@ -4103,9 +4443,18 @@ export default function CharangaSaraoApp() {
                                       <span className="text-[9px] font-black uppercase text-amber-300">{m.cuerda}</span>
                                       <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
                                     </div>
-                                    {puedeGestionarEste && (
-                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4"/></button>
-                                    )}
+                                    <div className="flex items-center gap-1">
+                                      {puedeDesconvocarMiembro(m.cuerda) && (
+                                        <button onClick={() => actualizarDesconvocatoria(m.id, m.cuerda, m.nombre, true)} className="text-amber-300 text-[10px] font-black px-1.5 py-1 rounded-lg hover:bg-amber-500/20">
+                                          Desconvocar
+                                        </button>
+                                      )}
+                                      {puedeGestionarEste && (
+                                        <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5" title="Borrar respuesta">
+                                          <Trash2 className="w-4 h-4"/>
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })}
@@ -4125,12 +4474,59 @@ export default function CharangaSaraoApp() {
                                       <span className="text-[9px] font-black uppercase text-rose-300">{m.cuerda}</span>
                                       <p className="font-bold text-sm text-rose-200 line-through decoration-rose-400/70 decoration-1">{m.nombre}</p>
                                     </div>
-                                    {puedeGestionarEste && (
-                                      <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5"><Trash2 className="w-4 h-4"/></button>
-                                    )}
+                                    <div className="flex items-center gap-1">
+                                      {puedeDesconvocarMiembro(m.cuerda) && (
+                                        <button onClick={() => actualizarDesconvocatoria(m.id, m.cuerda, m.nombre, true)} className="text-amber-300 text-[10px] font-black px-1.5 py-1 rounded-lg hover:bg-amber-500/20">
+                                          Desconvocar
+                                        </button>
+                                      )}
+                                      {puedeGestionarEste && (
+                                        <button onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)} className="text-rose-400 p-1.5" title="Borrar respuesta">
+                                          <Trash2 className="w-4 h-4"/>
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })}
+                            </div>
+                          </div>
+                        )}
+
+                        {(esAdmin || esJefeCuerda) && listaDesconvocados.length > 0 && (
+                          <div className="pt-3 border-t border-amber-500/20">
+                            <h4 className="font-bold text-amber-300 text-xs uppercase tracking-wider mb-2">
+                              🟠 Desconvocados ({listaDesconvocados.length})
+                            </h4>
+                            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                              {listaDesconvocados
+                                .filter(m => esAdmin || (esJefeCuerda && m.cuerda === usuarioActual.cuerda))
+                                .map(m => (
+                                  <div key={m.id} className="p-3 rounded-2xl border bg-amber-500/10 border-amber-500/30 flex items-center justify-between gap-2">
+                                    <div>
+                                      <span className="text-[9px] font-black uppercase text-amber-300">{m.cuerda}</span>
+                                      <p className="font-bold text-sm text-zinc-100">{m.nombre}</p>
+                                      <p className="text-[10px] text-zinc-400">
+                                        Disponibilidad original: {m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo'
+                                          ? 'Puedo'
+                                          : m.disponibilidadBolos?.[boloActual.id]?.estado === 'tal_vez'
+                                            ? 'Tal vez'
+                                            : m.disponibilidadBolos?.[boloActual.id]?.estado === 'no'
+                                              ? 'No puedo'
+                                              : 'Sin respuesta'}
+                                      </p>
+                                    </div>
+                                    {puedeDesconvocarMiembro(m.cuerda) && (
+                                      <button
+                                        onClick={() => actualizarDesconvocatoria(m.id, m.cuerda, m.nombre, false)}
+                                        className="text-emerald-300 hover:bg-emerald-500/20 p-2 rounded-xl text-[10px] font-black"
+                                        title={`Volver a convocar a ${m.nombre}`}
+                                      >
+                                        Reactivar
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
                             </div>
                           </div>
                         )}
@@ -4670,12 +5066,20 @@ export default function CharangaSaraoApp() {
                 setShowModalBolo(false);
                 const guardadoEnNube = await guardarEnNube(null, nuevosBolos, null);
                 if (guardadoEnNube) {
-                  await enviarNotificacionAUsuarios({
-                    titulo: esEns ? 'Nuevo ensayo en el calendario' : 'Nuevo bolo en el calendario',
-                    mensaje: esEns
-                      ? `Tenemos nuevo ENSAYO fijado panzabucheeee: ${nuevoBolo.lugar}`
-                      : `Tenemos nuevo BOLO croquetoooooo: ${nuevoBolo.titulo || nuevoBolo.lugar}`
-                  });
+                  if (tipoCreacionEvento === 'presupuestado') {
+                    await enviarNotificacionBoloConEnlace({
+                      titulo: 'Solicitud de presupuesto',
+                      mensaje: `Nos han solicitado presupuesto para este bolo: ${nuevoBolo.lugar}`,
+                      url: `/?evento=${encodeURIComponent(String(nuevoBolo.id))}`
+                    });
+                  } else {
+                    await enviarNotificacionAUsuarios({
+                      titulo: esEns ? 'Nuevo ensayo en el calendario' : 'Nuevo bolo en el calendario',
+                      mensaje: esEns
+                        ? `Tenemos nuevo ENSAYO fijado panzabucheeee: ${nuevoBolo.lugar}`
+                        : `Tenemos nuevo BOLO croquetoooooo: ${nuevoBolo.titulo || nuevoBolo.lugar}`
+                    });
+                  }
                 }
               }} className="space-y-3">
 
@@ -4805,7 +5209,7 @@ export default function CharangaSaraoApp() {
 
         {/* BOTE / TESORERÍA */}
         {pestañaActiva === 'bote' && (
-          <div className="space-y-6">
+          <div data-sarao-section="bote" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
@@ -5180,14 +5584,42 @@ export default function CharangaSaraoApp() {
       </main>
 
       {/* BARRA INFERIOR */}
-      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-green-500/30 px-2.5 py-2 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto">
+      <nav
+        className="fixed bottom-3 left-1/2 -translate-x-1/2 bg-white/12 border border-white/35 px-2 py-2 rounded-[2.2rem] shadow-[0_14px_42px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.58),inset_0_-1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl flex items-center gap-1 z-40 max-w-[96vw] overflow-x-auto scrollbar-none select-none"
+        style={{ WebkitBackdropFilter: 'blur(32px) saturate(230%)', scrollbarWidth: 'none', touchAction: 'none', backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.24), rgba(255,255,255,0.045) 52%, rgba(255,255,255,0.14))' }}
+        onTouchStart={e => {
+          if (e.touches.length !== 1) return;
+          const t = e.touches[0];
+          const id = detectarPestanaBajoDedo(e.currentTarget, t.clientX, t.clientY);
+          navGestureRef.current = { id, x: t.clientX, y: t.clientY, moved: false };
+        }}
+        onTouchMove={e => {
+          if (!navGestureRef.current || e.touches.length !== 1) return;
+          const t = e.touches[0];
+          const nav = e.currentTarget;
+          if (Math.abs(t.clientX - navGestureRef.current.x) > 7 || Math.abs(t.clientY - navGestureRef.current.y) > 7) navGestureRef.current.moved = true;
+          const id = detectarPestanaBajoDedo(nav, t.clientX, t.clientY);
+          navGestureRef.current.id = id;
+          setNavGestureTab(id);
+          if (id && id !== pestañaActiva) seleccionarPestanaInferior(id);
+          const rect = nav.getBoundingClientRect();
+          if (t.clientX > rect.right - 24) nav.scrollLeft += 12;
+          else if (t.clientX < rect.left + 24) nav.scrollLeft -= 12;
+        }}
+        onTouchEnd={() => {
+          const gesto = navGestureRef.current;
+          navGestureRef.current = null;
+          setNavGestureTab(null);
+          if (gesto?.moved && gesto.id) seleccionarPestanaInferior(gesto.id);
+        }}
+        onTouchCancel={() => { navGestureRef.current = null; setNavGestureTab(null); }}
+      >
         {[
           { id: 'landing', label: 'Inicio', icon: Home },
           { id: 'bolos', label: 'Bolos', icon: CalendarIcon },
           { id: 'perfil', label: 'Mi ficha', icon: Wallet },
           { id: 'ensayos', label: 'Ensayos', icon: Music },
           { id: 'letras', label: 'Letras de canciones', icon: FileText },
-          { id: 'presupuestos', label: 'Presupuestos', icon: ClipboardList },
           { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
           { id: 'facturas', label: 'Facturas', icon: FileText },
@@ -5196,7 +5628,9 @@ export default function CharangaSaraoApp() {
           const Icon = tab.icon;
           const activa = pestañaActiva === tab.id;
           return (
-            <button key={tab.id} onClick={() => { setPestañaActiva(tab.id); if (tab.id !== 'bolos') setBoloSeleccionadoId(null); }} className={`flex items-center gap-1.5 px-2.5 py-2.5 rounded-xl text-xs font-black transition shrink-0 ${activa ? 'bg-green-500 text-black shadow-lg scale-105' : 'text-zinc-400 hover:text-white'}`}>
+            <button key={tab.id} data-nav-tab={tab.id} aria-label={tab.label} aria-current={activa ? 'page' : undefined} onClick={() => seleccionarPestanaInferior(tab.id)} onMouseEnter={() => setNavGestureTab(tab.id)}
+              onMouseLeave={() => setNavGestureTab(null)}
+              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-black transition-all duration-200 shrink-0 snap-center ${(navGestureTab || pestañaActiva) === tab.id ? 'bg-emerald-300/90 text-emerald-950 shadow-[0_2px_16px_rgba(52,211,153,0.48)] scale-110' : 'text-white/80 hover:text-white hover:bg-emerald-300/15'}`}>
               <Icon className="w-4 h-4"/>
               <span className="hidden md:inline">{tab.label}</span>
             </button>
