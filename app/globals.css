@@ -555,3 +555,67 @@ button,
     flex-basis: 16px !important;
   }
 }
+
+
+/* Liquid Crystal: ligeramente más ancha que el contenido, centrada y compacta. */
+@media (min-width: 768px) {
+  nav.fixed {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: 1rem !important;
+    width: min(1240px, calc(100vw - 3rem)) !important;
+    max-width: min(1240px, calc(100vw - 3rem)) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    box-sizing: border-box !important;
+    transform: translateX(-50%) !important;
+    border-radius: 999px !important;
+    padding: .42rem .8rem !important;
+    gap: .22rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    overflow: visible !important;
+  }
+  nav.fixed > button[data-nav-tab] {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    gap: .42rem !important;
+    padding: .62rem .72rem !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    transform: none !important;
+  }
+  nav.fixed > button[data-nav-tab] span {
+    display: inline !important;
+    overflow: visible !important;
+  }
+  nav.fixed > button[data-nav-tab] svg {
+    width: 17px !important;
+    height: 17px !important;
+    flex: 0 0 17px !important;
+  }
+  nav.fixed > button[data-nav-tab][aria-current="page"] {
+    transform: scale(1.02) !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1120px) {
+  nav.fixed {
+    width: calc(100vw - 2rem) !important;
+    max-width: calc(100vw - 2rem) !important;
+    padding: .35rem .45rem !important;
+  }
+  nav.fixed > button[data-nav-tab] {
+    gap: .28rem !important;
+    padding: .58rem .4rem !important;
+    font-size: 12px !important;
+  }
+  nav.fixed > button[data-nav-tab] svg {
+    width: 15px !important;
+    height: 15px !important;
+    flex-basis: 15px !important;
+  }
+}
