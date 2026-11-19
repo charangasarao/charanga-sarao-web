@@ -358,6 +358,7 @@ export default function CharangaSaraoApp() {
   const [conceptoBote, setConceptoBote] = useState('');
   const [importeBote, setImporteBote] = useState('');
   const [tipoMovimientoBote, setTipoMovimientoBote] = useState('ingreso');
+  const [boloSeleccionadoIngreso, setBoloSeleccionadoIngreso] = useState('');
 
   const [showModalGasolina, setShowModalGasolina] = useState(false);
   const [kmGasolina, setKmGasolina] = useState('');
@@ -1394,7 +1395,16 @@ export default function CharangaSaraoApp() {
   const agregarMovimientoGeneralBote = async (e) => {
     e.preventDefault();
     if (!esTesorero) return;
-    const imp = parseFloat(importeBote);
+    const boloCobrado = tipoMovimientoBote === 'ingreso'
+      ? bolosPendientesDeCobro.find(b => String(b.id) === String(boloSeleccionadoIngreso))
+      : null;
+    const imp = tipoMovimientoBote === 'ingreso' && boloCobrado
+      ? Number(boloCobrado.presupuesto)
+      : parseFloat(importeBote);
+    if (tipoMovimientoBote === 'ingreso' && !boloCobrado) {
+      alert('Selecciona un bolo pendiente de cobro.');
+      return;
+    }
     if (isNaN(imp) || imp <= 0 || !conceptoBote.trim()) {
       alert('Introduce un concepto e importe válidos.');
       return;
@@ -1404,6 +1414,8 @@ export default function CharangaSaraoApp() {
     const nuevoMov = {
       id: Date.now(),
       concepto: conceptoBote.trim(),
+      ...(boloCobrado ? { boloId: boloCobrado.id, conceptoBolo: boloCobrado.titulo || boloCobrado.lugar } : {}),
+      categoriaGasto: tipoMovimientoBote === 'gasto' ? conceptoBote.trim() : null,
       cantidad: cantidadReal,
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
       tipo: tipoMovimientoBote,
@@ -1411,11 +1423,16 @@ export default function CharangaSaraoApp() {
       verificado: true
     };
     const nuevoBote = [nuevoMov, ...movimientosBote];
+    const nuevosBolos = boloCobrado
+      ? bolos.map(b => String(b.id) === String(boloCobrado.id) ? { ...b, cobrado: true } : b)
+      : bolos;
     setMovimientosBote(nuevoBote);
+    if (boloCobrado) setBolos(nuevosBolos);
     setConceptoBote('');
+    setBoloSeleccionadoIngreso('');
     setImporteBote('');
     setShowModalMovimientoBote(false);
-    await guardarEnNube(null, null, nuevoBote);
+    await guardarEnNube(null, boloCobrado ? nuevosBolos : null, nuevoBote);
   };
 
   const agregarGasolinaConductor = async (e) => {
@@ -1907,6 +1924,30 @@ export default function CharangaSaraoApp() {
   const totalGastos = movimientosContabilizados.filter(m => m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const totalPendienteGasolina = movimientosBote.filter(m => m.verificado === false && m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const saldoTotal = totalIngresos - totalGastos;
+  // DATOS PARA EL DASHBOARD FINANCIERO (solo movimientos reales contabilizados)
+  const MESES_FINANZAS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const parsearMesMovimiento = (fecha) => {
+    const texto = String(fecha || '').toLowerCase();
+    const match = texto.match(/(?:\\d{1,2}\\s*[-/ ]\\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
+    if (match) return MESES_FINANZAS.indexOf(match[1].toLowerCase());
+    const numerica = texto.match(/\\d{1,2}[/-](\\d{1,2})/);
+    return numerica ? Math.max(0, Math.min(11, Number(numerica[1]) - 1)) : -1;
+  };
+  // Meses fijos para que el render del servidor y el del navegador sean idénticos.
+  const datosMensualesFinanzas = Array.from({ length: 12 }, (_, index) => {
+    const mes = index;
+    const movimientosMes = movimientosContabilizados.filter(m => parsearMesMovimiento(m.fecha) === mes);
+    return {
+      mes: MESES_FINANZAS[mes].toUpperCase(),
+      ingresos: movimientosMes.filter(m => Number(m.cantidad) > 0).reduce((sum, m) => sum + Number(m.cantidad), 0),
+      gastos: movimientosMes.filter(m => Number(m.cantidad) < 0).reduce((sum, m) => sum + Math.abs(Number(m.cantidad)), 0)
+    };
+  });
+  const maximoMensualFinanzas = Math.max(1, ...datosMensualesFinanzas.flatMap(m => [m.ingresos, m.gastos]));
+  const gastosGasolinaFinanzas = movimientosContabilizados.filter(m => Number(m.cantidad) < 0 && m.esGasolina).reduce((sum, m) => sum + Math.abs(Number(m.cantidad)), 0);
+  const gastosOtrosFinanzas = Math.max(0, totalGastos - gastosGasolinaFinanzas);
+  const porcentajeGasolinaFinanzas = totalGastos > 0 ? Math.round(gastosGasolinaFinanzas / totalGastos * 100) : 0;
+
 
   // CÁLCULO DE TOTALES DE FACTURAS
   const misFacturas = facturas.filter(
@@ -1936,6 +1977,14 @@ export default function CharangaSaraoApp() {
   };
 
   const bolosConfirmados = bolos.filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo');
+  // Un bolo se considera cobrado cuando existe un ingreso vinculado a su ID.
+  const idsBolosCobrados = new Set(
+    movimientosBote.filter(m => m.tipo === 'ingreso' && m.boloId != null).map(m => String(m.boloId))
+  );
+  const bolosPendientesDeCobro = bolosConfirmados
+    .filter(b => Number(b.presupuesto) > 0 && !idsBolosCobrados.has(String(b.id)))
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
 
   const proximosBolosConfirmados = bolos
     .filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo' && esBoloVigente(b.fecha))
@@ -3824,6 +3873,41 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
+              {/* ESTADO DE COBRO DE LOS BOLOS */}
+              <section className="bg-black/40 border border-zinc-800 rounded-2xl p-4 sm:p-5 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <h3 className="text-2xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                      ESTADO DE COBRO DE LOS BOLOS
+                    </h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">Consulta qué actuaciones están cobradas y cuáles siguen pendientes.</p>
+                  </div>
+                  <span className="text-xs text-zinc-500">{bolosConfirmados.length} bolos</span>
+                </div>
+                {bolosConfirmados.length > 0 ? (
+                  <div className="divide-y divide-zinc-800">
+                    {[...bolosConfirmados]
+                      .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')))
+                      .map(b => {
+                        const cobrado = idsBolosCobrados.has(String(b.id));
+                        return (
+                          <div key={b.id} className="py-3 flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-white truncate">{b.titulo || b.lugar}</p>
+                              <p className="text-xs text-zinc-500 mt-0.5">{b.fecha || 'Fecha sin definir'}{Number(b.presupuesto) > 0 ? ` · ${Number(b.presupuesto).toFixed(2)} €` : ''}</p>
+                            </div>
+                            <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] font-black uppercase ${cobrado ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}`}>
+                              {cobrado ? 'Cobrado' : 'Pendiente de cobrar'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-500 py-3 text-center">Todavía no hay bolos confirmados.</p>
+                )}
+              </section>
+
               {/* DETALLES DEL EVENTO SELECCIONADO */}
               {boloActual ? (
                 (() => {
@@ -5274,6 +5358,53 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
+              {/* DASHBOARD FINANCIERO VISUAL */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 mb-6">
+                <div className="xl:col-span-2 bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Análisis financiero</p>
+                      <h3 className="text-xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Evolución de ingresos y gastos</h3>
+                    </div>
+                    <span className="text-[10px] text-zinc-500">Histórico agrupado por mes · €</span>
+                  </div>
+                  <div className="flex gap-4 text-[10px] text-zinc-400 mb-4">
+                    <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-emerald-400"/>Ingresos</span>
+                    <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-rose-400"/>Gastos</span>
+                  </div>
+                  <div className="space-y-3">
+                    {datosMensualesFinanzas.map((mes, index) => (
+                      <div key={mes.mes + index} className="grid grid-cols-[34px_1fr] sm:grid-cols-[42px_1fr_100px] gap-2 items-center">
+                        <span className="text-[10px] font-black text-zinc-400">{mes.mes}</span>
+                        <div className="space-y-1.5">
+                          <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${mes.ingresos / maximoMensualFinanzas * 100}%` }}/></div>
+                          <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full bg-rose-400 transition-all" style={{ width: `${mes.gastos / maximoMensualFinanzas * 100}%` }}/></div>
+                        </div>
+                        <span className="hidden sm:block text-right text-[10px] text-zinc-500 tabular-nums">{mes.ingresos.toFixed(0)} / {mes.gastos.toFixed(0)} €</span>
+                      </div>
+                    ))}
+                  </div>
+                  {movimientosContabilizados.length === 0 && <p className="text-xs text-zinc-500 mt-4">Cuando haya movimientos contabilizados, aquí aparecerá su evolución.</p>}
+                </div>
+                <div className="bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
+                  <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Control de gastos</p>
+                  <h3 className="text-xl text-white mt-1 mb-4" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>¿En qué gastamos?</h3>
+                  <div className="flex justify-center py-2">
+                    <div className="w-36 h-36 rounded-full relative" style={{ background: totalGastos > 0 ? `conic-gradient(#fbbf24 0 ${porcentajeGasolinaFinanzas}%, #22d3ee ${porcentajeGasolinaFinanzas}% 100%)` : '#27272a' }}>
+                      <div className="absolute inset-5 rounded-full bg-zinc-950 flex flex-col items-center justify-center">
+                        <span className="text-[10px] text-zinc-500 uppercase">Gastos</span>
+                        <strong className="text-lg text-white tabular-nums">{totalGastos.toFixed(0)} €</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3 mt-4">
+                    <div className="flex items-center justify-between gap-2 text-xs"><span className="flex items-center gap-2 text-zinc-300"><i className="w-2.5 h-2.5 rounded-sm bg-amber-400"/>Gasolina</span><strong className="text-white tabular-nums">{gastosGasolinaFinanzas.toFixed(2)} €</strong></div>
+                    <div className="flex items-center justify-between gap-2 text-xs"><span className="flex items-center gap-2 text-zinc-300"><i className="w-2.5 h-2.5 rounded-sm bg-cyan-400"/>Otros gastos</span><strong className="text-white tabular-nums">{gastosOtrosFinanzas.toFixed(2)} €</strong></div>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 mt-4">Solo incluye gastos verificados y contabilizados.</p>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Historial de Movimientos y Gasolinas</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto bg-black/60 p-3 rounded-2xl border border-zinc-800">
@@ -5467,14 +5598,14 @@ export default function CharangaSaraoApp() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setTipoMovimientoBote('ingreso')}
+                      onClick={() => { setTipoMovimientoBote('ingreso'); setConceptoBote(''); setBoloSeleccionadoIngreso(''); setImporteBote(''); }}
                       className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'ingreso' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-black border-zinc-800 text-zinc-400'}`}
                     >
                       + Ingreso (Cobro)
                     </button>
                     <button
                       type="button"
-                      onClick={() => setTipoMovimientoBote('gasto')}
+                      onClick={() => { setTipoMovimientoBote('gasto'); setConceptoBote('Otros gastos'); setBoloSeleccionadoIngreso(''); setImporteBote(''); }}
                       className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'gasto' ? 'bg-rose-500/20 border-rose-500 text-rose-300' : 'bg-black border-zinc-800 text-zinc-400'}`}
                     >
                       - Gasto
@@ -5484,14 +5615,38 @@ export default function CharangaSaraoApp() {
 
                 <div>
                   <label className="text-xs text-zinc-400 block mb-1 font-bold">Concepto:</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Cobro Pasacalles o Compra Repuestos"
-                    value={conceptoBote}
-                    onChange={e => setConceptoBote(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
-                    required
-                  />
+                  {tipoMovimientoBote === 'ingreso' ? (
+                    <select
+                      value={boloSeleccionadoIngreso}
+                      onChange={e => {
+                        const elegido = bolosPendientesDeCobro.find(b => String(b.id) === e.target.value);
+                        setBoloSeleccionadoIngreso(e.target.value);
+                        setConceptoBote(elegido ? (elegido.titulo || elegido.lugar) : '');
+                        setImporteBote(elegido ? String(elegido.presupuesto) : '');
+                      }}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                      required
+                    >
+                      <option value="">Selecciona un bolo pendiente de cobro</option>
+                      {bolosPendientesDeCobro.map(b => (
+                        <option key={b.id} value={String(b.id)}>
+                          {b.lugar} · {b.fecha} · {Number(b.presupuesto).toFixed(2)} €
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      value={conceptoBote || 'Otros gastos'}
+                      onChange={e => setConceptoBote(e.target.value)}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                      required
+                    >
+                      <option value="Ropa">Ropa</option>
+                      <option value="Pegatinas">Pegatinas</option>
+                      <option value="Material">Material</option>
+                      <option value="Otros gastos">Otros gastos</option>
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -5502,7 +5657,8 @@ export default function CharangaSaraoApp() {
                     placeholder="Ej: 1200"
                     value={importeBote}
                     onChange={e => setImporteBote(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                    readOnly={tipoMovimientoBote === 'ingreso'}
+                    className={`w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500 ${tipoMovimientoBote === 'ingreso' ? 'opacity-70 cursor-not-allowed' : ''}`}
                     required
                   />
                 </div>
