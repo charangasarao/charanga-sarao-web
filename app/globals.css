@@ -666,3 +666,34 @@ button,
     font-size: 12px !important;
   }
 }
+
+
+/* Corrección definitiva de centrado: neutralizar el translate de Tailwind y centrar con transform. */
+@media (min-width: 768px) {
+  nav.fixed.bottom-3.left-1\/2 {
+    left: 50% !important;
+    right: auto !important;
+    bottom: 1rem !important;
+    width: min(1240px, calc(100vw - 48px)) !important;
+    max-width: min(1240px, calc(100vw - 48px)) !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    translate: none !important;
+    transform: translateX(-50%) !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: .45rem .8rem !important;
+    gap: .2rem !important;
+    border-radius: 999px !important;
+    overflow: visible !important;
+  }
+  nav.fixed.bottom-3.left-1\/2 > button[data-nav-tab] {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    padding: .62rem .68rem !important;
+    font-size: 14px !important;
+  }
+}
