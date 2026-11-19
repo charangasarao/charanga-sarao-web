@@ -1907,6 +1907,31 @@ export default function CharangaSaraoApp() {
   const totalGastos = movimientosContabilizados.filter(m => m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const totalPendienteGasolina = movimientosBote.filter(m => m.verificado === false && m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const saldoTotal = totalIngresos - totalGastos;
+  // DATOS PARA EL DASHBOARD FINANCIERO (solo movimientos reales contabilizados)
+  const MESES_FINANZAS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const parsearMesMovimiento = (fecha) => {
+    const texto = String(fecha || '').toLowerCase();
+    const match = texto.match(/(?:\\d{1,2}\\s*[-/ ]\\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
+    if (match) return MESES_FINANZAS.indexOf(match[1].toLowerCase());
+    const numerica = texto.match(/\\d{1,2}[/-](\\d{1,2})/);
+    return numerica ? Math.max(0, Math.min(11, Number(numerica[1]) - 1)) : -1;
+  };
+  const fechaActualFinanzas = new Date();
+  const datosMensualesFinanzas = Array.from({ length: 6 }, (_, index) => {
+    const fecha = new Date(fechaActualFinanzas.getFullYear(), fechaActualFinanzas.getMonth() - (5 - index), 1);
+    const mes = fecha.getMonth();
+    const movimientosMes = movimientosContabilizados.filter(m => parsearMesMovimiento(m.fecha) === mes);
+    return {
+      mes: MESES_FINANZAS[mes].toUpperCase(),
+      ingresos: movimientosMes.filter(m => Number(m.cantidad) > 0).reduce((sum, m) => sum + Number(m.cantidad), 0),
+      gastos: movimientosMes.filter(m => Number(m.cantidad) < 0).reduce((sum, m) => sum + Math.abs(Number(m.cantidad)), 0)
+    };
+  });
+  const maximoMensualFinanzas = Math.max(1, ...datosMensualesFinanzas.flatMap(m => [m.ingresos, m.gastos]));
+  const gastosGasolinaFinanzas = movimientosContabilizados.filter(m => Number(m.cantidad) < 0 && m.esGasolina).reduce((sum, m) => sum + Math.abs(Number(m.cantidad)), 0);
+  const gastosOtrosFinanzas = Math.max(0, totalGastos - gastosGasolinaFinanzas);
+  const porcentajeGasolinaFinanzas = totalGastos > 0 ? Math.round(gastosGasolinaFinanzas / totalGastos * 100) : 0;
+
 
   // CÁLCULO DE TOTALES DE FACTURAS
   const misFacturas = facturas.filter(
@@ -5271,6 +5296,53 @@ export default function CharangaSaraoApp() {
                   <p className="text-2xl font-black text-amber-400 mt-1">
                     {totalPendienteGasolina.toFixed(2)} €
                   </p>
+                </div>
+              </div>
+
+              {/* DASHBOARD FINANCIERO VISUAL */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 mb-6">
+                <div className="xl:col-span-2 bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Análisis financiero</p>
+                      <h3 className="text-xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Evolución de ingresos y gastos</h3>
+                    </div>
+                    <span className="text-[10px] text-zinc-500">Últimos 6 meses · €</span>
+                  </div>
+                  <div className="flex gap-4 text-[10px] text-zinc-400 mb-4">
+                    <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-emerald-400"/>Ingresos</span>
+                    <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-rose-400"/>Gastos</span>
+                  </div>
+                  <div className="space-y-3">
+                    {datosMensualesFinanzas.map((mes, index) => (
+                      <div key={mes.mes + index} className="grid grid-cols-[34px_1fr] sm:grid-cols-[42px_1fr_100px] gap-2 items-center">
+                        <span className="text-[10px] font-black text-zinc-400">{mes.mes}</span>
+                        <div className="space-y-1.5">
+                          <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${mes.ingresos / maximoMensualFinanzas * 100}%` }}/></div>
+                          <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full bg-rose-400 transition-all" style={{ width: `${mes.gastos / maximoMensualFinanzas * 100}%` }}/></div>
+                        </div>
+                        <span className="hidden sm:block text-right text-[10px] text-zinc-500 tabular-nums">{mes.ingresos.toFixed(0)} / {mes.gastos.toFixed(0)} €</span>
+                      </div>
+                    ))}
+                  </div>
+                  {movimientosContabilizados.length === 0 && <p className="text-xs text-zinc-500 mt-4">Cuando haya movimientos contabilizados, aquí aparecerá su evolución.</p>}
+                </div>
+                <div className="bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
+                  <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Control de gastos</p>
+                  <h3 className="text-xl text-white mt-1 mb-4" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>¿En qué gastamos?</h3>
+                  <div className="flex justify-center py-2">
+                    <div className="w-36 h-36 rounded-full relative" style={{ background: totalGastos > 0 ? `conic-gradient(#fbbf24 0 ${porcentajeGasolinaFinanzas}%, #22d3ee ${porcentajeGasolinaFinanzas}% 100%)` : '#27272a' }}>
+                      <div className="absolute inset-5 rounded-full bg-zinc-950 flex flex-col items-center justify-center">
+                        <span className="text-[10px] text-zinc-500 uppercase">Gastos</span>
+                        <strong className="text-lg text-white tabular-nums">{totalGastos.toFixed(0)} €</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3 mt-4">
+                    <div className="flex items-center justify-between gap-2 text-xs"><span className="flex items-center gap-2 text-zinc-300"><i className="w-2.5 h-2.5 rounded-sm bg-amber-400"/>Gasolina</span><strong className="text-white tabular-nums">{gastosGasolinaFinanzas.toFixed(2)} €</strong></div>
+                    <div className="flex items-center justify-between gap-2 text-xs"><span className="flex items-center gap-2 text-zinc-300"><i className="w-2.5 h-2.5 rounded-sm bg-cyan-400"/>Otros gastos</span><strong className="text-white tabular-nums">{gastosOtrosFinanzas.toFixed(2)} €</strong></div>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 mt-4">Solo incluye gastos verificados y contabilizados.</p>
                 </div>
               </div>
 
