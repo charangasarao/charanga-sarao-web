@@ -3710,21 +3710,21 @@ export default function CharangaSaraoApp() {
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-start gap-1 min-w-0 flex-wrap">
-                    <button type="button" onClick={() => setCalendarZoom(z => Math.max(0.65, +(z - 0.1).toFixed(2)))} className="w-7 h-8 sm:w-8 sm:h-9 shrink-0 rounded-lg bg-zinc-800 text-white font-black" aria-label="Alejar calendario">−</button>
-                    <span className="text-[9px] sm:text-[10px] text-zinc-400 tabular-nums w-7 sm:w-9 text-center shrink-0">{Math.round(calendarZoom * 100)}%</span>
-                    <button type="button" onClick={() => setCalendarZoom(z => Math.min(1.45, +(z + 0.1).toFixed(2)))} className="w-7 h-8 sm:w-8 sm:h-9 shrink-0 rounded-lg bg-zinc-800 text-white font-black" aria-label="Acercar calendario">+</button>
-                    <button type="button" onClick={() => setCalendarZoom(1)} className="text-[9px] sm:text-[10px] text-green-300 font-bold px-1 shrink-0">Reset</button>
+                  <div className="flex items-center gap-1 min-w-0 flex-1">
                     <select
                       value={mesIndexActivo}
                       onChange={e => setMesIndexActivo(parseInt(e.target.value))}
                       aria-label="Seleccionar mes y año"
-                      className="min-w-0 w-[104px] sm:w-[145px] bg-zinc-900 border border-zinc-700 text-[10px] sm:text-xs text-green-300 font-bold rounded-xl px-1.5 sm:px-2.5 py-2 outline-none focus:border-green-500"
+                      className="flex-1 min-w-[145px] sm:min-w-[190px] bg-zinc-900 border border-zinc-700 text-[10px] sm:text-xs text-green-300 font-bold rounded-xl px-2.5 py-2 outline-none focus:border-green-500"
                     >
                       {MESES_PERMITIDOS.map((m, idx) => (
                         <option key={idx} value={idx}>{m.label}</option>
                       ))}
                     </select>
+                    <button type="button" onClick={() => setCalendarZoom(z => Math.max(0.65, +(z - 0.1).toFixed(2)))} className="w-7 h-8 sm:w-8 sm:h-9 shrink-0 rounded-lg bg-zinc-800 text-white font-black" aria-label="Alejar calendario">−</button>
+                    <span className="text-[9px] sm:text-[10px] text-zinc-400 tabular-nums w-7 sm:w-9 text-center shrink-0">{Math.round(calendarZoom * 100)}%</span>
+                    <button type="button" onClick={() => setCalendarZoom(z => Math.min(1.45, +(z + 0.1).toFixed(2)))} className="w-7 h-8 sm:w-8 sm:h-9 shrink-0 rounded-lg bg-zinc-800 text-white font-black" aria-label="Acercar calendario">+</button>
+                    <button type="button" onClick={() => setCalendarZoom(1)} className="text-[9px] sm:text-[10px] text-green-300 font-bold px-1 shrink-0">Reset</button>
                   </div>
                 </div>
 
