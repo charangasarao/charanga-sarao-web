@@ -5022,14 +5022,14 @@ export default function CharangaSaraoApp() {
                   ? 'border-amber-500/50' 
                   : 'border-green-500/40'
             }`}>
-              <h3 className="text-lg font-black text-white mb-1">
+              <h3 className="sarao-bolo-modal-title text-lg font-black text-white mb-1">
                 {tipoCreacionEvento === 'ensayo'
                   ? 'Añadir Nuevo Ensayo'
                   : tipoCreacionEvento === 'presupuestado'
                     ? 'Añadir Nuevo Presupuesto de Bolo'
                     : 'Añadir Nuevo Bolo'}
               </h3>
-              <p className="text-xs text-zinc-400 mb-3">
+              <p className="sarao-bolo-modal-description text-xs text-zinc-400 mb-3">
                 {tipoCreacionEvento === 'ensayo'
                   ? 'El título será siempre "Ensayo" y se mostrará en azul turquesa.'
                   : tipoCreacionEvento === 'presupuestado' 
@@ -5081,7 +5081,7 @@ export default function CharangaSaraoApp() {
                     });
                   }
                 }
-              }} className="space-y-3">
+              }} className="space-y-3 sarao-bolo-form">
 
                 <div className="grid grid-cols-3 gap-1.5 p-1 bg-black rounded-xl border border-zinc-800">
                   <button
