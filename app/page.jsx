@@ -4882,7 +4882,7 @@ export default function CharangaSaraoApp() {
                     mensaje: `${usuarioActual.nombre || nuevoCar.conductor} ha puesto su putivuelta para este bolo: ${boloActual.lugar}`
                   });
                 }
-              }} className="space-y-3">
+              }} className="space-y-3 sarao-bolo-form">
 
                 {(boloActual.musicosExtras || []).length > 0 && (
                   <div>
@@ -5014,8 +5014,8 @@ export default function CharangaSaraoApp() {
 
         {/* MODAL AÑADIR DESDE EL CALENDARIO */}
         {showModalBolo && esGestorBolos && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className={`bg-zinc-900 border rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto ${
+          <div className="sarao-bolo-modal-overlay fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className={`sarao-bolo-modal bg-zinc-900 border rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto ${
               tipoCreacionEvento === 'ensayo' 
                 ? 'border-cyan-400/50' 
                 : tipoCreacionEvento === 'presupuestado' 
