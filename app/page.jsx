@@ -2098,19 +2098,32 @@ export default function CharangaSaraoApp() {
         : null) ||
       {}
   })).filter(({ pago }) => !esPerfilExtra || pago.asistio === true);
+  // Estadísticas personales: solo bolos confirmados ya celebrados.
+  // "Disponible" significa haber respondido Puedo; Tal vez equivale a No.
+  // La asistencia real solo se cuenta cuando administración la registra expresamente.
   const misBolosDisponibles = bolosPerfil.filter(b =>
     !esBoloVigente(b.fecha) &&
     usuarioActual.disponibilidadBolos?.[b.id]?.estado === 'puedo' &&
-    !(b.desconvocados || []).map(String).includes(String(usuarioActual.id))
+    !(b.desconvocados || []).map(String).includes(String(usuarioActual.id)) &&
+    !(b.bajasUrgencia || []).some(baja => String(baja.miembroId) === String(usuarioActual.id))
   );
+  const obtenerMiAsistencia = (bolo) =>
+    bolo.pagosMiembros?.[`miembro-${usuarioActual.id}`] || {};
+  const tieneAsistenciaValidada = (pago) =>
+    pago.asistenciaValidadaManualmente === true &&
+    pago.asistenciaRegistrada === true &&
+    typeof pago.asistio === 'boolean';
   const misBolosAsistidos = misBolosDisponibles.filter(b => {
-    const pago = b.pagosMiembros?.[`miembro-${usuarioActual.id}`] || {};
-    return pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true && pago.asistio === true;
+    const pago = obtenerMiAsistencia(b);
+    return tieneAsistenciaValidada(pago) && pago.asistio === true;
   });
   const misBolosNoAsistidos = misBolosDisponibles.filter(b => {
-    const pago = b.pagosMiembros?.[`miembro-${usuarioActual.id}`] || {};
-    return pago.asistenciaValidadaManualmente === true && pago.asistenciaRegistrada === true && pago.asistio === false;
+    const pago = obtenerMiAsistencia(b);
+    return tieneAsistenciaValidada(pago) && pago.asistio === false;
   });
+  const misBolosPendientesAsistencia = misBolosDisponibles.filter(b =>
+    !tieneAsistenciaValidada(obtenerMiAsistencia(b))
+  );
   const porcentajeAsistencia = misBolosDisponibles.length > 0
     ? Math.round((misBolosAsistidos.length / misBolosDisponibles.length) * 100)
     : 0;
@@ -2152,7 +2165,24 @@ export default function CharangaSaraoApp() {
           </span>
         </div>
         {esAdmin && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+          <div className="space-y-2 pt-1">
+            <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-2.5">
+              <p className="text-[10px] uppercase tracking-wide font-black text-sky-300 mb-2">Asistencia real · solo administración</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', true)}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] font-black border transition ${pago.asistenciaValidadaManualmente && pago.asistio === true ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-zinc-900 text-emerald-300 border-emerald-500/30'}`}>
+                  Sí asistió
+                </button>
+                <button type="button" onClick={() => guardarPagoMiembro(boloActual.id, persona, tipo, 'asistio', false)}
+                  className={`rounded-lg px-3 py-1.5 text-[11px] font-black border transition ${pago.asistenciaValidadaManualmente && pago.asistio === false ? 'bg-rose-500 text-white border-rose-400' : 'bg-zinc-900 text-rose-300 border-rose-500/30'}`}>
+                  No asistió
+                </button>
+                <span className="self-center text-[10px] text-zinc-500">
+                  {pago.asistenciaValidadaManualmente ? 'Registro guardado' : 'Pendiente de registrar'}
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <label className="flex items-center gap-1.5 text-zinc-300">
               <input type="checkbox" checked={pago.usoCoche === true} onChange={e => guardarPagoMiembro(boloActual.id, persona, tipo, 'usoCoche', e.target.checked)} />
               Usó coche
@@ -2166,6 +2196,7 @@ export default function CharangaSaraoApp() {
             <label className="text-zinc-400">Kilómetros
               <input type="number" min="0" step="1" defaultValue={pago.kilometros ?? ''} onBlur={e => guardarImporte('kilometros', e.target.value)} className="mt-1 w-full bg-black border border-zinc-700 rounded-lg px-2 py-1 text-white" />
             </label>
+            </div>
           </div>
         )}
       </div>
@@ -2243,186 +2274,129 @@ export default function CharangaSaraoApp() {
         {/* INICIO / LANDING PAGE */}
         {pestañaActiva === 'landing' && (
           <div className="space-y-6">
-            <div className="bg-gradient-to-r from-green-950/60 via-zinc-900 to-black border border-green-500/30 rounded-3xl p-5 sm:p-8 relative overflow-hidden shadow-2xl">
-              <div className="relative z-10">
-                <span className="bg-green-500/20 text-green-400 text-xs font-black px-3 py-1 rounded-full uppercase border border-green-500/30">
-                  En directo en la nube ☁️
-                </span>
-                <h2 className="text-3xl sm:text-4xl tracking-wide text-white mt-3" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                  Bienvenido a la app de gestión de Sarao
-                </h2>
-                <p className="text-zinc-300 text-sm mt-1 max-w-xl">
-                  {esAdmin 
-                    ? 'Modo Administrador: control de bolos, ensayos, presupuestos en curso, bote, plantilla y facturación.' 
-                    : esGestorBolos
-                      ? 'Rol Bolos activo: puedes gestionar el calendario, ensayos, vestuario y bolos presupuestados.'
-                      : 'Calendario de bolos, ensayos, confirmación de asistencia, plazas en coches, bote y facturas.'}
-                </p>
+            <section className="relative overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-[#07130e] p-5 sm:p-8 shadow-[0_24px_80px_rgba(16,185,129,0.10)]">
+              <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-28 left-1/3 h-56 w-56 rounded-full bg-green-500/10 blur-3xl" />
+              <div className="relative z-10 grid gap-6 md:grid-cols-[1.3fr_0.7fr] md:items-end">
+                <div>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" />
+                    Charanga Sarao · Backstage
+                  </span>
+                  <h2 className="mt-4 max-w-2xl text-4xl leading-[0.95] text-white sm:text-5xl" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    Que empiece el <span className="text-emerald-300">Sarao.</span>
+                  </h2>
+                  <p className="mt-3 max-w-xl text-sm leading-relaxed text-zinc-300">
+                    Hola, {usuarioActual.nombre}. Aquí tienes tus próximos eventos y los accesos rápidos para organizarte.
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => { setPestañaActiva('bolos'); setBoloSeleccionadoId(null); }}
+                      className="rounded-xl bg-emerald-400 px-4 py-2.5 text-xs font-black text-black shadow-lg shadow-emerald-950/40 transition hover:bg-emerald-300">
+                      <CalendarIcon className="mr-1.5 inline h-4 w-4" /> Abrir calendario
+                    </button>
+                    <button type="button" onClick={() => setPestañaActiva('perfil')}
+                      className="rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/10">
+                      <Wallet className="mr-1.5 inline h-4 w-4" /> Mi ficha
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border border-white/10 bg-black/25 p-3.5 backdrop-blur">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Próximos bolos</p>
+                    <p className="mt-1 text-3xl font-black tabular-nums text-white">{proximosBolosConfirmados.length}</p>
+                  </div>
+                  <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-3.5 backdrop-blur">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-200/70">Presupuestados</p>
+                    <p className="mt-1 text-3xl font-black tabular-nums text-amber-200">{bolosPresupuestados.length}</p>
+                  </div>
+                  <div className="col-span-2 rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-3.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-200/70">Tu espacio</p>
+                    <p className="mt-1 text-sm font-bold text-white">{usuarioActual.instrumentos?.join(' · ') || usuarioActual.instrumento || 'Músico'} <span className="text-zinc-500">/</span> {usuarioActual.cuerda || 'Charanga Sarao'}</p>
+                  </div>
+                </div>
               </div>
-            </div>
+            </section>
 
-            {/* CARRUSEL DESLIZABLE HORIZONTAL: SOLO PRÓXIMOS BOLOS CONFIRMADOS Y VIGENTES */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center px-1">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5 text-green-400"/> Próximos Bolos
-                </h3>
-                <span className="text-xs text-zinc-500">Desliza &rarr;</span>
+            <section className="space-y-3">
+              <div className="flex items-end justify-between gap-3 px-1">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Agenda</p>
+                  <h3 className="text-2xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Próximos bolos</h3>
+                </div>
+                <button type="button" onClick={() => { setPestañaActiva('bolos'); setBoloSeleccionadoId(null); }} className="text-[11px] font-bold text-emerald-300 hover:text-white">Ver calendario →</button>
               </div>
-
               {proximosBolosConfirmados.length === 0 ? (
-                <div className="p-6 bg-zinc-900/50 rounded-3xl border border-zinc-800 text-center text-xs text-zinc-500">
-                  No hay próximos bolos confirmados pendientes a partir de hoy.
+                <div className="rounded-3xl border border-white/10 bg-zinc-900/70 p-7 text-center">
+                  <CalendarIcon className="mx-auto h-8 w-8 text-zinc-600" />
+                  <p className="mt-2 text-sm font-bold text-zinc-300">Todavía no hay bolos confirmados próximos.</p>
+                  <p className="mt-1 text-xs text-zinc-500">Cuando se confirme una actuación, aparecerá aquí.</p>
                 </div>
               ) : (
-                <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-zinc-700">
-                  {proximosBolosConfirmados.map(b => {
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {proximosBolosConfirmados.slice(0, 3).map(b => {
                     const dispMiembro = usuarioActual.disponibilidadBolos?.[b.id]?.estado;
                     const vest = OPCIONES_VESTUARIO.find(v => v.id === b.vestuario) || OPCIONES_VESTUARIO[0];
                     const numConfirmados = miembros.filter(m => m.disponibilidadBolos?.[b.id]?.estado === 'puedo').length + (b.musicosExtras?.length || 0);
-
                     return (
-                      <div
-                        key={b.id}
-                        onClick={() => seleccionarBolo(b.id)}
-                        className="snap-start shrink-0 w-[280px] sm:w-[320px] bg-zinc-900 border border-zinc-800 hover:border-green-500/70 rounded-3xl p-5 cursor-pointer transition shadow-xl hover:scale-[1.02] flex flex-col justify-between"
-                      >
-                        <div>
-                          <div className="flex justify-between items-start gap-2 mb-2">
-                            <span className="text-xs font-black px-3 py-1 rounded-full border bg-green-500/20 text-green-400 border-green-500/30">
-                              📅 {b.fecha}
-                            </span>
-
-                            {dispMiembro && (
-                              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                dispMiembro === 'puedo' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
-                                dispMiembro === 'tal_vez' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
-                                'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-                              }`}>
-                                {dispMiembro === 'puedo' ? 'Confirmado' : dispMiembro === 'tal_vez' ? 'En duda' : 'No vas'}
-                              </span>
-                            )}
-                          </div>
-
-                          <h4 className="text-2xl font-black text-white tracking-wide mt-1 line-clamp-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                            {b.lugar}
-                          </h4>
-                          {b.titulo && (
-                            <p className="text-xs font-semibold mt-0.5 text-green-300">
-                              {b.titulo}
-                            </p>
-                          )}
-
-                          <div className="mt-3 pt-3 border-t border-zinc-800/80 space-y-1.5 text-xs text-zinc-300">
-                            <p className="flex items-center gap-1.5 text-zinc-400">
-                              <Clock className="w-3.5 h-3.5 text-green-400"/> Horario: <strong className="text-white">{b.horaInicio || '13:00h'} - {b.horaFin || '17:00h'}</strong>
-                            </p>
-                            <p className="flex items-center gap-1.5 text-zinc-400">
-                              <Shirt className="w-3.5 h-3.5 text-amber-400"/> Ropa: <strong className="text-zinc-200">{vest.label}</strong>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 pt-3 border-t border-zinc-800/80 flex justify-between items-center">
-                          <span className="text-[11px] font-bold text-zinc-400">
-                            👥 <strong className="text-emerald-400">{numConfirmados}</strong> en plantilla
-                          </span>
-                          <span className="text-xs font-bold flex items-center gap-1 text-green-400">
-                            Ver detalles &rarr;
+                      <button type="button" key={b.id} onClick={() => seleccionarBolo(b.id)}
+                        className="group rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900 to-[#101713] p-4 text-left shadow-lg transition hover:-translate-y-1 hover:border-emerald-400/50">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="rounded-lg bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-300">{b.fecha}</span>
+                          <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${dispMiembro === 'puedo' ? 'bg-emerald-400/15 text-emerald-300' : dispMiembro === 'tal_vez' ? 'bg-amber-400/15 text-amber-300' : dispMiembro === 'no' ? 'bg-rose-400/15 text-rose-300' : 'bg-white/5 text-zinc-400'}`}>
+                            {dispMiembro === 'puedo' ? 'Disponible' : dispMiembro === 'tal_vez' ? 'En duda' : dispMiembro === 'no' ? 'No disponible' : 'Sin respuesta'}
                           </span>
                         </div>
-                      </div>
+                        <h4 className="mt-4 truncate text-2xl text-white group-hover:text-emerald-300" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>{b.lugar}</h4>
+                        <p className="mt-1 text-xs text-zinc-400">{b.titulo || 'Actuación'} · {b.horaInicio || 'Hora por confirmar'}{b.horaFin ? ` – ${b.horaFin}` : ''}</p>
+                        <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 text-[10px]">
+                          <span className="text-zinc-400"><Users className="mr-1 inline h-3.5 w-3.5" />{numConfirmados} disponibles</span>
+                          <span className="font-black text-emerald-300">Ver bolo ↗</span>
+                        </div>
+                        <p className="mt-2 text-[10px] text-zinc-500">Vestuario: {vest.label}</p>
+                      </button>
                     );
                   })}
                 </div>
               )}
-            </div>
+            </section>
 
-            {/* ACCESOS DIRECTOS */}
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-green-500/20 text-green-400 rounded-2xl w-fit mb-3"><CalendarIcon className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Calendario General</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Confirmados (verde), presupuestos (amarillo) y ensayos (azul).</p>
-                </div>
-                <span className="text-xs font-bold text-green-400 mt-4 block">&rarr; Ver calendario</span>
+            <section className="space-y-3">
+              <div className="px-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Accesos directos</p>
+                <h3 className="text-2xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Todo a mano</h3>
               </div>
-
-              <div onClick={() => setPestañaActiva('ensayos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-cyan-500/30 hover:border-cyan-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-2xl w-fit mb-3"><Music className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Ensayos</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Lugar, horario y repertorio de los ensayos fijados.</p>
-                </div>
-                <span className="text-xs font-bold text-cyan-400 mt-4 block">&rarr; Ver ensayos ({listaEnsayos.length})</span>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {[
+                  {id:'bolos',label:'Calendario',desc:'Bolos y ensayos',icon:CalendarIcon,tone:'emerald'},
+                  {id:'ensayos',label:'Ensayos',desc:`Agenda · ${listaEnsayos.length}`,icon:Music,tone:'cyan'},
+                  {id:'letras',label:'Repertorio',desc:`${CANCIONES.length} canciones`,icon:FileText,tone:'fuchsia'},
+                  {id:'perfil',label:'Mi ficha',desc:'Estadísticas y pagos',icon:Wallet,tone:'green'},
+                  {id:'bote',label:'Bote',desc:`${saldoTotal.toFixed(2)} €`,icon:Wallet,tone:'emerald'},
+                  {id:'facturas',label:'Facturas',desc:'Envío y seguimiento',icon:FileText,tone:'cyan'},
+                  ...(esAdmin || esGestorBolos ? [{id:'bolos',label:'Presupuestos',desc:`${bolosPresupuestados.length} pendientes`,icon:ClipboardList,tone:'amber'}] : []),
+                  ...(esAdmin ? [{id:'miembros',label:'Plantilla',desc:`${miembros.length} integrantes`,icon:Users,tone:'violet'},{id:'admin',label:'Administración',desc:'Control y gestión',icon:Shield,tone:'rose'}] : [])
+                ].map(item => {
+                  const Icon = item.icon;
+                  const tones = {
+                    emerald:'border-emerald-400/20 bg-emerald-400/5 text-emerald-300',
+                    green:'border-green-400/20 bg-green-400/5 text-green-300',
+                    cyan:'border-cyan-400/20 bg-cyan-400/5 text-cyan-300',
+                    fuchsia:'border-fuchsia-400/20 bg-fuchsia-400/5 text-fuchsia-300',
+                    amber:'border-amber-400/20 bg-amber-400/5 text-amber-300',
+                    violet:'border-violet-400/20 bg-violet-400/5 text-violet-300',
+                    rose:'border-rose-400/20 bg-rose-400/5 text-rose-300'
+                  };
+                  return (
+                    <button key={item.id + item.label} type="button" onClick={() => { setPestañaActiva(item.id); if (item.id !== 'bolos') setBoloSeleccionadoId(null); }}
+                      className={`flex min-h-28 flex-col justify-between rounded-2xl border p-3.5 text-left transition hover:-translate-y-0.5 hover:bg-white/5 ${tones[item.tone]}`}>
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-black/30"><Icon className="h-5 w-5" /></span>
+                      <span className="mt-3 block text-sm font-black text-white">{item.label}</span>
+                      <span className="mt-0.5 block text-[10px] text-zinc-400">{item.desc}</span>
+                    </button>
+                  );
+                })}
               </div>
-
-              <button type="button" onClick={() => setPestañaActiva('letras')} className="text-left bg-zinc-900/90 hover:bg-zinc-900 border border-fuchsia-500/30 hover:border-fuchsia-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Music className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Letras de canciones</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Consulta las canciones del repertorio y sus fragmentos.</p>
-                </div>
-                <span className="text-xs font-bold text-fuchsia-400 mt-4 block">&rarr; Ver canciones ({CANCIONES.length})</span>
-              </button>
-
-              <div onClick={() => setPestañaActiva('bolos')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-amber-500/30 hover:border-amber-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-amber-500/20 text-amber-400 rounded-2xl w-fit mb-3"><ClipboardList className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bolos Presupuestados</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Presupuestos enviados pendientes de confirmar o rechazar.</p>
-                </div>
-                <span className="text-xs font-bold text-amber-400 mt-4 block">&rarr; Pendientes ({bolosPresupuestados.length})</span>
-              </div>
-
-              <div onClick={() => setPestañaActiva('miembros')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-fuchsia-500/20 text-fuchsia-400 rounded-2xl w-fit mb-3"><Users className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Plantilla</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Integrantes y asignación de roles.</p>
-                </div>
-                <span className="text-xs font-bold text-fuchsia-400 mt-4 block">&rarr; Ver plantilla ({miembros.length})</span>
-              </div>
-
-              <button type="button" onClick={() => setPestañaActiva('perfil')} className="text-left bg-zinc-900/90 hover:bg-zinc-900 border border-emerald-500/30 hover:border-emerald-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Ficha Personal</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Tus bolos realizados, pagos, gasolina y kilómetros.</p>
-                </div>
-                <span className="text-xs font-bold text-emerald-400 mt-4 block">&rarr; Ver resumen</span>
-              </button>
-
-              <div onClick={() => setPestañaActiva('bote')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-zinc-800 hover:border-green-500/60 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl w-fit mb-3"><Wallet className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bote</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Tesorería y kilometraje (0,20€/km).</p>
-                </div>
-                <span className="text-xs font-bold text-emerald-400 mt-4 block">&rarr; Saldo ({saldoTotal.toFixed(2)} €)</span>
-              </div>
-
-              <div onClick={() => setPestañaActiva('facturas')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-cyan-500/30 hover:border-cyan-400 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-2xl w-fit mb-3"><FileText className="w-6 h-6"/></div>
-                  <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Facturas</h3>
-                  <p className="text-xs text-zinc-400 mt-1">Subir PDFs/fotos y control de facturación.</p>
-                </div>
-                <span className="text-xs font-bold text-cyan-400 mt-4 block">&rarr; Mi total: {miTotalFacturado.toFixed(2)} €</span>
-              </div>
-
-              {esAdmin && (
-                <div onClick={() => setPestañaActiva('admin')} className="bg-zinc-900/90 hover:bg-zinc-900 border border-rose-500/40 hover:border-rose-500 rounded-3xl p-5 transition cursor-pointer shadow-lg flex flex-col justify-between">
-                  <div>
-                    <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl w-fit mb-3"><Shield className="w-6 h-6"/></div>
-                    <h3 className="text-2xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Panel Admin</h3>
-                    <p className="text-xs text-zinc-400 mt-1">Estadísticas, roles y correo de facturas.</p>
-                  </div>
-                  <span className="text-xs font-bold text-rose-400 mt-4 block">&rarr; Gestionar</span>
-                </div>
-              )}
-            </div>
+            </section>
           </div>
         )}
 
@@ -2461,6 +2435,9 @@ export default function CharangaSaraoApp() {
                   <div className="bg-black/50 border border-sky-500/20 rounded-2xl p-3">
                     <p className="text-[10px] uppercase font-black text-sky-300">% Asistencia</p>
                     <p className="text-2xl font-black text-white tabular-nums">{porcentajeAsistencia}%</p>
+                  </div>
+                  <div className="col-span-2 sm:col-span-4 bg-black/30 border border-white/5 rounded-xl px-3 py-2">
+                    <p className="text-[10px] text-zinc-400">Pendientes de registrar asistencia real: <strong className="text-white">{misBolosPendientesAsistencia.length}</strong></p>
                   </div>
                 </div>
               )}
