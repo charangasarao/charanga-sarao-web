@@ -258,8 +258,8 @@ export default function CharangaSaraoApp() {
   const [passwordInput, setPasswordInput] = useState('');
   const [nombreRegistro, setNombreRegistro] = useState('');
   const [instrumentosSeleccionados, setInstrumentosSeleccionados] = useState(['Sousafón / Tuba']);
-  const PASSWORD_CHARANGA = 'sarao2027';
-  const PASSWORD_ADMIN = 'admin2027';
+  const PASSWORD_CHARANGA = 'sarao2k27';
+  const PASSWORD_ADMIN = 'adminsarao';
 
   // Estados globales sincronizados con Firebase
   const [miembros, setMiembros] = useState([]);
@@ -645,7 +645,7 @@ export default function CharangaSaraoApp() {
 
     const instPrincipal = instrumentosSeleccionados[0];
     const matchCuerda = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === instPrincipal)?.cuerda || 'Saxos';
-    const esAdminAcceso = pass === PASSWORD_ADMIN || nombreRegistro.trim().toLowerCase() === 'edgar';
+    const esAdminAcceso = pass === PASSWORD_ADMIN;
 
     const existente = miembros.find(m => m.nombre.trim().toLowerCase() === nombreRegistro.trim().toLowerCase());
     if (existente) {
@@ -2081,7 +2081,7 @@ export default function CharangaSaraoApp() {
               <label className="text-xs font-bold text-zinc-400 block mb-1">Contraseña:</label>
               <input
                 type="password"
-                placeholder="sarao2027 o clave admin"
+                placeholder="Introduce tu contraseña"
                 value={passwordInput}
                 onChange={e => setPasswordInput(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
