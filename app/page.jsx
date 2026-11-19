@@ -2571,18 +2571,14 @@ export default function CharangaSaraoApp() {
                 </div>
               )}
 
-              <div className={`grid grid-cols-2 ${esPerfilExtra ? 'sm:grid-cols-3' : 'sm:grid-cols-4'} border-t border-zinc-800 pt-4 gap-y-4`}>
+              <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-zinc-800 pt-4 gap-y-4 gap-x-3">
                 <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Bolos realizados</p><p className="text-xl font-black text-white">{resumenPerfil.bolos}</p></div>
                 <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Música</p><p className="text-xl font-black text-emerald-300">{resumenPerfil.musica.toFixed(2)} €</p></div>
                 <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Gasolina</p><p className="text-xl font-black text-amber-300">{resumenPerfil.gasolina.toFixed(2)} €</p></div>
                 <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Kilómetros</p><p className="text-xl font-black text-white">{resumenPerfil.kilometros} km</p></div>
-                {esPerfilExtra && (
-                  <>
-                    <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Total generado</p><p className="text-xl font-black text-white">{(resumenPerfil.musica + resumenPerfil.gasolina).toFixed(2)} €</p></div>
-                    <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Pagado</p><p className="text-xl font-black text-emerald-300">{resumenPerfil.pagado.toFixed(2)} €</p></div>
-                    <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Pendiente</p><p className="text-xl font-black text-amber-300">{resumenPerfil.pendiente.toFixed(2)} €</p></div>
-                  </>
-                )}
+                <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Total generado</p><p className="text-xl font-black text-white">{(resumenPerfil.musica + resumenPerfil.gasolina).toFixed(2)} €</p></div>
+                <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Pagado</p><p className="text-xl font-black text-emerald-300">{resumenPerfil.pagado.toFixed(2)} €</p></div>
+                <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Pendiente</p><p className="text-xl font-black text-amber-300">{resumenPerfil.pendiente.toFixed(2)} €</p></div>
               </div>
             </div>
 
