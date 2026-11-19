@@ -288,3 +288,95 @@ main > section, main > div > section {
   [data-sarao-section] > div:first-child[class*="p-4"] { padding: 1rem; }
   [data-sarao-section] h2 { line-height: 1.02; }
 }
+
+
+/* REDISEÑO VISIBLE V2 — composición y jerarquía, no solo cambio de color. */
+.sarao-home { max-width: 100%; }
+.sarao-home-hero {
+  min-height: 330px;
+  display: flex;
+  align-items: center;
+  border-radius: 30px !important;
+  border-color: rgba(117,255,171,.38) !important;
+  background:
+    radial-gradient(ellipse at 88% 15%, rgba(87,255,154,.24), transparent 34%),
+    radial-gradient(ellipse at 8% 100%, rgba(22,163,74,.2), transparent 42%),
+    linear-gradient(120deg,#07140d 0%,#0b2115 52%,#08120c 100%) !important;
+  box-shadow: 0 28px 90px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.08) !important;
+}
+.sarao-home-hero h2 { font-size: clamp(3.4rem,8vw,6rem) !important; letter-spacing: -.045em !important; line-height: .82 !important; }
+.sarao-home-hero p { font-size: .95rem !important; max-width: 38rem; }
+.sarao-home-hero > div:last-child > div {
+  min-height: 108px;
+  border-radius: 20px !important;
+  padding: 18px !important;
+  background: rgba(2,10,5,.48) !important;
+  border-color: rgba(151,255,187,.2) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 12px 30px rgba(0,0,0,.2);
+}
+.sarao-home-hero > div:last-child > div p:last-child { font-size: 2.25rem !important; line-height: 1; }
+.sarao-home > section:not(.sarao-home-hero) { margin-top: 2rem; }
+.sarao-home h3 { letter-spacing: -.035em; }
+.sarao-home > section:not(.sarao-home-hero) > div:nth-child(2) > div {
+  border-radius: 22px !important;
+  border-color: rgba(160,190,170,.15) !important;
+  background: linear-gradient(145deg,rgba(22,34,26,.96),rgba(9,15,11,.98)) !important;
+  box-shadow: 0 15px 35px rgba(0,0,0,.22);
+}
+.sarao-home > section:not(.sarao-home-hero) > div:nth-child(2) > div:hover {
+  transform: translateY(-4px);
+  border-color: rgba(117,255,171,.42) !important;
+}
+[data-sarao-section="perfil"] > div:first-child {
+  border-radius: 28px !important;
+  padding: clamp(20px,4vw,34px) !important;
+  background: radial-gradient(ellipse at 95% 0%,rgba(61,220,132,.22),transparent 40%),linear-gradient(135deg,#11271a,#0a120d 75%) !important;
+}
+[data-sarao-section="perfil"] > div:first-child > div:nth-child(2) > div {
+  min-height: 112px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:16px !important;
+  border-radius:20px !important;
+  background:linear-gradient(145deg,rgba(21,42,29,.95),rgba(5,13,8,.95)) !important;
+}
+[data-sarao-section="perfil"] > div:first-child > div:nth-child(2) > div p:last-child { font-size:2.35rem !important; line-height:1; }
+[data-sarao-section="letras"] article {
+  min-height: 190px;
+  padding: 22px !important;
+  background:linear-gradient(145deg,#21152b,#111018 70%) !important;
+  border-radius:22px !important;
+}
+[data-sarao-section="letras"] article h3 { font-size:1.2rem; }
+[data-sarao-section="bolos"] > div:first-child,
+[data-sarao-section="ensayos"] > div:first-child,
+[data-sarao-section="miembros"] > div:first-child,
+[data-sarao-section="facturas"] > div:first-child,
+[data-sarao-section="admin"] > div:first-child,
+[data-sarao-section="bote"] > div:first-child {
+  border-radius:28px !important;
+  padding:clamp(18px,3vw,30px) !important;
+  box-shadow:0 24px 60px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05) !important;
+}
+[data-sarao-section="bolos"] h2,
+[data-sarao-section="ensayos"] h2,
+[data-sarao-section="miembros"] h2,
+[data-sarao-section="facturas"] h2,
+[data-sarao-section="admin"] h2,
+[data-sarao-section="bote"] h2 { font-size:clamp(2rem,5vw,3.2rem) !important; }
+[data-sarao-section="bolos"] [class*="grid"] > div,
+[data-sarao-section="ensayos"] [class*="grid"] > div {
+  border-radius:22px !important;
+  box-shadow:0 14px 35px rgba(0,0,0,.2) !important;
+}
+header.sticky > div { max-width: 1280px !important; }
+main.max-w-5xl { max-width: 1280px !important; padding-left:clamp(14px,3vw,36px) !important; padding-right:clamp(14px,3vw,36px) !important; }
+nav.fixed { border-color:rgba(150,255,190,.3) !important; background:rgba(9,20,13,.78) !important; }
+@media(max-width:640px) {
+ .sarao-home-hero { min-height:0; padding:24px !important; border-radius:24px !important; }
+ .sarao-home-hero h2 { font-size:3.65rem !important; }
+ .sarao-home-hero > div:last-child > div { min-height:94px; padding:13px !important; }
+ [data-sarao-section="perfil"] > div:first-child > div:nth-child(2) > div { min-height:100px; }
+ main.max-w-5xl { padding-top:14px !important; }
+}
