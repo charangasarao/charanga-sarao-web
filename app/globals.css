@@ -454,3 +454,24 @@ button,
     font-size: .78rem !important;
   }
 }
+
+
+/* Liquid Crystal: extender entre las dos marcas indicadas, manteniendo su centrado y grosor. */
+@media (min-width: 768px) {
+  nav.fixed.bottom-3.left-1\/2 {
+    width: min(1400px, calc(100vw - 32px)) !important;
+    max-width: min(1400px, calc(100vw - 32px)) !important;
+    box-sizing: border-box !important;
+    justify-content: space-between !important;
+    gap: .35rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    overflow-x: auto !important;
+  }
+  nav.fixed.bottom-3.left-1\/2 > button[data-nav-tab] {
+    flex: 0 0 auto !important;
+    padding-left: .8rem !important;
+    padding-right: .8rem !important;
+    white-space: nowrap !important;
+  }
+}
