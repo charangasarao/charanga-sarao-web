@@ -5616,15 +5616,6 @@ export default function CharangaSaraoApp() {
                       <option value="Material">Material</option>
                       <option value="Otros gastos">Otros gastos</option>
                     </select>
-                  ) : (
-                    <input
-                      type="text"
-                      placeholder="Ej: Cobro Pasacalles"
-                      value={conceptoBote}
-                      onChange={e => setConceptoBote(e.target.value)}
-                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
-                      required
-                    />
                   )}
                 </div>
 
