@@ -2404,7 +2404,7 @@ export default function CharangaSaraoApp() {
         )}
 
         {pestañaActiva === 'perfil' && (
-          <section className="space-y-5">
+          <section data-sarao-section="perfil" className="space-y-5">
             <div className="bg-zinc-900 border border-emerald-500/30 rounded-3xl p-5 sm:p-6">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
@@ -2571,7 +2571,7 @@ export default function CharangaSaraoApp() {
 
         {/* SECCIÓN: LETRAS DE CANCIONES */}
         {pestañaActiva === 'letras' && (
-          <section className="space-y-5">
+          <section data-sarao-section="letras" className="space-y-5">
             <div className="bg-zinc-900 border border-fuchsia-500/30 rounded-3xl p-5 sm:p-6">
               <div className="flex items-center gap-3">
                 <Music className="w-6 h-6 text-fuchsia-400"/>
@@ -2616,7 +2616,7 @@ export default function CharangaSaraoApp() {
 
         {/* SECCIÓN: ENSAYOS */}
         {pestañaActiva === 'ensayos' && (
-          <div className="space-y-6">
+          <div data-sarao-section="ensayos" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
@@ -2815,7 +2815,7 @@ export default function CharangaSaraoApp() {
 
         {/* SECCIÓN: BOLOS PRESUPUESTADOS */}
         {pestañaActiva === 'bolos' && (
-          <div className="space-y-6">
+          <div data-sarao-section="bolos" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
@@ -3111,7 +3111,7 @@ export default function CharangaSaraoApp() {
 
         {/* PLANTILLA */}
         {pestañaActiva === 'miembros' && (
-          <div className="space-y-6">
+          <div data-sarao-section="miembros" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
@@ -3192,7 +3192,7 @@ export default function CharangaSaraoApp() {
 
         {/* SECCIÓN: FACTURAS */}
         {pestañaActiva === 'facturas' && (
-          <div className="space-y-6">
+          <div data-sarao-section="facturas" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5">
@@ -3457,7 +3457,7 @@ export default function CharangaSaraoApp() {
 
         {/* PANEL ADMIN */}
         {pestañaActiva === 'admin' && esAdmin && (
-          <div className="space-y-6">
+          <div data-sarao-section="admin" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
               <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
@@ -5209,7 +5209,7 @@ export default function CharangaSaraoApp() {
 
         {/* BOTE / TESORERÍA */}
         {pestañaActiva === 'bote' && (
-          <div className="space-y-6">
+          <div data-sarao-section="bote" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6">
               
               <div className="flex justify-between items-start flex-wrap gap-4 border-b border-zinc-800 pb-5 mb-5">
