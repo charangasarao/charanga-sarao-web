@@ -358,6 +358,7 @@ export default function CharangaSaraoApp() {
   const [conceptoBote, setConceptoBote] = useState('');
   const [importeBote, setImporteBote] = useState('');
   const [tipoMovimientoBote, setTipoMovimientoBote] = useState('ingreso');
+  const [boloSeleccionadoIngreso, setBoloSeleccionadoIngreso] = useState('');
 
   const [showModalGasolina, setShowModalGasolina] = useState(false);
   const [kmGasolina, setKmGasolina] = useState('');
@@ -1394,7 +1395,16 @@ export default function CharangaSaraoApp() {
   const agregarMovimientoGeneralBote = async (e) => {
     e.preventDefault();
     if (!esTesorero) return;
-    const imp = parseFloat(importeBote);
+    const boloCobrado = tipoMovimientoBote === 'ingreso'
+      ? bolosPendientesDeCobro.find(b => String(b.id) === String(boloSeleccionadoIngreso))
+      : null;
+    const imp = tipoMovimientoBote === 'ingreso' && boloCobrado
+      ? Number(boloCobrado.presupuesto)
+      : parseFloat(importeBote);
+    if (tipoMovimientoBote === 'ingreso' && !boloCobrado) {
+      alert('Selecciona un bolo pendiente de cobro.');
+      return;
+    }
     if (isNaN(imp) || imp <= 0 || !conceptoBote.trim()) {
       alert('Introduce un concepto e importe válidos.');
       return;
@@ -1404,6 +1414,7 @@ export default function CharangaSaraoApp() {
     const nuevoMov = {
       id: Date.now(),
       concepto: conceptoBote.trim(),
+      ...(boloCobrado ? { boloId: boloCobrado.id, conceptoBolo: boloCobrado.titulo || boloCobrado.lugar } : {}),
       categoriaGasto: tipoMovimientoBote === 'gasto' ? conceptoBote.trim() : null,
       cantidad: cantidadReal,
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
@@ -1412,11 +1423,16 @@ export default function CharangaSaraoApp() {
       verificado: true
     };
     const nuevoBote = [nuevoMov, ...movimientosBote];
+    const nuevosBolos = boloCobrado
+      ? bolos.map(b => String(b.id) === String(boloCobrado.id) ? { ...b, cobrado: true } : b)
+      : bolos;
     setMovimientosBote(nuevoBote);
+    if (boloCobrado) setBolos(nuevosBolos);
     setConceptoBote('');
+    setBoloSeleccionadoIngreso('');
     setImporteBote('');
     setShowModalMovimientoBote(false);
-    await guardarEnNube(null, null, nuevoBote);
+    await guardarEnNube(null, boloCobrado ? nuevosBolos : null, nuevoBote);
   };
 
   const agregarGasolinaConductor = async (e) => {
@@ -1961,6 +1977,14 @@ export default function CharangaSaraoApp() {
   };
 
   const bolosConfirmados = bolos.filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo');
+  // Un bolo se considera cobrado cuando existe un ingreso vinculado a su ID.
+  const idsBolosCobrados = new Set(
+    movimientosBote.filter(m => m.tipo === 'ingreso' && m.boloId != null).map(m => String(m.boloId))
+  );
+  const bolosPendientesDeCobro = bolosConfirmados
+    .filter(b => Number(b.presupuesto) > 0 && !idsBolosCobrados.has(String(b.id)))
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
 
   const proximosBolosConfirmados = bolos
     .filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo' && esBoloVigente(b.fecha))
@@ -3833,6 +3857,11 @@ export default function CharangaSaraoApp() {
                                         </p>
                                       </>
                                     )}
+                                    {!esEns && !esPres && (
+                                      <span className={`inline-flex mt-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${idsBolosCobrados.has(String(b.id)) ? 'bg-emerald-950 text-emerald-200' : 'bg-amber-950 text-amber-200'}`}>
+                                        {idsBolosCobrados.has(String(b.id)) ? 'Cobrado' : 'Pendiente de cobrar'}
+                                      </span>
+                                    )}
                                     <p className="text-[9px] font-semibold mt-0.5 leading-tight tabular-nums">
                                       {b.horaInicio || 'Hora por definir'}{b.horaFin ? ` – ${b.horaFin}` : ''}
                                     </p>
@@ -5539,14 +5568,14 @@ export default function CharangaSaraoApp() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => { setTipoMovimientoBote('ingreso'); setConceptoBote(''); }}
+                      onClick={() => { setTipoMovimientoBote('ingreso'); setConceptoBote(''); setBoloSeleccionadoIngreso(''); setImporteBote(''); }}
                       className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'ingreso' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-black border-zinc-800 text-zinc-400'}`}
                     >
                       + Ingreso (Cobro)
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setTipoMovimientoBote('gasto'); setConceptoBote('Otros gastos'); }}
+                      onClick={() => { setTipoMovimientoBote('gasto'); setConceptoBote('Otros gastos'); setBoloSeleccionadoIngreso(''); setImporteBote(''); }}
                       className={`py-2 text-xs font-bold rounded-xl border ${tipoMovimientoBote === 'gasto' ? 'bg-rose-500/20 border-rose-500 text-rose-300' : 'bg-black border-zinc-800 text-zinc-400'}`}
                     >
                       - Gasto
@@ -5556,7 +5585,26 @@ export default function CharangaSaraoApp() {
 
                 <div>
                   <label className="text-xs text-zinc-400 block mb-1 font-bold">Concepto:</label>
-                  {tipoMovimientoBote === 'gasto' ? (
+                  {tipoMovimientoBote === 'ingreso' ? (
+                    <select
+                      value={boloSeleccionadoIngreso}
+                      onChange={e => {
+                        const elegido = bolosPendientesDeCobro.find(b => String(b.id) === e.target.value);
+                        setBoloSeleccionadoIngreso(e.target.value);
+                        setConceptoBote(elegido ? (elegido.titulo || elegido.lugar) : '');
+                        setImporteBote(elegido ? String(elegido.presupuesto) : '');
+                      }}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                      required
+                    >
+                      <option value="">Selecciona un bolo pendiente de cobro</option>
+                      {bolosPendientesDeCobro.map(b => (
+                        <option key={b.id} value={String(b.id)}>
+                          {b.lugar} · {b.fecha} · {Number(b.presupuesto).toFixed(2)} €
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
                     <select
                       value={conceptoBote || 'Otros gastos'}
                       onChange={e => setConceptoBote(e.target.value)}
@@ -5588,7 +5636,8 @@ export default function CharangaSaraoApp() {
                     placeholder="Ej: 1200"
                     value={importeBote}
                     onChange={e => setImporteBote(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500"
+                    readOnly={tipoMovimientoBote === 'ingreso'}
+                    className={`w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-amber-500 ${tipoMovimientoBote === 'ingreso' ? 'opacity-70 cursor-not-allowed' : ''}`}
                     required
                   />
                 </div>
