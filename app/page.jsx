@@ -3458,70 +3458,7 @@ export default function CharangaSaraoApp() {
                 )}
               </div>
 
-              <div className="space-y-3">
-                <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia a Bolos y Facturación acumulada
-                </h3>
-                
-                {miembros.length === 0 ? (
-                  <p className="text-xs text-zinc-500 py-3">No hay miembros para calcular estadísticas.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-zinc-300">
-                      <thead className="text-[10px] uppercase text-zinc-400 bg-black/60 border-b border-zinc-800">
-                        <tr>
-                          <th className="p-3">Músico</th>
-                          <th className="p-3">Cuerda</th>
-                          <th className="p-3">Roles</th>
-                          <th className="p-3">Asistencia Bolos</th>
-                          <th className="p-3">% Confirmado</th>
-                          <th className="p-3">Facturado (€)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
-                        {miembros.map(m => {
-                          const totalBolos = bolosConfirmados.length;
-                          const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
-                          const siVan = Object.entries(m.disponibilidadBolos || {})
-                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
-                          const talVez = Object.entries(m.disponibilidadBolos || {})
-                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'tal_vez').length;
-                          const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
-                          const totalFacturadoMiembro = facturas
-                            .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
-                            .reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
 
-                          return (
-                            <tr key={m.id} className="hover:bg-zinc-800/30">
-                              <td className="p-3 font-bold text-white">{m.nombre}</td>
-                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
-                              <td className="p-3">
-                                <span className="text-[10px] font-bold text-zinc-400 uppercase">
-                                  {m.roles?.join(', ')}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> / {totalBolos}
-                              </td>
-                              <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-20 bg-zinc-800 h-2 rounded-full overflow-hidden">
-                                    <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
-                                  </div>
-                                  <span className="font-black text-xs text-green-400">{pct}%</span>
-                                </div>
-                              </td>
-                              <td className="p-3 font-black text-cyan-400">
-                                {totalFacturadoMiembro.toFixed(2)} €
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
                 </div>
               )}
             </div>
