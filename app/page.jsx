@@ -520,13 +520,15 @@ export default function CharangaSaraoApp() {
     const receptores = destinatarios || miembros.map(m => m.id).filter(Boolean);
     if (!receptores.length) return;
     const creadaEn = new Date().toISOString();
-    await Promise.all(receptores.map(async receptorId => {
-      const notificacionId = `notif-${receptorId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      await setDoc(doc(db, 'notificaciones', notificacionId), {
-        receptorId: String(receptorId), titulo, mensaje, tipo, destino, boloId: boloId ?? null,
-        creadaEn, leida: false
-      });
-    }));
+    try {
+      await Promise.all(receptores.map(async receptorId => {
+        const notificacionId = `notif-${receptorId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        await setDoc(doc(db, 'notificaciones', notificacionId), {
+          receptorId: String(receptorId), titulo, mensaje, tipo, destino, boloId: boloId ?? null,
+          creadaEn, leida: false
+        });
+      }));
+    } catch (error) { console.error('No se pudo guardar la notificación en la bandeja:', error); }
   };
 
   useEffect(() => {
@@ -644,6 +646,7 @@ export default function CharangaSaraoApp() {
 
   const enviarNotificacionBoloConEnlace = async ({ titulo, mensaje, url }) => {
     try {
+      await guardarNotificacionesBandeja({ titulo, mensaje, tipo: 'general', destino: 'bolos' });
       const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
       const tokens = [...new Set(
         snapshot.docs
