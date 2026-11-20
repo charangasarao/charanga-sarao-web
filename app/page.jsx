@@ -1984,7 +1984,7 @@ export default function CharangaSaraoApp() {
   // DATOS PARA EL DASHBOARD FINANCIERO
   // Los movimientos nuevos guardan fechaISO; los antiguos siguen en el histórico global
   // sin asignarles un año que no conocemos.
-  const aniosFinanzas = [...new Set(movimientosBote.map(m => String(m.fechaISO || '').slice(0, 4)).filter(a => /^20\\d{2}$/.test(a)))].sort((a, b) => Number(b) - Number(a));
+  const aniosFinanzas = [...new Set(movimientosBote.map(m => String(m.fechaISO || '').slice(0, 4)).filter(a => /^20\d{2}$/.test(a)))].sort((a, b) => Number(b) - Number(a));
   const movimientosPeriodoFinanzas = anioFinanzasSeleccionado === 'todos'
     ? movimientosBote
     : movimientosBote.filter(m => String(m.fechaISO || '').startsWith(anioFinanzasSeleccionado));
@@ -1995,9 +1995,9 @@ export default function CharangaSaraoApp() {
   const MESES_FINANZAS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   const parsearMesMovimiento = (fecha) => {
     const texto = String(fecha || '').toLowerCase();
-    const match = texto.match(/(?:\\d{1,2}\\s*[-/ ]\\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
+    const match = texto.match(/(?:\d{1,2}\\s*[-/ ]\\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
     if (match) return MESES_FINANZAS.indexOf(match[1].toLowerCase());
-    const numerica = texto.match(/\\d{1,2}[/-](\\d{1,2})/);
+    const numerica = texto.match(/\d{1,2}[/-](\d{1,2})/);
     return numerica ? Math.max(0, Math.min(11, Number(numerica[1]) - 1)) : -1;
   };
   const datosMensualesFinanzas = Array.from({ length: 12 }, (_, index) => {
