@@ -258,8 +258,8 @@ export default function CharangaSaraoApp() {
   const [passwordInput, setPasswordInput] = useState('');
   const [nombreRegistro, setNombreRegistro] = useState('');
   const [instrumentosSeleccionados, setInstrumentosSeleccionados] = useState(['Sousafón / Tuba']);
-  const PASSWORD_CHARANGA = 'sarao2027';
-  const PASSWORD_ADMIN = 'admin2027';
+  const PASSWORD_CHARANGA = 'sarao2k27';
+  const PASSWORD_ADMIN = 'adminsarao';
 
   // Estados globales sincronizados con Firebase
   const [miembros, setMiembros] = useState([]);
@@ -281,6 +281,7 @@ export default function CharangaSaraoApp() {
   const [filtroNotificaciones, setFiltroNotificaciones] = useState('todas');
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
+  const [seccionAdminActiva, setSeccionAdminActiva] = useState('resumen');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
   const [nuevaTareaBolo, setNuevaTareaBolo] = useState('');
   const [responsableTareaBolo, setResponsableTareaBolo] = useState('');
@@ -2242,7 +2243,7 @@ export default function CharangaSaraoApp() {
               <label className="text-xs font-bold text-zinc-400 block mb-1">Contraseña:</label>
               <input
                 type="password"
-                placeholder="sarao2027 o clave admin"
+                placeholder="Introduce tu contraseña"
                 value={passwordInput}
                 onChange={e => setPasswordInput(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
@@ -2586,10 +2587,9 @@ export default function CharangaSaraoApp() {
                   {id:'perfil',label:'Mi ficha',desc:'Estadísticas y pagos',icon:Wallet,tone:'green'},
                   {id:'ensayos',label:'Ensayos',desc:`Agenda · ${listaEnsayos.length}`,icon:Music,tone:'cyan'},
                   {id:'letras',label:'Letras de canciones',desc:`${CANCIONES.length} canciones`,icon:FileText,tone:'fuchsia'},
-                  {id:'miembros',label:'Plantilla',desc:`${miembros.length} integrantes`,icon:Users,tone:'violet'},
                   {id:'bote',label:'Bote',desc:`${saldoTotal.toFixed(2)} €`,icon:Wallet,tone:'emerald'},
                   {id:'facturas',label:'Facturas',desc:'Envío y seguimiento',icon:FileText,tone:'cyan'},
-                  ...(esAdmin ? [{id:'admin',label:'Admin',desc:'Control y gestión',icon:Shield,tone:'rose'}] : [])
+                  ...(esAdmin ? [{id:'admin',label:'Administración',desc:'Control y gestión',icon:Shield,tone:'rose'}] : [])
                 ].map(item => {
                   const Icon = item.icon;
                   const tones = {
@@ -2602,7 +2602,7 @@ export default function CharangaSaraoApp() {
                     rose:'border-rose-400/20 bg-rose-400/5 text-rose-300'
                   };
                   return (
-                    <button key={item.id + item.label} type="button" onClick={() => { setPestañaActiva(item.id); if (item.id !== 'bolos') setBoloSeleccionadoId(null); }}
+                    <button key={item.id + item.label} type="button" onClick={() => { if (item.id === 'admin') setSeccionAdminActiva('resumen'); setPestañaActiva(item.id); if (item.id !== 'bolos') setBoloSeleccionadoId(null); }}
                       className={`flex min-h-28 flex-col justify-between rounded-2xl border p-3.5 text-left transition hover:-translate-y-0.5 hover:bg-white/5 ${tones[item.tone]}`}>
                       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-black/30"><Icon className="h-5 w-5" /></span>
                       <span className="mt-3 block text-sm font-black text-white">{item.label}</span>
@@ -3317,8 +3317,156 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
+        {/* PANEL ADMIN */}
+        {pestañaActiva === 'admin' && esAdmin && (
+          <div data-sarao-section="admin" className="space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
+              <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
+                <div>
+                  <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    PANEL DE ADMINISTRACIÓN
+                  </h2>
+                  <p className="text-xs text-zinc-400">Gestión y control de Charanga Sarao.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {historialEstados.length > 0 && (
+                    <button onClick={deshacerUltimoCambio} className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow">
+                      <Undo2 className="w-4 h-4"/> Deshacer ({historialEstados.length})
+                    </button>
+                  )}
+                  <button onClick={exportarEstadisticasExcel} className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow">
+                    <Download className="w-4 h-4"/> Exportar CSV
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'resumen', label: 'Resumen', icon: BarChart3, desc: 'Estadísticas y ajustes' },
+                  { id: 'clientes', label: 'Cartera de clientes', icon: Users, desc: 'CRM y contactos' },
+                  { id: 'alertas', label: 'Centro de alertas', icon: AlertCircle, desc: 'Incidencias por bolo' },
+                  { id: 'plantilla', label: 'Plantilla de músicos', icon: Users, desc: 'Músicos y permisos' }
+                ].map(item => {
+                  const Icon = item.icon;
+                  const activa = seccionAdminActiva === item.id;
+                  return (
+                    <button key={item.id} type="button" onClick={() => setSeccionAdminActiva(item.id)}
+                      className={`rounded-2xl border p-3 text-left transition ${activa ? 'border-emerald-400/60 bg-emerald-400/15 text-emerald-200' : 'border-zinc-800 bg-black/40 text-zinc-400 hover:border-emerald-400/30 hover:text-white'}`}>
+                      <Icon className="h-4 w-4 mb-2" />
+                      <span className="block text-xs font-black">{item.label}</span>
+                      <span className="mt-1 block text-[10px] opacity-70">{item.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {seccionAdminActiva === 'resumen' && (
+                <div className="space-y-6">
+              <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-cyan-400"/>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    Correo de Facturación
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Introduce el correo electrónico al que se enviarán automáticamente todas las facturas que suban los músicos a la aplicación.
+                </p>
+                <form onSubmit={guardarCorreoFacturacionAdmin} className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="email"
+                    placeholder="ejemplo@charangasarao.com"
+                    value={inputCorreoAdmin}
+                    onChange={e => setInputCorreoAdmin(e.target.value)}
+                    className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold outline-none focus:border-cyan-400"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-5 py-2.5 rounded-xl shadow transition shrink-0 cursor-pointer"
+                  >
+                    Guardar Correo
+                  </button>
+                </form>
+                {correoFacturacion && (
+                  <p className="text-[11px] text-emerald-400 font-bold">
+                    ✓ Correo activo actual: {correoFacturacion}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia a Bolos y Facturación acumulada
+                </h3>
+                
+                {miembros.length === 0 ? (
+                  <p className="text-xs text-zinc-500 py-3">No hay miembros para calcular estadísticas.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-zinc-300">
+                      <thead className="text-[10px] uppercase text-zinc-400 bg-black/60 border-b border-zinc-800">
+                        <tr>
+                          <th className="p-3">Músico</th>
+                          <th className="p-3">Cuerda</th>
+                          <th className="p-3">Roles</th>
+                          <th className="p-3">Asistencia Bolos</th>
+                          <th className="p-3">% Confirmado</th>
+                          <th className="p-3">Facturado (€)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
+                        {miembros.map(m => {
+                          const totalBolos = bolosConfirmados.length;
+                          const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
+                          const siVan = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
+                          const talVez = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'tal_vez').length;
+                          const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
+                          const totalFacturadoMiembro = facturas
+                            .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
+                            .reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
+
+                          return (
+                            <tr key={m.id} className="hover:bg-zinc-800/30">
+                              <td className="p-3 font-bold text-white">{m.nombre}</td>
+                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
+                              <td className="p-3">
+                                <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                                  {m.roles?.join(', ')}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> / {totalBolos}
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-20 bg-zinc-800 h-2 rounded-full overflow-hidden">
+                                    <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                                  </div>
+                                  <span className="font-black text-xs text-green-400">{pct}%</span>
+                                </div>
+                              </td>
+                              <td className="p-3 font-black text-cyan-400">
+                                {totalFacturadoMiembro.toFixed(2)} €
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* PLANTILLA */}
-        {pestañaActiva === 'miembros' && (
+        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'plantilla' && (
           <div data-sarao-section="miembros" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4">
@@ -3326,7 +3474,7 @@ export default function CharangaSaraoApp() {
                   PLANTILLA DE MÚSICOS ({miembros.length})
                 </h2>
                 {esAdmin && (
-                  <button onClick={() => setPestañaActiva('admin')} className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  <button onClick={() => { setSeccionAdminActiva('resumen'); setPestañaActiva('admin'); }} className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
                     <BarChart3 className="w-4 h-4"/> Estadísticas y Roles
                   </button>
                 )}
@@ -3686,7 +3834,7 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* CENTRO DE ALERTAS · DETECCIÓN AUTOMÁTICA */}
-        {pestañaActiva === 'alertas' && esGestorBolos && (
+        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'alertas' && (
           <section data-sarao-section="alertas" className="mx-auto max-w-5xl space-y-5">
             <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-[#0b1711] via-zinc-950 to-[#101713] p-5 sm:p-7">
               <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
@@ -3754,7 +3902,7 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* CRM · BASE DE DATOS DE CLIENTES */}
-        {pestañaActiva === 'clientes' && esGestorBolos && (
+        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'clientes' && (
           <section className="mx-auto max-w-5xl space-y-5" data-sarao-section="clientes">
             <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-[#0b1711] via-zinc-950 to-[#101713] p-5 sm:p-7">
               <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
@@ -3780,137 +3928,6 @@ export default function CharangaSaraoApp() {
             ))}</div>}
             {clientes.length > 0 && clientes.filter(c => [c.nombre,c.tipo,c.contacto,c.telefono,c.email,c.localidad].some(v => String(v || '').toLowerCase().includes(busquedaClientes.toLowerCase()))).length === 0 && <p className="py-8 text-center text-xs text-zinc-500">No hay clientes que coincidan con la búsqueda.</p>}
           </section>
-        )}
-
-        {/* PANEL ADMIN */}
-        {pestañaActiva === 'admin' && esAdmin && (
-          <div data-sarao-section="admin" className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
-              
-              <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
-                <div>
-                  <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                    PANEL DE ADMINISTRACIÓN
-                  </h2>
-                  <p className="text-xs text-zinc-400">Correo de facturación, estadísticas acumuladas y control de deshacer.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {historialEstados.length > 0 && (
-                    <button
-                      onClick={deshacerUltimoCambio}
-                      className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow"
-                    >
-                      <Undo2 className="w-4 h-4"/> Deshacer ({historialEstados.length})
-                    </button>
-                  )}
-                  <button
-                    onClick={exportarEstadisticasExcel}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow"
-                  >
-                    <Download className="w-4 h-4"/> Exportar CSV
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-cyan-400"/>
-                  <h3 className="text-base font-black text-white uppercase tracking-wider">
-                    Correo de Facturación
-                  </h3>
-                </div>
-                <p className="text-xs text-zinc-400">
-                  Introduce el correo electrónico al que se enviarán automáticamente todas las facturas que suban los músicos a la aplicación.
-                </p>
-                <form onSubmit={guardarCorreoFacturacionAdmin} className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="email"
-                    placeholder="ejemplo@charangasarao.com"
-                    value={inputCorreoAdmin}
-                    onChange={e => setInputCorreoAdmin(e.target.value)}
-                    className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold outline-none focus:border-cyan-400"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-5 py-2.5 rounded-xl shadow transition shrink-0 cursor-pointer"
-                  >
-                    Guardar Correo
-                  </button>
-                </form>
-                {correoFacturacion && (
-                  <p className="text-[11px] text-emerald-400 font-bold">
-                    ✓ Correo activo actual: {correoFacturacion}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia a Bolos y Facturación acumulada
-                </h3>
-                
-                {miembros.length === 0 ? (
-                  <p className="text-xs text-zinc-500 py-3">No hay miembros para calcular estadísticas.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-zinc-300">
-                      <thead className="text-[10px] uppercase text-zinc-400 bg-black/60 border-b border-zinc-800">
-                        <tr>
-                          <th className="p-3">Músico</th>
-                          <th className="p-3">Cuerda</th>
-                          <th className="p-3">Roles</th>
-                          <th className="p-3">Asistencia Bolos</th>
-                          <th className="p-3">% Confirmado</th>
-                          <th className="p-3">Facturado (€)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
-                        {miembros.map(m => {
-                          const totalBolos = bolosConfirmados.length;
-                          const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
-                          const siVan = Object.entries(m.disponibilidadBolos || {})
-                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
-                          const talVez = Object.entries(m.disponibilidadBolos || {})
-                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'tal_vez').length;
-                          const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
-                          const totalFacturadoMiembro = facturas
-                            .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
-                            .reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
-
-                          return (
-                            <tr key={m.id} className="hover:bg-zinc-800/30">
-                              <td className="p-3 font-bold text-white">{m.nombre}</td>
-                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
-                              <td className="p-3">
-                                <span className="text-[10px] font-bold text-zinc-400 uppercase">
-                                  {m.roles?.join(', ')}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> / {totalBolos}
-                              </td>
-                              <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-20 bg-zinc-800 h-2 rounded-full overflow-hidden">
-                                    <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
-                                  </div>
-                                  <span className="font-black text-xs text-green-400">{pct}%</span>
-                                </div>
-                              </td>
-                              <td className="p-3 font-black text-cyan-400">
-                                {totalFacturadoMiembro.toFixed(2)} €
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         )}
 
         {/* CALENDARIO GENERAL (VERDE = CONFIRMADO, AMARILLO = PRESUPUESTADO, AZUL TURQUESA = ENSAYO) */}
@@ -5835,23 +5852,6 @@ export default function CharangaSaraoApp() {
                     {aniosFinanzas.map(anio => <option key={anio} value={anio}>{anio}</option>)}
                   </select>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-black/60 border border-emerald-500/20 rounded-2xl p-4">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase">Ingresos cobrados</span>
-                    <p className="text-2xl font-black text-emerald-400 mt-1 tabular-nums">+{ingresosPeriodoFinanzas.toFixed(2)} €</p>
-                    <span className="text-[10px] text-zinc-500">{anioFinanzasSeleccionado === 'todos' ? 'Todo el histórico' : 'Durante ' + anioFinanzasSeleccionado}</span>
-                  </div>
-                  <div className="bg-black/60 border border-rose-500/20 rounded-2xl p-4">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase">Gastos contabilizados</span>
-                    <p className="text-2xl font-black text-rose-400 mt-1 tabular-nums">-{gastosPeriodoFinanzas.toFixed(2)} €</p>
-                    <span className="text-[10px] text-zinc-500">Solo gastos verificados</span>
-                  </div>
-                  <div className="bg-black/60 border border-zinc-700 rounded-2xl p-4">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase">Balance del periodo</span>
-                    <p className={"text-2xl font-black mt-1 tabular-nums " + (saldoPeriodoFinanzas >= 0 ? 'text-emerald-400' : 'text-rose-400')}>{saldoPeriodoFinanzas.toFixed(2)} €</p>
-                    <span className="text-[10px] text-zinc-500">Ingresos menos gastos</span>
-                  </div>
-                </div>
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
                   <div className="xl:col-span-2 bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
                     <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
@@ -6278,11 +6278,8 @@ export default function CharangaSaraoApp() {
           { id: 'perfil', label: 'Mi ficha', icon: Wallet },
           { id: 'ensayos', label: 'Ensayos', icon: Music },
           { id: 'letras', label: 'Letras de canciones', icon: FileText },
-          { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
           { id: 'facturas', label: 'Facturas', icon: FileText },
-          ...(esGestorBolos ? [{ id: 'alertas', label: 'Alertas', icon: AlertCircle }] : []),
-          ...(esGestorBolos ? [{ id: 'clientes', label: 'Clientes', icon: Users }] : []),
           ...(esAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : [])
         ].map(tab => {
           const Icon = tab.icon;
