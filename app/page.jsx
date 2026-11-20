@@ -275,7 +275,6 @@ export default function CharangaSaraoApp() {
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
   const [nuevaTareaBolo, setNuevaTareaBolo] = useState('');
   const [responsableTareaBolo, setResponsableTareaBolo] = useState('');
-  const [fechaLimiteTareaBolo, setFechaLimiteTareaBolo] = useState('');
   const [boloDisponibilidadAbiertoId, setBoloDisponibilidadAbiertoId] = useState(null);
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
   const [calendarZoom, setCalendarZoom] = useState(1);
@@ -4004,7 +4003,6 @@ export default function CharangaSaraoApp() {
                                   texto,
                                   responsableId: responsable?.id || '',
                                   responsableNombre: responsable?.nombre || '',
-                                  fechaLimite: fechaLimiteTareaBolo,
                                   completada: false,
                                   creadaPor: usuarioActual.nombre,
                                   creadaEn: new Date().toISOString()
@@ -4012,7 +4010,6 @@ export default function CharangaSaraoApp() {
                                 await guardarTareas([...tareas, nueva]);
                                 setNuevaTareaBolo('');
                                 setResponsableTareaBolo('');
-                                setFechaLimiteTareaBolo('');
                               }}
                             >
                               <input
@@ -4033,18 +4030,9 @@ export default function CharangaSaraoApp() {
                                 <option value="">Sin responsable asignado</option>
                                 {miembros.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
                               </select>
-                              <div className="flex min-w-0 gap-2">
-                                <input
-                                  type="date"
-                                  value={fechaLimiteTareaBolo}
-                                  onChange={e => setFechaLimiteTareaBolo(e.target.value)}
-                                  aria-label="Fecha límite"
-                                  className="min-h-11 min-w-0 flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-2 text-xs text-white outline-none focus:border-emerald-400"
-                                />
-                                <button type="submit" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-emerald-400 px-4 text-xs font-black text-black transition hover:bg-emerald-300">
-                                  <Plus className="h-4 w-4" /> Añadir
-                                </button>
-                              </div>
+                              <button type="submit" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-400 px-4 text-xs font-black text-black transition hover:bg-emerald-300">
+                                <Plus className="h-4 w-4" /> Añadir tarea
+                              </button>
                             </form>
                           )}
 
@@ -4075,7 +4063,6 @@ export default function CharangaSaraoApp() {
                                     <p className={`break-words text-xs font-bold ${tarea.completada ? 'text-zinc-500 line-through' : 'text-white'}`}>{tarea.texto}</p>
                                     <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-zinc-500">
                                       {tarea.responsableNombre && <span>Responsable: <strong className="text-zinc-300">{tarea.responsableNombre}</strong></span>}
-                                      {tarea.fechaLimite && <span>Fecha límite: <strong className="text-zinc-300">{new Date(`${tarea.fechaLimite}T00:00:00`).toLocaleDateString('es-ES')}</strong></span>}
                                       {tarea.completada && tarea.completadaPor && <span>Completada por {tarea.completadaPor}</span>}
                                     </div>
                                   </div>
