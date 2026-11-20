@@ -281,6 +281,7 @@ export default function CharangaSaraoApp() {
   const [filtroNotificaciones, setFiltroNotificaciones] = useState('todas');
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
+  const [seccionAdminActiva, setSeccionAdminActiva] = useState('resumen');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
   const [nuevaTareaBolo, setNuevaTareaBolo] = useState('');
   const [responsableTareaBolo, setResponsableTareaBolo] = useState('');
@@ -3318,7 +3319,7 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* PLANTILLA */}
-        {pestañaActiva === 'miembros' && (
+        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'plantilla' && (
           <div data-sarao-section="miembros" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4">
@@ -3686,7 +3687,7 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* CENTRO DE ALERTAS · DETECCIÓN AUTOMÁTICA */}
-        {pestañaActiva === 'alertas' && esGestorBolos && (
+        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'alertas' && (
           <section data-sarao-section="alertas" className="mx-auto max-w-5xl space-y-5">
             <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-[#0b1711] via-zinc-950 to-[#101713] p-5 sm:p-7">
               <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
@@ -3754,7 +3755,7 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* CRM · BASE DE DATOS DE CLIENTES */}
-        {pestañaActiva === 'clientes' && esGestorBolos && (
+        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'clientes' && (
           <section className="mx-auto max-w-5xl space-y-5" data-sarao-section="clientes">
             <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-[#0b1711] via-zinc-950 to-[#101713] p-5 sm:p-7">
               <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
@@ -3783,7 +3784,7 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* PANEL ADMIN */}
-        {pestañaActiva === 'admin' && esAdmin && (
+        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'resumen' && (
           <div data-sarao-section="admin" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
@@ -3812,6 +3813,27 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'resumen', label: 'Resumen', icon: BarChart3, desc: 'Estadísticas y ajustes' },
+                  { id: 'clientes', label: 'Cartera de clientes', icon: Users, desc: 'CRM y contactos' },
+                  { id: 'alertas', label: 'Centro de alertas', icon: AlertCircle, desc: 'Incidencias por bolo' },
+                  { id: 'plantilla', label: 'Plantilla de músicos', icon: Users, desc: 'Músicos y permisos' }
+                ].map(item => {
+                  const Icon = item.icon;
+                  const activa = seccionAdminActiva === item.id;
+                  return (
+                    <button key={item.id} type="button" onClick={() => setSeccionAdminActiva(item.id)}
+                      className={`rounded-2xl border p-3 text-left transition ${activa ? 'border-emerald-400/60 bg-emerald-400/15 text-emerald-200' : 'border-zinc-800 bg-black/40 text-zinc-400 hover:border-emerald-400/30 hover:text-white'}`}>
+                      <Icon className="h-4 w-4 mb-2" />
+                      <span className="block text-xs font-black">{item.label}</span>
+                      <span className="mt-1 block text-[10px] opacity-70">{item.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {seccionAdminActiva === 'resumen' && (
               <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <Mail className="w-5 h-5 text-cyan-400"/>
@@ -3909,6 +3931,7 @@ export default function CharangaSaraoApp() {
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
         )}
@@ -6278,11 +6301,8 @@ export default function CharangaSaraoApp() {
           { id: 'perfil', label: 'Mi ficha', icon: Wallet },
           { id: 'ensayos', label: 'Ensayos', icon: Music },
           { id: 'letras', label: 'Letras de canciones', icon: FileText },
-          { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
           { id: 'facturas', label: 'Facturas', icon: FileText },
-          ...(esGestorBolos ? [{ id: 'alertas', label: 'Alertas', icon: AlertCircle }] : []),
-          ...(esGestorBolos ? [{ id: 'clientes', label: 'Clientes', icon: Users }] : []),
           ...(esAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : [])
         ].map(tab => {
           const Icon = tab.icon;
