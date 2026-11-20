@@ -6,7 +6,7 @@ import {
   Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, 
   UserPlus, Trash2, Shirt, ArrowRight, Home, Clock, AlertCircle, 
   ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText, 
-  Edit3, Upload, Mail, Eye, Loader2, ClipboardList, XCircle, UserCheck, LogOut
+  Edit3, Upload, Mail, Eye, Loader2, ClipboardList, XCircle, UserCheck, LogOut, Search, Phone
 } from 'lucide-react';
 
 import { db } from './firebase';
@@ -266,6 +266,11 @@ export default function CharangaSaraoApp() {
   const [bolos, setBolos] = useState([]);
   const [movimientosBote, setMovimientosBote] = useState([]);
   const [facturas, setFacturas] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [busquedaClientes, setBusquedaClientes] = useState('');
+  const [mostrarFormularioCliente, setMostrarFormularioCliente] = useState(false);
+  const [clienteEditandoId, setClienteEditandoId] = useState(null);
+  const [formCliente, setFormCliente] = useState({ nombre: '', tipo: 'Ayuntamiento', contacto: '', telefono: '', email: '', localidad: '', notas: '' });
   const [correoFacturacion, setCorreoFacturacion] = useState('');
   const [inputCorreoAdmin, setInputCorreoAdmin] = useState('');
 
@@ -410,6 +415,7 @@ export default function CharangaSaraoApp() {
         if (data.bolos) setBolos(data.bolos);
         if (data.movimientosBote) setMovimientosBote(data.movimientosBote);
         if (data.facturas) setFacturas(data.facturas);
+        setClientes(data.clientes || []);
         if (data.correoFacturacion !== undefined) {
           setCorreoFacturacion(data.correoFacturacion);
           setInputCorreoAdmin(data.correoFacturacion);
@@ -491,6 +497,18 @@ export default function CharangaSaraoApp() {
     } catch (e) {
       console.error("Error guardando en la nube:", e);
       alert("No se pudo sincronizar con Firebase. Revisa tu conexión.");
+      return false;
+    }
+  };
+
+  const guardarClientesEnNube = async (listaClientes) => {
+    try {
+      await setDoc(doc(db, 'charanga', 'datos_generales'), { clientes: listaClientes }, { merge: true });
+      setClientes(listaClientes);
+      return true;
+    } catch (error) {
+      console.error('Error guardando clientes:', error);
+      alert('No se pudieron guardar los cambios de clientes. Comprueba la conexión.');
       return false;
     }
   };
@@ -3537,6 +3555,35 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
+        {/* CRM · BASE DE DATOS DE CLIENTES */}
+        {pestañaActiva === 'clientes' && esGestorBolos && (
+          <section className="mx-auto max-w-5xl space-y-5" data-sarao-section="clientes">
+            <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-[#0b1711] via-zinc-950 to-[#101713] p-5 sm:p-7">
+              <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
+              <div className="relative flex flex-wrap items-start justify-between gap-4"><div><span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-300">Centro comercial · Sarao</span><h2 className="mt-2 text-3xl text-white sm:text-4xl" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Cartera de clientes</h2><p className="mt-1 max-w-xl text-xs leading-relaxed text-zinc-400">Contactos, entidades y oportunidades para mantener las contrataciones organizadas.</p></div><button onClick={() => { setClienteEditandoId(null); setFormCliente({ nombre: '', tipo: 'Ayuntamiento', contacto: '', telefono: '', email: '', localidad: '', notas: '' }); setMostrarFormularioCliente(true); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-400 px-4 text-xs font-black text-black hover:bg-emerald-300"><Plus className="h-4 w-4"/> Nuevo cliente</button></div>
+              <div className="relative mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3"><div className="rounded-2xl border border-white/10 bg-black/30 p-3"><p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Clientes registrados</p><p className="mt-1 text-2xl font-black text-white">{clientes.length}</p></div><div className="rounded-2xl border border-white/10 bg-black/30 p-3"><p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Ayuntamientos</p><p className="mt-1 text-2xl font-black text-white">{clientes.filter(c => c.tipo === 'Ayuntamiento').length}</p></div><div className="col-span-2 rounded-2xl border border-white/10 bg-black/30 p-3 sm:col-span-1"><p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Otros contactos</p><p className="mt-1 text-2xl font-black text-white">{clientes.filter(c => c.tipo !== 'Ayuntamiento').length}</p></div></div>
+            </div>
+            {mostrarFormularioCliente && <form onSubmit={async e => { e.preventDefault(); const limpio = { ...formCliente, nombre: formCliente.nombre.trim(), contacto: formCliente.contacto.trim(), telefono: formCliente.telefono.trim(), email: formCliente.email.trim(), localidad: formCliente.localidad.trim(), notas: formCliente.notas.trim() }; if (!limpio.nombre) return; const ahora = new Date().toISOString(); const lista = clienteEditandoId ? clientes.map(c => String(c.id) === String(clienteEditandoId) ? { ...c, ...limpio, actualizadoEn: ahora } : c) : [...clientes, { id: 'cliente-' + Date.now(), ...limpio, creadoEn: ahora, creadoPor: usuarioActual?.nombre || '' }]; if (await guardarClientesEnNube(lista)) { setMostrarFormularioCliente(false); setClienteEditandoId(null); setFormCliente({ nombre: '', tipo: 'Ayuntamiento', contacto: '', telefono: '', email: '', localidad: '', notas: '' }); } }} className="rounded-3xl border border-emerald-400/20 bg-zinc-950 p-4 sm:p-5 space-y-3">
+              <div className="flex items-center justify-between"><h3 className="text-sm font-black text-white">{clienteEditandoId ? 'Editar cliente' : 'Registrar cliente'}</h3><button type="button" onClick={() => setMostrarFormularioCliente(false)} className="rounded-lg p-2 text-zinc-400 hover:bg-white/5"><XCircle className="h-4 w-4"/></button></div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-[10px] font-bold text-zinc-400">Nombre de entidad o cliente *<input required maxLength={100} value={formCliente.nombre} onChange={e => setFormCliente(v => ({ ...v, nombre: e.target.value }))} placeholder="Ej. Ayuntamiento de Cuéllar" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400"/></label>
+                <label className="text-[10px] font-bold text-zinc-400">Tipo de cliente<select value={formCliente.tipo} onChange={e => setFormCliente(v => ({ ...v, tipo: e.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400">{['Ayuntamiento','Peña','Comisión de fiestas','Empresa','Particular','Otro'].map(t => <option key={t}>{t}</option>)}</select></label>
+                <label className="text-[10px] font-bold text-zinc-400">Persona de contacto<input maxLength={80} value={formCliente.contacto} onChange={e => setFormCliente(v => ({ ...v, contacto: e.target.value }))} placeholder="Nombre y apellidos" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400"/></label>
+                <label className="text-[10px] font-bold text-zinc-400">Teléfono<input type="tel" maxLength={30} value={formCliente.telefono} onChange={e => setFormCliente(v => ({ ...v, telefono: e.target.value }))} placeholder="Teléfono de contacto" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400"/></label>
+                <label className="text-[10px] font-bold text-zinc-400">Correo electrónico<input type="email" maxLength={120} value={formCliente.email} onChange={e => setFormCliente(v => ({ ...v, email: e.target.value }))} placeholder="contacto@ejemplo.es" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400"/></label>
+                <label className="text-[10px] font-bold text-zinc-400">Localidad<input maxLength={80} value={formCliente.localidad} onChange={e => setFormCliente(v => ({ ...v, localidad: e.target.value }))} placeholder="Municipio" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400"/></label>
+                <label className="text-[10px] font-bold text-zinc-400 sm:col-span-2">Notas e historial de contacto<textarea rows={3} maxLength={1000} value={formCliente.notas} onChange={e => setFormCliente(v => ({ ...v, notas: e.target.value }))} placeholder="Preferencias, fiestas habituales, presupuesto orientativo, última conversación..." className="mt-1 w-full rounded-xl border border-zinc-800 bg-black px-3 py-2.5 text-xs text-white outline-none focus:border-emerald-400"/></label>
+              </div><div className="flex gap-2"><button type="submit" className="min-h-10 flex-1 rounded-xl bg-emerald-400 px-4 text-xs font-black text-black">{clienteEditandoId ? 'Guardar cambios' : 'Guardar cliente'}</button><button type="button" onClick={() => setMostrarFormularioCliente(false)} className="rounded-xl border border-zinc-700 px-4 text-xs font-bold text-zinc-300">Cancelar</button></div>
+            </form>}
+            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"/><input value={busquedaClientes} onChange={e => setBusquedaClientes(e.target.value)} placeholder="Buscar por entidad, persona, localidad o teléfono..." className="min-h-12 w-full rounded-2xl border border-zinc-800 bg-zinc-950 pl-10 pr-4 text-xs text-white outline-none focus:border-emerald-400"/></div>
+            {clientes.length === 0 ? <div className="rounded-3xl border border-dashed border-zinc-700 bg-zinc-950/70 px-5 py-12 text-center"><Users className="mx-auto h-8 w-8 text-zinc-600"/><p className="mt-3 text-sm font-black text-white">Todavía no hay clientes</p><p className="mt-1 text-xs text-zinc-500">Añade el primer contacto para empezar a construir la cartera de Sarao.</p></div> : <div className="grid gap-3 md:grid-cols-2">{clientes.filter(c => [c.nombre,c.tipo,c.contacto,c.telefono,c.email,c.localidad].some(v => String(v || '').toLowerCase().includes(busquedaClientes.toLowerCase()))).sort((a,b) => a.nombre.localeCompare(b.nombre,'es')).map(cliente => (
+              <article key={cliente.id} className="rounded-2xl border border-white/10 bg-zinc-950 p-4 transition hover:border-emerald-400/30"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-300">{cliente.tipo || 'Cliente'}</span><h3 className="mt-2 break-words text-base font-black text-white">{cliente.nombre}</h3>{cliente.contacto && <p className="mt-0.5 text-xs text-zinc-400">{cliente.contacto}</p>}</div><div className="flex shrink-0 gap-1"><button aria-label="Editar cliente" onClick={() => { setClienteEditandoId(cliente.id); setFormCliente({ nombre: cliente.nombre || '', tipo: cliente.tipo || 'Ayuntamiento', contacto: cliente.contacto || '', telefono: cliente.telefono || '', email: cliente.email || '', localidad: cliente.localidad || '', notas: cliente.notas || '' }); setMostrarFormularioCliente(true); }} className="rounded-lg p-2 text-zinc-400 hover:bg-emerald-400/10 hover:text-emerald-300"><Edit3 className="h-4 w-4"/></button><button aria-label="Eliminar cliente" onClick={async () => { if (confirm('¿Eliminar a ' + cliente.nombre + ' de la cartera de clientes?')) await guardarClientesEnNube(clientes.filter(c => String(c.id) !== String(cliente.id))); }} className="rounded-lg p-2 text-zinc-500 hover:bg-rose-500/10 hover:text-rose-400"><Trash2 className="h-4 w-4"/></button></div></div>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-zinc-400">{cliente.telefono && <a href={'tel:' + cliente.telefono} className="inline-flex items-center gap-1.5 hover:text-emerald-300"><Phone className="h-3.5 w-3.5"/>{cliente.telefono}</a>}{cliente.email && <a href={'mailto:' + cliente.email} className="inline-flex min-w-0 items-center gap-1.5 break-all hover:text-emerald-300"><Mail className="h-3.5 w-3.5 shrink-0"/>{cliente.email}</a>}{cliente.localidad && <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5"/>{cliente.localidad}</span>}</div>{cliente.notas && <p className="mt-3 whitespace-pre-wrap border-t border-white/5 pt-3 text-[11px] leading-relaxed text-zinc-400">{cliente.notas}</p>}</article>
+            ))}</div>}
+            {clientes.length > 0 && clientes.filter(c => [c.nombre,c.tipo,c.contacto,c.telefono,c.email,c.localidad].some(v => String(v || '').toLowerCase().includes(busquedaClientes.toLowerCase()))).length === 0 && <p className="py-8 text-center text-xs text-zinc-500">No hay clientes que coincidan con la búsqueda.</p>}
+          </section>
+        )}
+
         {/* PANEL ADMIN */}
         {pestañaActiva === 'admin' && esAdmin && (
           <div data-sarao-section="admin" className="space-y-6">
@@ -6000,6 +6047,7 @@ export default function CharangaSaraoApp() {
           { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
           { id: 'facturas', label: 'Facturas', icon: FileText },
+          ...(esGestorBolos ? [{ id: 'clientes', label: 'Clientes', icon: Users }] : []),
           ...(esAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : [])
         ].map(tab => {
           const Icon = tab.icon;
