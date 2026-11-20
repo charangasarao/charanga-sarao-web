@@ -2040,6 +2040,10 @@ export default function CharangaSaraoApp() {
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
 
+  const proximosBolosConfirmados = bolos
+    .filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo' && esBoloVigente(b.fecha))
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
   // DETECCIÓN AUTOMÁTICA DE INCIDENCIAS EN PRÓXIMAS ACTUACIONES
   const alertasGestion = proximosBolosConfirmados.flatMap(bolo => {
     const incidencias = [];
@@ -2070,10 +2074,6 @@ export default function CharangaSaraoApp() {
     return incidencias.map(incidencia => ({ ...incidencia, bolo }));
   });
   const totalAlertasAltas = alertasGestion.filter(a => a.nivel === 'alto').length;
-
-  const proximosBolosConfirmados = bolos
-    .filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo' && esBoloVigente(b.fecha))
-    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
   const bolosPresupuestados = bolos
     .filter(b => b.estadoBolo === 'presupuestado')
