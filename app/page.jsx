@@ -5878,7 +5878,6 @@ export default function CharangaSaraoApp() {
                     {movimientosContabilizadosPeriodo.length === 0 && <p className="text-xs text-zinc-500 mt-4">No hay movimientos contabilizados para este periodo.</p>}
                     {anioFinanzasSeleccionado !== 'todos' && movimientosBote.some(m => !m.fechaISO) && <p className="text-[10px] text-amber-300 mt-3">Los movimientos antiguos sin fecha completa se mantienen en el histórico global y no se asignan a un año por aproximación.</p>}
                   </div>
-                  </div>
                   )}
                   <div className="bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
                     <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Desglose</p>
