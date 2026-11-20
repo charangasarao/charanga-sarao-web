@@ -1995,7 +1995,7 @@ export default function CharangaSaraoApp() {
   const MESES_FINANZAS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   const parsearMesMovimiento = (fecha) => {
     const texto = String(fecha || '').toLowerCase();
-    const match = texto.match(/(?:\d{1,2}\\s*[-/ ]\\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
+    const match = texto.match(/(?:\d{1,2}\s*[-/ ]\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
     if (match) return MESES_FINANZAS.indexOf(match[1].toLowerCase());
     const numerica = texto.match(/\d{1,2}[/-](\d{1,2})/);
     return numerica ? Math.max(0, Math.min(11, Number(numerica[1]) - 1)) : -1;
