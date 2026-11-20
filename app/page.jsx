@@ -2366,8 +2366,9 @@ export default function CharangaSaraoApp() {
       guardarPagoMiembro(boloActual.id, persona, tipo, campo, Number.isFinite(importe) ? importe : 0);
     };
 
+    if (!esGestorBolos) return null;
+
     return (
-      {esGestorBolos && (
       <div className="mt-2.5 pt-2 border-t border-white/10 space-y-2 text-[10px]">
         <p className="font-black uppercase tracking-wide text-zinc-300">Pago del bolo</p>
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-zinc-300">
@@ -2415,7 +2416,6 @@ export default function CharangaSaraoApp() {
           </div>
         )}
       </div>
-      )}
     );
   };
 
