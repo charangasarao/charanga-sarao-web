@@ -2017,15 +2017,7 @@ export default function CharangaSaraoApp() {
     }, {})
   ).map(([nombre, importe]) => ({ nombre, importe })).sort((a, b) => b.importe - a.importe);
   const maximoCategoriaFinanzas = Math.max(1, ...gastosPorCategoriaFinanzas.map(c => c.importe));
-  const ingresosPorBoloFinanzas = Object.values(
-    movimientosContabilizadosPeriodo.filter(m => Number(m.cantidad) > 0 && m.boloId != null).reduce((acc, m) => {
-      const id = String(m.boloId);
-      const boloRelacionado = bolos.find(b => String(b.id) === id);
-      if (!acc[id]) acc[id] = { id, nombre: m.conceptoBolo || boloRelacionado?.titulo || boloRelacionado?.lugar || m.concepto || 'Actuación', importe: 0 };
-      acc[id].importe += Number(m.cantidad);
-      return acc;
-    }, {})
-  ).sort((a, b) => b.importe - a.importe).slice(0, 5);
+
 
 
 
@@ -5829,24 +5821,7 @@ export default function CharangaSaraoApp() {
                     <p className="text-[10px] text-zinc-500 mt-4">Solo cuentan los gastos verificados.</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                  <div className="bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <div><p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Rendimiento</p><h3 className="text-xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Ingresos por actuación</h3></div>
-                      <BarChart3 className="w-5 h-5 text-emerald-400"/>
-                    </div>
-                    {ingresosPorBoloFinanzas.length ? (
-                      <div className="space-y-3">
-                        {ingresosPorBoloFinanzas.map((bolo, index) => (
-                          <div key={bolo.id} className="flex items-center justify-between gap-3 border-b border-zinc-800/80 pb-2 last:border-0">
-                            <div className="flex items-center gap-2 min-w-0"><span className="text-[10px] font-black text-emerald-400">{index + 1}</span><span className="text-xs text-zinc-200 truncate">{bolo.nombre}</span></div>
-                            <strong className="text-sm text-white tabular-nums shrink-0">{bolo.importe.toFixed(2)} €</strong>
-                          </div>
-                        ))}
-                      </div>
-                    ) : <p className="text-xs text-zinc-500 py-5 text-center">Los ingresos vinculados a actuaciones aparecerán aquí.</p>}
-                    <p className="text-[10px] text-zinc-500 mt-3">Top 5 por importe cobrado en el periodo.</p>
-                  </div>
+                <div className="grid grid-cols-1 gap-3">
                   <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 sm:p-5">
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <div><p className="text-[10px] uppercase tracking-[.18em] font-black text-amber-300">Previsión de cobros</p><h3 className="text-xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Pendiente de cobrar</h3></div>
