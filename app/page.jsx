@@ -3317,6 +3317,157 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
+        {/* PANEL ADMIN */}
+        {pestañaActiva === 'admin' && esAdmin && (
+          <div data-sarao-section="admin" className="space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
+              
+              <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
+                <div>
+                  <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    PANEL DE ADMINISTRACIÓN
+                  </h2>
+                  <p className="text-xs text-zinc-400">Correo de facturación, estadísticas acumuladas y control de deshacer.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {historialEstados.length > 0 && (
+                    <button
+                      onClick={deshacerUltimoCambio}
+                      className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow"
+                    >
+                      <Undo2 className="w-4 h-4"/> Deshacer ({historialEstados.length})
+                    </button>
+                  )}
+                  <button
+                    onClick={exportarEstadisticasExcel}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow"
+                  >
+                    <Download className="w-4 h-4"/> Exportar CSV
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-cyan-400"/>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    Correo de Facturación
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Introduce el correo electrónico al que se enviarán automáticamente todas las facturas que suban los músicos a la aplicación.
+                </p>
+                <form onSubmit={guardarCorreoFacturacionAdmin} className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="email"
+                    placeholder="ejemplo@charangasarao.com"
+                    value={inputCorreoAdmin}
+                    onChange={e => setInputCorreoAdmin(e.target.value)}
+                    className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold outline-none focus:border-cyan-400"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-5 py-2.5 rounded-xl shadow transition shrink-0 cursor-pointer"
+                  >
+                    Guardar Correo
+                  </button>
+                </form>
+                {correoFacturacion && (
+                  <p className="text-[11px] text-emerald-400 font-bold">
+                    ✓ Correo activo actual: {correoFacturacion}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia a Bolos y Facturación acumulada
+                </h3>
+                
+                {miembros.length === 0 ? (
+                  <p className="text-xs text-zinc-500 py-3">No hay miembros para calcular estadísticas.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-zinc-300">
+                      <thead className="text-[10px] uppercase text-zinc-400 bg-black/60 border-b border-zinc-800">
+                        <tr>
+                          <th className="p-3">Músico</th>
+                          <th className="p-3">Cuerda</th>
+                          <th className="p-3">Roles</th>
+                          <th className="p-3">Asistencia Bolos</th>
+                          <th className="p-3">% Confirmado</th>
+                          <th className="p-3">Facturado (€)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
+                        {miembros.map(m => {
+                          const totalBolos = bolosConfirmados.length;
+                          const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
+                          const siVan = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
+                          const talVez = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'tal_vez').length;
+                          const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
+                          const totalFacturadoMiembro = facturas
+                            .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
+                            .reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
+
+                          return (
+                            <tr key={m.id} className="hover:bg-zinc-800/30">
+                              <td className="p-3 font-bold text-white">{m.nombre}</td>
+                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
+                              <td className="p-3">
+                                <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                                  {m.roles?.join(', ')}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> / {totalBolos}
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-20 bg-zinc-800 h-2 rounded-full overflow-hidden">
+                                    <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                                  </div>
+                                  <span className="font-black text-xs text-green-400">{pct}%</span>
+                                </div>
+                              </td>
+                              <td className="p-3 font-black text-cyan-400">
+                                {totalFacturadoMiembro.toFixed(2)} €
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'resumen', label: 'Resumen', icon: BarChart3, desc: 'Estadísticas y ajustes' },
+                  { id: 'clientes', label: 'Cartera de clientes', icon: Users, desc: 'CRM y contactos' },
+                  { id: 'alertas', label: 'Centro de alertas', icon: AlertCircle, desc: 'Incidencias por bolo' },
+                  { id: 'plantilla', label: 'Plantilla de músicos', icon: Users, desc: 'Músicos y permisos' }
+                ].map(item => {
+                  const Icon = item.icon;
+                  const activa = seccionAdminActiva === item.id;
+                  return (
+                    <button key={item.id} type="button" onClick={() => setSeccionAdminActiva(item.id)}
+                      className={`rounded-2xl border p-3 text-left transition ${activa ? 'border-emerald-400/60 bg-emerald-400/15 text-emerald-200' : 'border-zinc-800 bg-black/40 text-zinc-400 hover:border-emerald-400/30 hover:text-white'}`}>
+                      <Icon className="h-4 w-4 mb-2" />
+                      <span className="block text-xs font-black">{item.label}</span>
+                      <span className="mt-1 block text-[10px] opacity-70">{item.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>            </div>
+          </div>
+        )}
+
         {/* PLANTILLA */}
         {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'plantilla' && (
           <div data-sarao-section="miembros" className="space-y-6">
@@ -3780,161 +3931,6 @@ export default function CharangaSaraoApp() {
             ))}</div>}
             {clientes.length > 0 && clientes.filter(c => [c.nombre,c.tipo,c.contacto,c.telefono,c.email,c.localidad].some(v => String(v || '').toLowerCase().includes(busquedaClientes.toLowerCase()))).length === 0 && <p className="py-8 text-center text-xs text-zinc-500">No hay clientes que coincidan con la búsqueda.</p>}
           </section>
-        )}
-
-        {/* PANEL ADMIN */}
-        {pestañaActiva === 'admin' && esAdmin && (
-          <div data-sarao-section="admin" className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
-              
-              <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
-                <div>
-                  <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                    PANEL DE ADMINISTRACIÓN
-                  </h2>
-                  <p className="text-xs text-zinc-400">Correo de facturación, estadísticas acumuladas y control de deshacer.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {historialEstados.length > 0 && (
-                    <button
-                      onClick={deshacerUltimoCambio}
-                      className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow"
-                    >
-                      <Undo2 className="w-4 h-4"/> Deshacer ({historialEstados.length})
-                    </button>
-                  )}
-                  <button
-                    onClick={exportarEstadisticasExcel}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow"
-                  >
-                    <Download className="w-4 h-4"/> Exportar CSV
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { id: 'resumen', label: 'Resumen', icon: BarChart3, desc: 'Estadísticas y ajustes' },
-                  { id: 'clientes', label: 'Cartera de clientes', icon: Users, desc: 'CRM y contactos' },
-                  { id: 'alertas', label: 'Centro de alertas', icon: AlertCircle, desc: 'Incidencias por bolo' },
-                  { id: 'plantilla', label: 'Plantilla de músicos', icon: Users, desc: 'Músicos y permisos' }
-                ].map(item => {
-                  const Icon = item.icon;
-                  const activa = seccionAdminActiva === item.id;
-                  return (
-                    <button key={item.id} type="button" onClick={() => setSeccionAdminActiva(item.id)}
-                      className={`rounded-2xl border p-3 text-left transition ${activa ? 'border-emerald-400/60 bg-emerald-400/15 text-emerald-200' : 'border-zinc-800 bg-black/40 text-zinc-400 hover:border-emerald-400/30 hover:text-white'}`}>
-                      <Icon className="h-4 w-4 mb-2" />
-                      <span className="block text-xs font-black">{item.label}</span>
-                      <span className="mt-1 block text-[10px] opacity-70">{item.desc}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {seccionAdminActiva === 'resumen' && (
-              <>
-              <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-cyan-400"/>
-                  <h3 className="text-base font-black text-white uppercase tracking-wider">
-                    Correo de Facturación
-                  </h3>
-                </div>
-                <p className="text-xs text-zinc-400">
-                  Introduce el correo electrónico al que se enviarán automáticamente todas las facturas que suban los músicos a la aplicación.
-                </p>
-                <form onSubmit={guardarCorreoFacturacionAdmin} className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="email"
-                    placeholder="ejemplo@charangasarao.com"
-                    value={inputCorreoAdmin}
-                    onChange={e => setInputCorreoAdmin(e.target.value)}
-                    className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold outline-none focus:border-cyan-400"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-5 py-2.5 rounded-xl shadow transition shrink-0 cursor-pointer"
-                  >
-                    Guardar Correo
-                  </button>
-                </form>
-                {correoFacturacion && (
-                  <p className="text-[11px] text-emerald-400 font-bold">
-                    ✓ Correo activo actual: {correoFacturacion}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia a Bolos y Facturación acumulada
-                </h3>
-                
-                {miembros.length === 0 ? (
-                  <p className="text-xs text-zinc-500 py-3">No hay miembros para calcular estadísticas.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-zinc-300">
-                      <thead className="text-[10px] uppercase text-zinc-400 bg-black/60 border-b border-zinc-800">
-                        <tr>
-                          <th className="p-3">Músico</th>
-                          <th className="p-3">Cuerda</th>
-                          <th className="p-3">Roles</th>
-                          <th className="p-3">Asistencia Bolos</th>
-                          <th className="p-3">% Confirmado</th>
-                          <th className="p-3">Facturado (€)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
-                        {miembros.map(m => {
-                          const totalBolos = bolosConfirmados.length;
-                          const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
-                          const siVan = Object.entries(m.disponibilidadBolos || {})
-                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
-                          const talVez = Object.entries(m.disponibilidadBolos || {})
-                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'tal_vez').length;
-                          const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
-                          const totalFacturadoMiembro = facturas
-                            .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
-                            .reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
-
-                          return (
-                            <tr key={m.id} className="hover:bg-zinc-800/30">
-                              <td className="p-3 font-bold text-white">{m.nombre}</td>
-                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
-                              <td className="p-3">
-                                <span className="text-[10px] font-bold text-zinc-400 uppercase">
-                                  {m.roles?.join(', ')}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> / {totalBolos}
-                              </td>
-                              <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-20 bg-zinc-800 h-2 rounded-full overflow-hidden">
-                                    <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
-                                  </div>
-                                  <span className="font-black text-xs text-green-400">{pct}%</span>
-                                </div>
-                              </td>
-                              <td className="p-3 font-black text-cyan-400">
-                                {totalFacturadoMiembro.toFixed(2)} €
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-              </>
-              )}
-            </div>
-          </div>
         )}
 
         {/* CALENDARIO GENERAL (VERDE = CONFIRMADO, AMARILLO = PRESUPUESTADO, AZUL TURQUESA = ENSAYO) */}
