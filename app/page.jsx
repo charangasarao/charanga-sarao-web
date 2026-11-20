@@ -4952,6 +4952,7 @@ export default function CharangaSaraoApp() {
                                         )}
                                       </div>
                                     </div>
+                                    </div>
                                     {String(m.id) === String(usuarioActual.id) && boloActual.estadoBolo === 'confirmado' && !esPerfilExtra && !idsBajaUrgencia.includes(String(usuarioActual.id)) && (
                                       <button
                                         onClick={() => registrarBajaUrgencia(boloActual.id)}
