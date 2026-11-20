@@ -2026,8 +2026,7 @@ export default function CharangaSaraoApp() {
       return acc;
     }, {})
   ).sort((a, b) => b.importe - a.importe).slice(0, 5);
-  const totalPendienteCobroFinanzas = bolosPendientesDeCobro.reduce((sum, b) => sum + Number(b.presupuesto || 0), 0);
-  const numeroBolosPendientesFinanzas = bolosPendientesDeCobro.length;
+
 
 
   // CÁLCULO DE TOTALES DE FACTURAS
@@ -2065,6 +2064,9 @@ export default function CharangaSaraoApp() {
   const bolosPendientesDeCobro = bolosConfirmados
     .filter(b => Number(b.presupuesto) > 0 && !idsBolosCobrados.has(String(b.id)))
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  const bolosPendientesPeriodoFinanzas = anioFinanzasSeleccionado === 'todos' ? bolosPendientesDeCobro : bolosPendientesDeCobro.filter(b => String(b.fecha || '').startsWith(anioFinanzasSeleccionado));
+  const totalPendienteCobroFinanzas = bolosPendientesPeriodoFinanzas.reduce((sum, b) => sum + Number(b.presupuesto || 0), 0);
+  const numeroBolosPendientesFinanzas = bolosPendientesPeriodoFinanzas.length;
 
 
   const proximosBolosConfirmados = bolos
