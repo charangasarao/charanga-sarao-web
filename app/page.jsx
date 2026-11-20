@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, Car, Users, Wallet, Shield, MapPin, 
-  Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, Bell, CheckCheck, Circle, 
+  Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, Bell, CheckCheck, Circle, X, 
   UserPlus, Trash2, Shirt, ArrowRight, Home, Clock, AlertCircle, 
   ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText, 
   Edit3, Upload, Mail, Eye, Loader2, ClipboardList, XCircle, UserCheck, LogOut, Search, Phone
@@ -279,6 +279,7 @@ export default function CharangaSaraoApp() {
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [notificacionesPersonales, setNotificacionesPersonales] = useState([]);
   const [filtroNotificaciones, setFiltroNotificaciones] = useState('todas');
+  const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
   const [nuevaTareaBolo, setNuevaTareaBolo] = useState('');
@@ -550,6 +551,7 @@ export default function CharangaSaraoApp() {
 
   const abrirNotificacion = async notificacion => {
     if (!notificacion.leida) await marcarNotificacionLeida(notificacion, true);
+    setNotificacionesAbiertas(false);
     if (notificacion.boloId) seleccionarBolo(notificacion.boloId);
     else seleccionarPestanaInferior(notificacion.destino || 'bolos');
   };
@@ -2470,8 +2472,9 @@ export default function CharangaSaraoApp() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={() => { setPestañaActiva('landing'); setBoloSeleccionadoId(null); }} className={`p-2.5 rounded-xl border transition ${pestañaActiva === 'landing' ? 'bg-green-500 text-black border-green-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800'}`}>
-              <Home className="w-4 h-4"/>
+            <button onClick={() => setNotificacionesAbiertas(v => !v)} aria-label="Abrir notificaciones" aria-expanded={notificacionesAbiertas} className="relative p-2.5 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-200 transition hover:border-emerald-400/40 hover:text-emerald-300">
+              <Bell className="w-4 h-4"/>
+              {notificacionesPersonales.filter(n => !n.leida).length > 0 && <span className="absolute -right-1.5 -top-1.5 min-w-[18px] h-[18px] rounded-full bg-red-500 px-1 text-[10px] font-black leading-[18px] text-white shadow-lg shadow-red-950/50">{notificacionesPersonales.filter(n => !n.leida).length > 99 ? '99+' : notificacionesPersonales.filter(n => !n.leida).length}</span>}
             </button>
             <button onClick={cerrarSesion} className="p-2.5 rounded-xl border border-zinc-800 text-zinc-400 hover:text-rose-400 bg-zinc-900 text-xs font-bold" title="Cerrar sesión">
               Salir
@@ -3660,13 +3663,14 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* CENTRO PERSONAL DE NOTIFICACIONES */}
-        {pestañaActiva === 'notificaciones' && (
-          <section data-sarao-section="notificaciones" className="mx-auto max-w-5xl space-y-5">
+        {/* POPUP PERSONAL DE NOTIFICACIONES */}
+        {notificacionesAbiertas && (
+          <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/65 px-3 pb-6 pt-20 backdrop-blur-sm sm:justify-end sm:px-6 sm:pt-24" onMouseDown={e => { if (e.target === e.currentTarget) setNotificacionesAbiertas(false); }}>
+          <section role="dialog" aria-modal="true" aria-label="Notificaciones personales" className="max-h-[78vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-emerald-400/20 bg-[#090f0b] p-4 shadow-2xl shadow-black/60 sm:p-5">
             <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-[#0b1711] via-zinc-950 to-[#101713] p-5 sm:p-7">
               <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
               <div className="relative flex flex-wrap items-start justify-between gap-4">
-                <div><span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-300">Tu espacio personal · Sarao</span><h2 className="mt-2 text-3xl text-white sm:text-4xl" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Notificaciones</h2><p className="mt-1 max-w-xl text-xs leading-relaxed text-zinc-400">Avisos generales de la charanga y mensajes dirigidos únicamente a ti.</p></div>
+                <div className="flex min-w-0 flex-1 items-start justify-between gap-3"><div><span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-300">Tu espacio personal · Sarao</span><h2 className="mt-1 text-3xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Notificaciones</h2><p className="mt-1 max-w-xl text-xs leading-relaxed text-zinc-400">Avisos generales y mensajes dirigidos a ti.</p></div><button type="button" onClick={() => setNotificacionesAbiertas(false)} aria-label="Cerrar notificaciones" className="rounded-xl border border-white/10 bg-black/30 p-2 text-zinc-400 hover:text-white"><X className="h-4 w-4"/></button></div>
                 <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-right"><p className="text-[9px] font-black uppercase tracking-wider text-zinc-500">Sin leer</p><p className="text-3xl font-black tabular-nums text-white">{notificacionesPersonales.filter(n => !n.leida).length}</p></div>
               </div>
             </div>
@@ -3678,6 +3682,7 @@ export default function CharangaSaraoApp() {
             </div>
             {(() => { const visibles = notificacionesPersonales.filter(n => filtroNotificaciones === 'sinLeer' ? !n.leida : filtroNotificaciones === 'general' ? n.tipo === 'general' : filtroNotificaciones === 'personal' ? n.tipo === 'personal' : true); return visibles.length ? <div className="space-y-2">{visibles.map(n => <article key={n.id} className={`flex items-start gap-3 rounded-2xl border p-4 transition ${n.leida ? 'border-zinc-800 bg-zinc-900/55' : 'border-emerald-400/25 bg-emerald-400/[0.06]'}`}><span className={`mt-0.5 rounded-xl p-2 ${n.tipo === 'personal' ? 'bg-violet-400/10 text-violet-300' : 'bg-emerald-400/10 text-emerald-300'}`}>{n.leida ? <Bell className="h-4 w-4"/> : <Circle className="h-3.5 w-3.5 fill-current"/>}</span><button type="button" onClick={() => abrirNotificacion(n)} className="min-w-0 flex-1 text-left"><div className="flex flex-wrap items-center gap-2"><h3 className="text-xs font-black text-white">{n.titulo || 'Notificación'}</h3><span className={`rounded-full px-2 py-0.5 text-[8px] font-black uppercase ${n.tipo === 'personal' ? 'bg-violet-400/10 text-violet-300' : 'bg-emerald-400/10 text-emerald-300'}`}>{n.tipo === 'personal' ? 'Para ti' : 'General'}</span></div><p className="mt-1 text-xs leading-relaxed text-zinc-400">{n.mensaje}</p><p className="mt-2 text-[9px] text-zinc-600">{n.creadaEn ? new Date(n.creadaEn).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : ''} · Toca para abrir</p></button>{!n.leida && <button type="button" title="Marcar como leída" onClick={() => marcarNotificacionLeida(n, true)} className="rounded-lg p-2 text-zinc-500 hover:bg-white/5 hover:text-emerald-300"><Check className="h-4 w-4"/></button>}</article>)}</div> : <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-9 text-center"><Bell className="mx-auto h-9 w-9 text-zinc-600"/><h3 className="mt-3 text-sm font-black text-white">No tienes notificaciones aquí</h3><p className="mt-1 text-xs text-zinc-500">Cuando haya novedades generales o avisos para ti, aparecerán en esta bandeja.</p></div>; })()}
           </section>
+          </div>
         )}
 
         {/* CENTRO DE ALERTAS · DETECCIÓN AUTOMÁTICA */}
@@ -6276,7 +6281,6 @@ export default function CharangaSaraoApp() {
           { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
           { id: 'facturas', label: 'Facturas', icon: FileText },
-          { id: 'notificaciones', label: 'Avisos', icon: Bell },
           ...(esGestorBolos ? [{ id: 'alertas', label: 'Alertas', icon: AlertCircle }] : []),
           ...(esGestorBolos ? [{ id: 'clientes', label: 'Clientes', icon: Users }] : []),
           ...(esAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : [])
@@ -6287,7 +6291,7 @@ export default function CharangaSaraoApp() {
             <button key={tab.id} data-nav-tab={tab.id} aria-label={tab.label} aria-current={activa ? 'page' : undefined} onClick={() => seleccionarPestanaInferior(tab.id)} onMouseEnter={() => setNavGestureTab(tab.id)}
               onMouseLeave={() => setNavGestureTab(null)}
               className={`flex items-center gap-1.5 px-3 py-2.5 rounded-full text-xs font-black transition-all duration-200 shrink-0 snap-center ${(navGestureTab || pestañaActiva) === tab.id ? 'bg-emerald-300/90 text-emerald-950 shadow-[0_2px_16px_rgba(52,211,153,0.48)] scale-110' : 'text-white/80 hover:text-white hover:bg-emerald-300/15'}`}>
-              <span className="relative"><Icon className="w-4 h-4"/>{tab.id === 'notificaciones' && notificacionesPersonales.some(n => !n.leida) && <span className="absolute -right-1.5 -top-1.5 h-2 w-2 rounded-full bg-rose-400 ring-2 ring-black"/>}</span>
+              <Icon className="w-4 h-4"/>
               <span className="hidden md:inline">{tab.label}</span>
             </button>
           );
