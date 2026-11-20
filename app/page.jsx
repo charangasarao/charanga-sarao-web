@@ -5816,27 +5816,27 @@ export default function CharangaSaraoApp() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
-                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 min-h-[112px] flex flex-col justify-between">
+                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 flex flex-col gap-2 self-start">
                   <span className="text-[10px] leading-tight font-bold text-zinc-400 uppercase">Saldo Real Bote</span>
-                  <p className={`text-xl sm:text-2xl font-black mt-2 tabular-nums ${saldoTotal >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
+                  <p className={`text-xl sm:text-2xl font-black leading-tight tabular-nums ${saldoTotal >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
                     {saldoTotal.toFixed(2)} €
                   </p>
                 </div>
-                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 min-h-[112px] flex flex-col justify-between">
+                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 flex flex-col gap-2 self-start">
                   <span className="text-[10px] leading-tight font-bold text-zinc-400 uppercase">Ingresos</span>
-                  <p className="text-xl sm:text-2xl font-black mt-2 text-emerald-400 tabular-nums">
+                  <p className="text-xl sm:text-2xl font-black leading-tight text-emerald-400 tabular-nums">
                     +{totalIngresos.toFixed(2)} €
                   </p>
                 </div>
-                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 min-h-[112px] flex flex-col justify-between">
+                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 flex flex-col gap-2 self-start">
                   <span className="text-[10px] leading-tight font-bold text-zinc-400 uppercase">Gastos Pagados (✓)</span>
-                  <p className="text-xl sm:text-2xl font-black mt-2 text-rose-400 tabular-nums">
+                  <p className="text-xl sm:text-2xl font-black leading-tight text-rose-400 tabular-nums">
                     -{totalGastos.toFixed(2)} €
                   </p>
                 </div>
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 min-h-[112px] flex flex-col justify-between">
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 flex flex-col gap-2 self-start">
                   <span className="text-[10px] leading-tight font-bold text-amber-300 uppercase">Gasolina sin Verificar</span>
-                  <p className="text-xl sm:text-2xl font-black mt-2 text-amber-400 tabular-nums">
+                  <p className="text-xl sm:text-2xl font-black leading-tight text-amber-400 tabular-nums">
                     {totalPendienteGasolina.toFixed(2)} €
                   </p>
                 </div>
