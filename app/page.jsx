@@ -2367,7 +2367,8 @@ export default function CharangaSaraoApp() {
     };
 
     return (
-      <div className="mt-3 pt-2.5 border-t border-white/10 space-y-2 text-[11px]">
+      {esGestorBolos && (
+      <div className="mt-2.5 pt-2 border-t border-white/10 space-y-2 text-[10px]">
         <p className="font-black uppercase tracking-wide text-zinc-300">Pago del bolo</p>
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-zinc-300">
           <span>Música: <strong className="text-emerald-300">{(Number(pago.importeMusica) || 0).toFixed(2)} €</strong></span>
@@ -2414,6 +2415,7 @@ export default function CharangaSaraoApp() {
           </div>
         )}
       </div>
+      )}
     );
   };
 
@@ -4911,14 +4913,14 @@ export default function CharangaSaraoApp() {
                             )}
                           </div>
 
-                          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2">
                             {dispoPuedo.map(m => {
                               const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
                               const dispM = m.disponibilidadBolos?.[boloActual.id];
                               const puedeGestionarEste = puedeEliminarAsistencia(m.cuerda);
 
                               return (
-                                <div key={m.id} className={`p-3 rounded-2xl border ${conf.bg} ${conf.border}`}>
+                                <div key={m.id} className={`p-2.5 rounded-xl border ${conf.bg} ${conf.border}`}>
                                   <div className="flex items-center justify-between">
                                     <div>
                                       <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
@@ -4966,7 +4968,7 @@ export default function CharangaSaraoApp() {
                               const puedeGestionarEste = puedeEliminarAsistencia(ex.cuerda);
 
                               return (
-                                <div key={ex.id} className={`p-3 rounded-2xl border ${conf.bg} border-amber-500/50 shadow-sm relative overflow-hidden`}>
+                                <div key={ex.id} className={`p-2.5 rounded-xl border ${conf.bg} border-amber-500/50 shadow-sm relative overflow-hidden`}>
                                   <div className="flex items-center justify-between">
                                     <div>
                                       <div className="flex items-center gap-1.5">
