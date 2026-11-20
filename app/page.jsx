@@ -273,6 +273,8 @@ export default function CharangaSaraoApp() {
   const [usuarioActual, setUsuarioActual] = useState(null);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
+  const [nuevaTareaBolo, setNuevaTareaBolo] = useState('');
+  const [responsableTareaBolo, setResponsableTareaBolo] = useState('');
   const [boloDisponibilidadAbiertoId, setBoloDisponibilidadAbiertoId] = useState(null);
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
   const [calendarZoom, setCalendarZoom] = useState(1);
@@ -540,6 +542,40 @@ export default function CharangaSaraoApp() {
     } catch (error) {
       console.error('Error enviando la notificación:', error);
       alert('El cambio se guardó, pero no se pudieron enviar las notificaciones. Revisa la consola.');
+    }
+  };
+
+  const notificarTareaAsignada = async ({ miembroId, tarea, bolo }) => {
+    if (!miembroId) return;
+    try {
+      const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
+      const tokens = [...new Set(snapshot.docs
+        .filter(d => String(d.data()?.userId) === String(miembroId))
+        .map(d => d.data()?.token)
+        .filter(token => typeof token === 'string' && token.trim())
+        .map(token => token.trim())
+      )];
+      if (!tokens.length) {
+        console.warn('El responsable no tiene ningún dispositivo registrado para recibir notificaciones.');
+        return;
+      }
+      for (let index = 0; index < tokens.length; index += 500) {
+        const response = await fetch('/api/enviar-notificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo: 'Te han asignado una tarea',
+            mensaje: `En ${bolo.lugar || bolo.titulo || 'un bolo'}: ${tarea}`,
+            tokens: tokens.slice(index, index + 500)
+          })
+        });
+        const result = await response.json();
+        if (!response.ok || result.success !== true) {
+          throw new Error(result.error || 'No se pudo enviar la notificación de la tarea.');
+        }
+      }
+    } catch (error) {
+      console.error('Error notificando la tarea asignada:', error);
     }
   };
 
@@ -3903,6 +3939,194 @@ export default function CharangaSaraoApp() {
                   <p className="text-sm text-zinc-500 py-3 text-center">Todavía no hay bolos confirmados.</p>
                 )}
               </section>
+
+              {/* CENTRO DE ORGANIZACIÓN DE LA ACTUACIÓN */}
+              {boloActual && boloActual.estadoBolo !== 'ensayo' && (
+                <section className="overflow-hidden rounded-3xl border border-emerald-400/25 bg-gradient-to-br from-[#0b1711] via-zinc-950 to-[#101713] shadow-[0_18px_55px_rgba(16,185,129,0.08)]">
+                  {(() => {
+                    const tareas = boloActual.tareasGestion || [];
+                    const tareasCompletadas = tareas.filter(t => t.completada).length;
+                    const disponibles = miembros.filter(m =>
+                      m.disponibilidadBolos?.[boloActual.id]?.estado === 'puedo' &&
+                      !(boloActual.desconvocados || []).map(String).includes(String(m.id))
+                    ).length + (boloActual.musicosExtras || []).length;
+                    const sinRespuesta = miembros.filter(m =>
+                      !m.disponibilidadBolos?.[boloActual.id]?.estado &&
+                      !(boloActual.desconvocados || []).map(String).includes(String(m.id))
+                    ).length;
+                    const plazasCoche = (boloActual.cochesAsignados || []).reduce((total, coche) =>
+                      total + Math.max(0, (typeof coche.plazasTotales === 'number' ? coche.plazasTotales : 4) - (coche.pasajeros || []).length), 0);
+                    const porcentajeTareas = tareas.length ? Math.round((tareasCompletadas / tareas.length) * 100) : 0;
+                    const guardarTareas = async (nuevasTareas) => {
+                      registrarSnapshot();
+                      const nuevosBolos = bolos.map(b => String(b.id) === String(boloActual.id)
+                        ? { ...b, tareasGestion: nuevasTareas }
+                        : b
+                      );
+                      setBolos(nuevosBolos);
+                      await guardarEnNube(null, nuevosBolos, null);
+                    };
+                    return (
+                      <div className="space-y-5 p-4 sm:p-6">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Centro de organización
+                            </span>
+                            <h3 className="mt-2 text-2xl text-white sm:text-3xl" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                              Preparación de la actuación
+                            </h3>
+                            <p className="mt-1 max-w-xl text-xs leading-relaxed text-zinc-400">
+                              Toda la información operativa de este bolo, reunida en un mismo sitio.
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-2 text-right">
+                            <p className="text-[9px] font-black uppercase tracking-wider text-zinc-500">Preparación</p>
+                            <p className="text-2xl font-black tabular-nums text-emerald-300">{porcentajeTareas}%</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-3">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-200/70">Músicos disponibles</p>
+                            <p className="mt-1 text-2xl font-black text-white">{disponibles}</p>
+                            <p className="text-[9px] text-zinc-500">{sinRespuesta} sin responder</p>
+                          </div>
+                          <div className="rounded-2xl border border-blue-400/15 bg-blue-400/5 p-3">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-blue-200/70">Transporte</p>
+                            <p className="mt-1 text-2xl font-black text-white">{(boloActual.cochesAsignados || []).length}</p>
+                            <p className="text-[9px] text-zinc-500">{plazasCoche} plazas libres aprox.</p>
+                          </div>
+                          <div className="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-3">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-amber-200/70">Vestuario</p>
+                            <p className="mt-2 truncate text-sm font-black text-white">{boloActual.vestuario || 'Por definir'}</p>
+                            <p className="text-[9px] text-zinc-500">Indumentaria del bolo</p>
+                          </div>
+                          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Tareas</p>
+                            <p className="mt-1 text-2xl font-black text-white">{tareasCompletadas}<span className="text-sm text-zinc-500">/{tareas.length}</span></p>
+                            <p className="text-[9px] text-zinc-500">Completadas</p>
+                          </div>
+                        </div>
+
+                        <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                          <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-lime-300 transition-all" style={{ width: `${porcentajeTareas}%` }} />
+                        </div>
+
+                        <div className="space-y-3 border-t border-white/10 pt-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <h4 className="text-sm font-black text-white">Tareas de esta actuación</h4>
+                              <p className="text-[10px] text-zinc-500">Reparte el trabajo y comprueba qué queda por hacer.</p>
+                            </div>
+                            <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[9px] font-bold text-zinc-400">
+                              {tareas.length - tareasCompletadas} pendientes
+                            </span>
+                          </div>
+
+                          {esGestorBolos && (
+                            <form
+                              className="grid gap-2 rounded-2xl border border-emerald-400/15 bg-black/25 p-3 sm:grid-cols-2"
+                              onSubmit={async (e) => {
+                                e.preventDefault();
+                                const texto = nuevaTareaBolo.trim();
+                                if (!texto) return;
+                                const responsable = miembros.find(m => String(m.id) === String(responsableTareaBolo));
+                                const nueva = {
+                                  id: `tarea-${Date.now()}`,
+                                  texto,
+                                  responsableId: responsable?.id || '',
+                                  responsableNombre: responsable?.nombre || '',
+                                  completada: false,
+                                  creadaPor: usuarioActual.nombre,
+                                  creadaEn: new Date().toISOString()
+                                };
+                                await guardarTareas([...tareas, nueva]);
+                                if (responsable?.id) {
+                                  await notificarTareaAsignada({
+                                    miembroId: responsable.id,
+                                    tarea: texto,
+                                    bolo: boloActual
+                                  });
+                                }
+                                setNuevaTareaBolo('');
+                                setResponsableTareaBolo('');
+                              }}
+                            >
+                              <input
+                                value={nuevaTareaBolo}
+                                onChange={e => setNuevaTareaBolo(e.target.value)}
+                                placeholder="Ej. Confirmar hora con el ayuntamiento"
+                                aria-label="Nueva tarea"
+                                className="min-h-11 min-w-0 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-emerald-400 sm:col-span-2"
+                                maxLength={120}
+                                required
+                              />
+                              <select
+                                value={responsableTareaBolo}
+                                onChange={e => setResponsableTareaBolo(e.target.value)}
+                                aria-label="Responsable de la tarea"
+                                className="min-h-11 min-w-0 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-xs text-white outline-none focus:border-emerald-400"
+                              >
+                                <option value="">Sin responsable asignado</option>
+                                {miembros.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                              </select>
+                              <button type="submit" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-400 px-4 text-xs font-black text-black transition hover:bg-emerald-300">
+                                <Plus className="h-4 w-4" /> Añadir tarea
+                              </button>
+                            </form>
+                          )}
+
+                          {tareas.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-zinc-700 bg-black/20 px-4 py-5 text-center">
+                              <p className="text-xs font-bold text-zinc-300">Todavía no hay tareas para este bolo.</p>
+                              <p className="mt-1 text-[10px] text-zinc-500">{esGestorBolos ? 'Añade la primera tarea para empezar a organizarlo.' : 'Cuando administración añada tareas, aparecerán aquí.'}</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {tareas.map(tarea => (
+                                <div key={tarea.id} className={`flex items-start gap-3 rounded-2xl border p-3 transition ${tarea.completada ? 'border-emerald-500/15 bg-emerald-500/[0.04]' : 'border-white/10 bg-black/25'}`}>
+                                  <button
+                                    type="button"
+                                    disabled={!esGestorBolos}
+                                    onClick={() => guardarTareas(tareas.map(t => t.id === tarea.id ? {
+                                      ...t,
+                                      completada: !t.completada,
+                                      completadaPor: !t.completada ? usuarioActual.nombre : '',
+                                      completadaEn: !t.completada ? new Date().toISOString() : ''
+                                    } : t))}
+                                    aria-label={tarea.completada ? 'Marcar tarea como pendiente' : 'Marcar tarea como completada'}
+                                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition ${tarea.completada ? 'border-emerald-400 bg-emerald-400 text-black' : 'border-zinc-600 text-transparent'} ${esGestorBolos ? 'cursor-pointer hover:border-emerald-400' : 'cursor-default'}`}
+                                  >
+                                    {tarea.completada ? '✓' : ''}
+                                  </button>
+                                  <div className="min-w-0 flex-1">
+                                    <p className={`break-words text-xs font-bold ${tarea.completada ? 'text-zinc-500 line-through' : 'text-white'}`}>{tarea.texto}</p>
+                                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-zinc-500">
+                                      {tarea.responsableNombre && <span>Responsable: <strong className="text-zinc-300">{tarea.responsableNombre}</strong></span>}
+                                      {tarea.completada && tarea.completadaPor && <span>Completada por {tarea.completadaPor}</span>}
+                                    </div>
+                                  </div>
+                                  {esGestorBolos && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (confirm(`¿Eliminar la tarea "${tarea.texto}"?`)) guardarTareas(tareas.filter(t => t.id !== tarea.id));
+                                      }}
+                                      aria-label="Eliminar tarea"
+                                      className="rounded-lg p-1.5 text-zinc-600 transition hover:bg-rose-500/10 hover:text-rose-400"
+                                    >×</button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </section>
+              )}
 
               {/* DETALLES DEL EVENTO SELECCIONADO */}
               {boloActual ? (
