@@ -2587,10 +2587,9 @@ export default function CharangaSaraoApp() {
                   {id:'perfil',label:'Mi ficha',desc:'Estadísticas y pagos',icon:Wallet,tone:'green'},
                   {id:'ensayos',label:'Ensayos',desc:`Agenda · ${listaEnsayos.length}`,icon:Music,tone:'cyan'},
                   {id:'letras',label:'Letras de canciones',desc:`${CANCIONES.length} canciones`,icon:FileText,tone:'fuchsia'},
-                  {id:'miembros',label:'Plantilla',desc:`${miembros.length} integrantes`,icon:Users,tone:'violet'},
                   {id:'bote',label:'Bote',desc:`${saldoTotal.toFixed(2)} €`,icon:Wallet,tone:'emerald'},
                   {id:'facturas',label:'Facturas',desc:'Envío y seguimiento',icon:FileText,tone:'cyan'},
-                  ...(esAdmin ? [{id:'admin',label:'Admin',desc:'Control y gestión',icon:Shield,tone:'rose'}] : [])
+                  ...(esAdmin ? [{id:'admin',label:'Administración',desc:'Control y gestión',icon:Shield,tone:'rose'}] : [])
                 ].map(item => {
                   const Icon = item.icon;
                   const tones = {
@@ -2603,7 +2602,7 @@ export default function CharangaSaraoApp() {
                     rose:'border-rose-400/20 bg-rose-400/5 text-rose-300'
                   };
                   return (
-                    <button key={item.id + item.label} type="button" onClick={() => { setPestañaActiva(item.id); if (item.id !== 'bolos') setBoloSeleccionadoId(null); }}
+                    <button key={item.id + item.label} type="button" onClick={() => { if (item.id === 'admin') setSeccionAdminActiva('resumen'); setPestañaActiva(item.id); if (item.id !== 'bolos') setBoloSeleccionadoId(null); }}
                       className={`flex min-h-28 flex-col justify-between rounded-2xl border p-3.5 text-left transition hover:-translate-y-0.5 hover:bg-white/5 ${tones[item.tone]}`}>
                       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-black/30"><Icon className="h-5 w-5" /></span>
                       <span className="mt-3 block text-sm font-black text-white">{item.label}</span>
