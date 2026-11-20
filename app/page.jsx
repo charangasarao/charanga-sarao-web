@@ -3327,7 +3327,7 @@ export default function CharangaSaraoApp() {
                   PLANTILLA DE MÚSICOS ({miembros.length})
                 </h2>
                 {esAdmin && (
-                  <button onClick={() => setPestañaActiva('admin')} className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  <button onClick={() => { setSeccionAdminActiva('resumen'); setPestañaActiva('admin'); }} className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
                     <BarChart3 className="w-4 h-4"/> Estadísticas y Roles
                   </button>
                 )}
@@ -3784,7 +3784,7 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* PANEL ADMIN */}
-        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'resumen' && (
+        {pestañaActiva === 'admin' && esAdmin && (
           <div data-sarao-section="admin" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
               
