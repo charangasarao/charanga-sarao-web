@@ -3922,7 +3922,7 @@ export default function CharangaSaraoApp() {
                       !(boloActual.desconvocados || []).map(String).includes(String(m.id))
                     ).length;
                     const plazasCoche = (boloActual.cochesAsignados || []).reduce((total, coche) =>
-                      total + Math.max(0, Number(coche.plazas || 0) - (coche.pasajeros || []).length), 0);
+                      total + Math.max(0, (typeof coche.plazasTotales === 'number' ? coche.plazasTotales : 4) - (coche.pasajeros || []).length), 0);
                     const porcentajeTareas = tareas.length ? Math.round((tareasCompletadas / tareas.length) * 100) : 0;
                     const guardarTareas = async (nuevasTareas) => {
                       registrarSnapshot();
