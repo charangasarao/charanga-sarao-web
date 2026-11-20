@@ -2074,6 +2074,12 @@ export default function CharangaSaraoApp() {
     return incidencias.map(incidencia => ({ ...incidencia, bolo }));
   });
   const totalAlertasAltas = alertasGestion.filter(a => a.nivel === 'alto').length;
+  const alertasPorBolo = proximosBolosConfirmados
+    .map(bolo => ({
+      bolo,
+      alertas: alertasGestion.filter(alerta => String(alerta.bolo.id) === String(bolo.id))
+    }))
+    .filter(grupo => grupo.alertas.length > 0);
 
   const bolosPresupuestados = bolos
     .filter(b => b.estadoBolo === 'presupuestado')
@@ -3605,32 +3611,49 @@ export default function CharangaSaraoApp() {
               </div>
             </div>
 
-            {alertasGestion.length === 0 ? (
+            {alertasPorBolo.length === 0 ? (
               <div className="rounded-3xl border border-emerald-400/25 bg-emerald-400/5 p-8 text-center">
                 <Check className="mx-auto h-9 w-9 text-emerald-300" />
                 <h3 className="mt-3 text-lg font-black text-white">Todo bajo control</h3>
                 <p className="mt-1 text-xs text-zinc-400">No se han detectado incidencias en las próximas actuaciones.</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {alertasGestion.map((alerta, index) => (
-                  <article key={`${alerta.bolo.id}-${alerta.tipo}-${index}`} className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-4">
-                    <div className="flex items-start gap-3">
-                      <span className={`mt-0.5 rounded-xl p-2 ${alerta.nivel === 'alto' ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-500/15 text-amber-300'}`}>
-                        <AlertCircle className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-sm font-black text-white">{alerta.tipo}</h3>
-                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${alerta.nivel === 'alto' ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-500/15 text-amber-300'}`}>{alerta.nivel === 'alto' ? 'Prioridad alta' : 'Revisar'}</span>
+              <div className="space-y-4">
+                {alertasPorBolo.map(({ bolo, alertas }) => {
+                  const altasBolo = alertas.filter(alerta => alerta.nivel === 'alto').length;
+                  const tareasBolo = alertas.find(alerta => alerta.tipo === 'Tareas sin completar');
+                  return (
+                    <article key={bolo.id} className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/80">
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-black/25 p-4 sm:px-5">
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300">Actuación · {bolo.fecha}</p>
+                          <h3 className="mt-1 truncate text-lg font-black text-white">{bolo.lugar || 'Bolo sin nombre'}</h3>
+                          <p className="mt-0.5 text-[10px] text-zinc-500">{alertas.length} incidencias · {tareasBolo ? tareasBolo.detalle : 'Sin tareas pendientes detectadas'}</p>
                         </div>
-                        <p className="mt-1 text-xs text-zinc-400">{alerta.detalle}</p>
-                        <p className="mt-2 text-[11px] font-bold text-emerald-300">{alerta.bolo.lugar} · {alerta.bolo.fecha}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full border border-rose-400/20 bg-rose-400/10 px-2.5 py-1 text-[9px] font-black text-rose-300">{altasBolo} prioridad alta</span>
+                          <button type="button" onClick={() => seleccionarBolo(bolo.id)} className="shrink-0 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[10px] font-black text-emerald-200 hover:bg-emerald-400/20">Ver bolo</button>
+                        </div>
                       </div>
-                      <button type="button" onClick={() => seleccionarBolo(alerta.bolo.id)} className="shrink-0 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[10px] font-black text-emerald-200 hover:bg-emerald-400/20">Ver bolo</button>
-                    </div>
-                  </article>
-                ))}
+                      <div className="divide-y divide-white/5 px-4 sm:px-5">
+                        {alertas.map((alerta, index) => (
+                          <div key={`${bolo.id}-${alerta.tipo}-${index}`} className="flex items-start gap-3 py-3">
+                            <span className={`mt-0.5 rounded-xl p-2 ${alerta.nivel === 'alto' ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-500/15 text-amber-300'}`}>
+                              <AlertCircle className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="text-xs font-black text-white">{alerta.tipo}</h4>
+                                <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${alerta.nivel === 'alto' ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-500/15 text-amber-300'}`}>{alerta.nivel === 'alto' ? 'Prioridad alta' : 'Revisar'}</span>
+                              </div>
+                              <p className="mt-1 text-xs text-zinc-400">{alerta.detalle}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
             <p className="text-[10px] leading-relaxed text-zinc-500">Las alertas se calculan automáticamente con los datos guardados. No modifican actuaciones ni envían notificaciones por sí solas.</p>
