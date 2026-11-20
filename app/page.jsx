@@ -3834,6 +3834,7 @@ export default function CharangaSaraoApp() {
               </div>
 
               {seccionAdminActiva === 'resumen' && (
+              <>
               <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <Mail className="w-5 h-5 text-cyan-400"/>
@@ -3931,6 +3932,7 @@ export default function CharangaSaraoApp() {
                   </div>
                 )}
               </div>
+              </>
               )}
             </div>
           </div>
