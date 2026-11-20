@@ -5813,28 +5813,28 @@ export default function CharangaSaraoApp() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
-                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Saldo Real Bote</span>
-                  <p className={`text-2xl font-black mt-1 ${saldoTotal >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
+                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 min-h-[112px] flex flex-col justify-between">
+                  <span className="text-[10px] leading-tight font-bold text-zinc-400 uppercase">Saldo Real Bote</span>
+                  <p className={`text-xl sm:text-2xl font-black mt-2 tabular-nums ${saldoTotal >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
                     {saldoTotal.toFixed(2)} €
                   </p>
                 </div>
-                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Ingresos</span>
-                  <p className="text-2xl font-black text-emerald-400 mt-1">
+                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 min-h-[112px] flex flex-col justify-between">
+                  <span className="text-[10px] leading-tight font-bold text-zinc-400 uppercase">Ingresos</span>
+                  <p className="text-xl sm:text-2xl font-black mt-2 text-emerald-400 tabular-nums">
                     +{totalIngresos.toFixed(2)} €
                   </p>
                 </div>
-                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-4">
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase">Gastos Pagados (✓)</span>
-                  <p className="text-2xl font-black text-rose-400 mt-1">
+                <div className="bg-black/60 border border-zinc-800 rounded-2xl p-3 min-h-[112px] flex flex-col justify-between">
+                  <span className="text-[10px] leading-tight font-bold text-zinc-400 uppercase">Gastos Pagados (✓)</span>
+                  <p className="text-xl sm:text-2xl font-black mt-2 text-rose-400 tabular-nums">
                     -{totalGastos.toFixed(2)} €
                   </p>
                 </div>
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
-                  <span className="text-[11px] font-bold text-amber-300 uppercase">Gasolina sin Verificar</span>
-                  <p className="text-2xl font-black text-amber-400 mt-1">
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 min-h-[112px] flex flex-col justify-between">
+                  <span className="text-[10px] leading-tight font-bold text-amber-300 uppercase">Gasolina sin Verificar</span>
+                  <p className="text-xl sm:text-2xl font-black mt-2 text-amber-400 tabular-nums">
                     {totalPendienteGasolina.toFixed(2)} €
                   </p>
                 </div>
@@ -5852,7 +5852,8 @@ export default function CharangaSaraoApp() {
                     {aniosFinanzas.map(anio => <option key={anio} value={anio}>{anio}</option>)}
                   </select>
                 </div>
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                <div className={`grid grid-cols-1 ${esTesorero ? 'xl:grid-cols-3' : 'xl:grid-cols-1'} gap-3`}>
+                  {esTesorero && (
                   <div className="xl:col-span-2 bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
                     <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
                       <div><p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Evolución</p><h3 className="text-xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Ingresos y gastos por mes</h3></div>
@@ -5877,6 +5878,8 @@ export default function CharangaSaraoApp() {
                     {movimientosContabilizadosPeriodo.length === 0 && <p className="text-xs text-zinc-500 mt-4">No hay movimientos contabilizados para este periodo.</p>}
                     {anioFinanzasSeleccionado !== 'todos' && movimientosBote.some(m => !m.fechaISO) && <p className="text-[10px] text-amber-300 mt-3">Los movimientos antiguos sin fecha completa se mantienen en el histórico global y no se asignan a un año por aproximación.</p>}
                   </div>
+                  </div>
+                  )}
                   <div className="bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
                     <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Desglose</p>
                     <h3 className="text-xl text-white mt-1 mb-4" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Gastos por categoría</h3>
