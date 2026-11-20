@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 import { db } from './firebase';
-import { collection, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import PushNotifications from './PushNotifications';
 
 const CONFIG_CUERDAS = {
@@ -533,9 +533,9 @@ export default function CharangaSaraoApp() {
 
   useEffect(() => {
     if (!usuarioActual?.id) { setNotificacionesPersonales([]); return; }
-    const unsubscribe = onSnapshot(collection(db, 'notificaciones'), snapshot => {
+    const consultaPersonal = query(collection(db, 'notificaciones'), where('receptorId', '==', String(usuarioActual.id)));
+    const unsubscribe = onSnapshot(consultaPersonal, snapshot => {
       const propias = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
-        .filter(n => String(n.receptorId) === String(usuarioActual.id))
         .sort((a, b) => new Date(b.creadaEn || 0) - new Date(a.creadaEn || 0));
       setNotificacionesPersonales(propias);
     }, error => console.error('Error cargando notificaciones personales:', error));
