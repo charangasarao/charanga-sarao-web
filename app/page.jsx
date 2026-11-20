@@ -4913,47 +4913,49 @@ export default function CharangaSaraoApp() {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
                             {dispoPuedo.map(m => {
                               const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
                               const dispM = m.disponibilidadBolos?.[boloActual.id];
                               const puedeGestionarEste = puedeEliminarAsistencia(m.cuerda);
 
                               return (
-                                <div key={m.id} className={`p-2.5 rounded-xl border ${conf.bg} ${conf.border}`}>
-                                  <div className="flex items-center justify-between">
-                                    <div>
+                                <div key={m.id} className={`p-3 rounded-xl border ${conf.bg} ${conf.border} min-w-0`}>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
                                       <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
                                         {m.cuerda}
                                       </span>
-                                      <p className="font-bold text-sm text-zinc-100 mt-0.5">{m.nombre}</p>
-                                      <p className="text-xs text-emerald-300 font-bold">Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
+                                      <p className="font-bold text-sm text-zinc-100 mt-1 break-words">{m.nombre}</p>
+                                      <p className="text-xs text-emerald-300 font-bold leading-snug break-words">Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                      <div className="flex items-center justify-end gap-1">
+                                        {puedeDesconvocarMiembro(m.cuerda) && (
+                                          <button
+                                            onClick={() => actualizarDesconvocatoria(m.id, m.cuerda, m.nombre, true)}
+                                            className="text-amber-300 hover:bg-amber-500/20 px-2 py-1 rounded-lg transition text-[9px] font-black whitespace-nowrap"
+                                            title={`Desconvocar a ${m.nombre}`}
+                                          >
+                                            Desconvocar
+                                          </button>
+                                        )}
+                                        {puedeGestionarEste && (
+                                          <button
+                                            onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)}
+                                            className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-lg transition"
+                                            title={`Borrar respuesta de ${m.nombre}`}
+                                          >
+                                            <Trash2 className="w-4 h-4"/>
+                                          </button>
+                                        )}
+                                      </div>
                                       {String(m.id) === String(usuarioActual.id) && boloActual.estadoBolo === 'confirmado' && !esPerfilExtra && !idsBajaUrgencia.includes(String(usuarioActual.id)) && (
                                         <button
                                           onClick={() => registrarBajaUrgencia(boloActual.id)}
-                                          className="mt-2 inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 border border-rose-300/70 text-white font-black text-[11px] px-3.5 py-2 rounded-xl shadow-[0_4px_16px_rgba(225,29,72,0.3)] transition"
+                                          className="inline-flex items-center justify-center bg-rose-600 hover:bg-rose-500 active:bg-rose-700 border border-rose-300/70 text-white font-black text-[9px] leading-tight px-2.5 py-1.5 rounded-lg shadow transition whitespace-nowrap"
                                         >
                                           No disponibilidad
-                                        </button>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      {puedeDesconvocarMiembro(m.cuerda) && (
-                                        <button
-                                          onClick={() => actualizarDesconvocatoria(m.id, m.cuerda, m.nombre, true)}
-                                          className="text-amber-300 hover:bg-amber-500/20 p-1.5 rounded-xl transition text-[10px] font-black"
-                                          title={`Desconvocar a ${m.nombre}`}
-                                        >
-                                          Desconvocar
-                                        </button>
-                                      )}
-                                      {puedeGestionarEste && (
-                                        <button
-                                          onClick={() => eliminarDisponibilidadMiembro(m.id, m.cuerda, m.nombre)}
-                                          className="text-rose-400 hover:bg-rose-500/20 p-1.5 rounded-xl transition"
-                                          title={`Borrar respuesta de ${m.nombre}`}
-                                        >
-                                          <Trash2 className="w-4 h-4"/>
                                         </button>
                                       )}
                                     </div>
