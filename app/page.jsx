@@ -545,6 +545,40 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  const notificarTareaAsignada = async ({ miembroId, tarea, bolo }) => {
+    if (!miembroId) return;
+    try {
+      const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
+      const tokens = [...new Set(snapshot.docs
+        .filter(d => String(d.data()?.userId) === String(miembroId))
+        .map(d => d.data()?.token)
+        .filter(token => typeof token === 'string' && token.trim())
+        .map(token => token.trim())
+      )];
+      if (!tokens.length) {
+        console.warn('El responsable no tiene ningún dispositivo registrado para recibir notificaciones.');
+        return;
+      }
+      for (let index = 0; index < tokens.length; index += 500) {
+        const response = await fetch('/api/enviar-notificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo: 'Te han asignado una tarea',
+            mensaje: `En ${bolo.lugar || bolo.titulo || 'un bolo'}: ${tarea}`,
+            tokens: tokens.slice(index, index + 500)
+          })
+        });
+        const result = await response.json();
+        if (!response.ok || result.success !== true) {
+          throw new Error(result.error || 'No se pudo enviar la notificación de la tarea.');
+        }
+      }
+    } catch (error) {
+      console.error('Error notificando la tarea asignada:', error);
+    }
+  };
+
   const enviarNotificacionBoloConEnlace = async ({ titulo, mensaje, url }) => {
     try {
       const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
@@ -4008,6 +4042,13 @@ export default function CharangaSaraoApp() {
                                   creadaEn: new Date().toISOString()
                                 };
                                 await guardarTareas([...tareas, nueva]);
+                                if (responsable?.id) {
+                                  await notificarTareaAsignada({
+                                    miembroId: responsable.id,
+                                    tarea: texto,
+                                    bolo: boloActual
+                                  });
+                                }
                                 setNuevaTareaBolo('');
                                 setResponsableTareaBolo('');
                               }}
