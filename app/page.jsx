@@ -3,14 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, Car, Users, Wallet, Shield, MapPin, 
-  Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, 
+  Plus, Navigation, Music, Fuel, Settings, Calculator, Check, Key, Bell, CheckCheck, Circle, X, 
   UserPlus, Trash2, Shirt, ArrowRight, Home, Clock, AlertCircle, 
   ChevronLeft, ChevronRight, BarChart3, Download, Undo2, FileText, 
-  Edit3, Upload, Mail, Eye, Loader2, ClipboardList, XCircle, UserCheck, LogOut
+  Edit3, Upload, Mail, Eye, Loader2, ClipboardList, XCircle, UserCheck, LogOut, Search, Phone
 } from 'lucide-react';
 
 import { db } from './firebase';
-import { collection, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import PushNotifications from './PushNotifications';
 
 const CONFIG_CUERDAS = {
@@ -258,20 +258,30 @@ export default function CharangaSaraoApp() {
   const [passwordInput, setPasswordInput] = useState('');
   const [nombreRegistro, setNombreRegistro] = useState('');
   const [instrumentosSeleccionados, setInstrumentosSeleccionados] = useState(['Sousafón / Tuba']);
-  const PASSWORD_CHARANGA = 'sarao2027';
-  const PASSWORD_ADMIN = 'admin2027';
+  const PASSWORD_CHARANGA = 'sarao2k27';
+  const PASSWORD_ADMIN = 'adminsarao';
 
   // Estados globales sincronizados con Firebase
   const [miembros, setMiembros] = useState([]);
   const [bolos, setBolos] = useState([]);
   const [movimientosBote, setMovimientosBote] = useState([]);
+  const [anioFinanzasSeleccionado, setAnioFinanzasSeleccionado] = useState('todos');
   const [facturas, setFacturas] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [busquedaClientes, setBusquedaClientes] = useState('');
+  const [mostrarFormularioCliente, setMostrarFormularioCliente] = useState(false);
+  const [clienteEditandoId, setClienteEditandoId] = useState(null);
+  const [formCliente, setFormCliente] = useState({ nombre: '', tipo: 'Ayuntamiento', contacto: '', telefono: '', email: '', localidad: '', notas: '' });
   const [correoFacturacion, setCorreoFacturacion] = useState('');
   const [inputCorreoAdmin, setInputCorreoAdmin] = useState('');
 
   const [historialEstados, setHistorialEstados] = useState([]);
   const [usuarioActual, setUsuarioActual] = useState(null);
+  const [notificacionesPersonales, setNotificacionesPersonales] = useState([]);
+  const [filtroNotificaciones, setFiltroNotificaciones] = useState('todas');
+  const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
   const [pestañaActiva, setPestañaActiva] = useState('landing');
+  const [seccionAdminActiva, setSeccionAdminActiva] = useState('resumen');
   const [boloSeleccionadoId, setBoloSeleccionadoId] = useState(null);
   const [nuevaTareaBolo, setNuevaTareaBolo] = useState('');
   const [responsableTareaBolo, setResponsableTareaBolo] = useState('');
@@ -410,6 +420,7 @@ export default function CharangaSaraoApp() {
         if (data.bolos) setBolos(data.bolos);
         if (data.movimientosBote) setMovimientosBote(data.movimientosBote);
         if (data.facturas) setFacturas(data.facturas);
+        setClientes(data.clientes || []);
         if (data.correoFacturacion !== undefined) {
           setCorreoFacturacion(data.correoFacturacion);
           setInputCorreoAdmin(data.correoFacturacion);
@@ -495,8 +506,60 @@ export default function CharangaSaraoApp() {
     }
   };
 
+  const guardarClientesEnNube = async (listaClientes) => {
+    try {
+      await setDoc(doc(db, 'charanga', 'datos_generales'), { clientes: listaClientes }, { merge: true });
+      setClientes(listaClientes);
+      return true;
+    } catch (error) {
+      console.error('Error guardando clientes:', error);
+      alert('No se pudieron guardar los cambios de clientes. Comprueba la conexión.');
+      return false;
+    }
+  };
+
+  const guardarNotificacionesBandeja = async ({ titulo, mensaje, tipo = 'general', destinatarios = null, destino = 'bolos', boloId = null }) => {
+    const receptores = destinatarios || miembros.map(m => m.id).filter(Boolean);
+    if (!receptores.length) return;
+    const creadaEn = new Date().toISOString();
+    try {
+      await Promise.all(receptores.map(async receptorId => {
+        const notificacionId = `notif-${receptorId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        await setDoc(doc(db, 'notificaciones', notificacionId), {
+          receptorId: String(receptorId), titulo, mensaje, tipo, destino, boloId: boloId ?? null,
+          creadaEn, leida: false
+        });
+      }));
+    } catch (error) { console.error('No se pudo guardar la notificación en la bandeja:', error); }
+  };
+
+  useEffect(() => {
+    if (!usuarioActual?.id) { setNotificacionesPersonales([]); return; }
+    const consultaPersonal = query(collection(db, 'notificaciones'), where('receptorId', '==', String(usuarioActual.id)));
+    const unsubscribe = onSnapshot(consultaPersonal, snapshot => {
+      const propias = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => new Date(b.creadaEn || 0) - new Date(a.creadaEn || 0));
+      setNotificacionesPersonales(propias);
+    }, error => console.error('Error cargando notificaciones personales:', error));
+    return () => unsubscribe();
+  }, [usuarioActual?.id]);
+
+  const marcarNotificacionLeida = async (notificacion, leida = true) => {
+    try {
+      await setDoc(doc(db, 'notificaciones', notificacion.id), { leida }, { merge: true });
+    } catch (error) { console.error('No se pudo actualizar la notificación:', error); }
+  };
+
+  const abrirNotificacion = async notificacion => {
+    if (!notificacion.leida) await marcarNotificacionLeida(notificacion, true);
+    setNotificacionesAbiertas(false);
+    if (notificacion.boloId) seleccionarBolo(notificacion.boloId);
+    else seleccionarPestanaInferior(notificacion.destino || 'bolos');
+  };
+
   const enviarNotificacionAUsuarios = async ({ titulo, mensaje }) => {
     try {
+      await guardarNotificacionesBandeja({ titulo, mensaje, tipo: 'general' });
       const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
       const tokens = [...new Set(
         snapshot.docs
@@ -548,6 +611,11 @@ export default function CharangaSaraoApp() {
   const notificarTareaAsignada = async ({ miembroId, tarea, bolo }) => {
     if (!miembroId) return;
     try {
+      await guardarNotificacionesBandeja({
+        titulo: 'Te han asignado una tarea',
+        mensaje: `En ${bolo.lugar || bolo.titulo || 'un bolo'}: ${tarea}`,
+        tipo: 'personal', destinatarios: [miembroId], destino: 'bolos', boloId: bolo.id
+      });
       const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
       const tokens = [...new Set(snapshot.docs
         .filter(d => String(d.data()?.userId) === String(miembroId))
@@ -581,6 +649,7 @@ export default function CharangaSaraoApp() {
 
   const enviarNotificacionBoloConEnlace = async ({ titulo, mensaje, url }) => {
     try {
+      await guardarNotificacionesBandeja({ titulo, mensaje, tipo: 'general', destino: 'bolos' });
       const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
       const tokens = [...new Set(
         snapshot.docs
@@ -1454,6 +1523,7 @@ export default function CharangaSaraoApp() {
       categoriaGasto: tipoMovimientoBote === 'gasto' ? conceptoBote.trim() : null,
       cantidad: cantidadReal,
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+      fechaISO: (() => { const hoy = new Date(); return [hoy.getFullYear(), String(hoy.getMonth() + 1).padStart(2, '0'), String(hoy.getDate()).padStart(2, '0')].join('-'); })(),
       tipo: tipoMovimientoBote,
       autor: usuarioActual.nombre,
       verificado: true
@@ -1500,6 +1570,7 @@ export default function CharangaSaraoApp() {
       concepto: conceptoTexto,
       cantidad: -gastoCalculado,
       fecha: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+      fechaISO: (() => { const hoy = new Date(); return [hoy.getFullYear(), String(hoy.getMonth() + 1).padStart(2, '0'), String(hoy.getDate()).padStart(2, '0')].join('-'); })(),
       tipo: 'gasto',
       esGasolina: true,
       conductorGasto: personaGasto,
@@ -1960,29 +2031,44 @@ export default function CharangaSaraoApp() {
   const totalGastos = movimientosContabilizados.filter(m => m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const totalPendienteGasolina = movimientosBote.filter(m => m.verificado === false && m.cantidad < 0).reduce((acc, m) => acc + Math.abs(m.cantidad), 0);
   const saldoTotal = totalIngresos - totalGastos;
-  // DATOS PARA EL DASHBOARD FINANCIERO (solo movimientos reales contabilizados)
+  // DATOS PARA EL DASHBOARD FINANCIERO
+  // Los movimientos nuevos guardan fechaISO; los antiguos siguen en el histórico global
+  // sin asignarles un año que no conocemos.
+  const aniosFinanzas = [...new Set(movimientosBote.map(m => String(m.fechaISO || '').slice(0, 4)).filter(a => /^20\d{2}$/.test(a)))].sort((a, b) => Number(b) - Number(a));
+  const movimientosPeriodoFinanzas = anioFinanzasSeleccionado === 'todos'
+    ? movimientosBote
+    : movimientosBote.filter(m => String(m.fechaISO || '').startsWith(anioFinanzasSeleccionado));
+  const movimientosContabilizadosPeriodo = movimientosPeriodoFinanzas.filter(m => m.verificado !== false);
+  const ingresosPeriodoFinanzas = movimientosContabilizadosPeriodo.filter(m => Number(m.cantidad) > 0).reduce((sum, m) => sum + Number(m.cantidad), 0);
+  const gastosPeriodoFinanzas = movimientosContabilizadosPeriodo.filter(m => Number(m.cantidad) < 0).reduce((sum, m) => sum + Math.abs(Number(m.cantidad)), 0);
+  const saldoPeriodoFinanzas = ingresosPeriodoFinanzas - gastosPeriodoFinanzas;
   const MESES_FINANZAS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   const parsearMesMovimiento = (fecha) => {
     const texto = String(fecha || '').toLowerCase();
-    const match = texto.match(/(?:\\d{1,2}\\s*[-/ ]\\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
+    const match = texto.match(/(?:\d{1,2}\s*[-/ ]\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
     if (match) return MESES_FINANZAS.indexOf(match[1].toLowerCase());
-    const numerica = texto.match(/\\d{1,2}[/-](\\d{1,2})/);
+    const numerica = texto.match(/\d{1,2}[/-](\d{1,2})/);
     return numerica ? Math.max(0, Math.min(11, Number(numerica[1]) - 1)) : -1;
   };
-  // Meses fijos para que el render del servidor y el del navegador sean idénticos.
   const datosMensualesFinanzas = Array.from({ length: 12 }, (_, index) => {
-    const mes = index;
-    const movimientosMes = movimientosContabilizados.filter(m => parsearMesMovimiento(m.fecha) === mes);
+    const movimientosMes = movimientosContabilizadosPeriodo.filter(m => parsearMesMovimiento(m.fecha) === index);
     return {
-      mes: MESES_FINANZAS[mes].toUpperCase(),
+      mes: MESES_FINANZAS[index].toUpperCase(),
       ingresos: movimientosMes.filter(m => Number(m.cantidad) > 0).reduce((sum, m) => sum + Number(m.cantidad), 0),
       gastos: movimientosMes.filter(m => Number(m.cantidad) < 0).reduce((sum, m) => sum + Math.abs(Number(m.cantidad)), 0)
     };
   });
   const maximoMensualFinanzas = Math.max(1, ...datosMensualesFinanzas.flatMap(m => [m.ingresos, m.gastos]));
-  const gastosGasolinaFinanzas = movimientosContabilizados.filter(m => Number(m.cantidad) < 0 && m.esGasolina).reduce((sum, m) => sum + Math.abs(Number(m.cantidad)), 0);
-  const gastosOtrosFinanzas = Math.max(0, totalGastos - gastosGasolinaFinanzas);
-  const porcentajeGasolinaFinanzas = totalGastos > 0 ? Math.round(gastosGasolinaFinanzas / totalGastos * 100) : 0;
+  const gastosPorCategoriaFinanzas = Object.entries(
+    movimientosContabilizadosPeriodo.filter(m => Number(m.cantidad) < 0).reduce((acc, m) => {
+      const categoria = m.esGasolina ? 'Gasolina' : (m.categoriaGasto || m.concepto || 'Otros gastos');
+      acc[categoria] = (acc[categoria] || 0) + Math.abs(Number(m.cantidad));
+      return acc;
+    }, {})
+  ).map(([nombre, importe]) => ({ nombre, importe })).sort((a, b) => b.importe - a.importe);
+  const maximoCategoriaFinanzas = Math.max(1, ...gastosPorCategoriaFinanzas.map(c => c.importe));
+
+
 
 
   // CÁLCULO DE TOTALES DE FACTURAS
@@ -2020,11 +2106,51 @@ export default function CharangaSaraoApp() {
   const bolosPendientesDeCobro = bolosConfirmados
     .filter(b => Number(b.presupuesto) > 0 && !idsBolosCobrados.has(String(b.id)))
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  const bolosPendientesPeriodoFinanzas = anioFinanzasSeleccionado === 'todos' ? bolosPendientesDeCobro : bolosPendientesDeCobro.filter(b => String(b.fecha || '').startsWith(anioFinanzasSeleccionado));
+  const totalPendienteCobroFinanzas = bolosPendientesPeriodoFinanzas.reduce((sum, b) => sum + Number(b.presupuesto || 0), 0);
+  const numeroBolosPendientesFinanzas = bolosPendientesPeriodoFinanzas.length;
 
 
   const proximosBolosConfirmados = bolos
     .filter(b => b.estadoBolo !== 'presupuestado' && b.estadoBolo !== 'ensayo' && esBoloVigente(b.fecha))
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+  // DETECCIÓN AUTOMÁTICA DE INCIDENCIAS EN PRÓXIMAS ACTUACIONES
+  const alertasGestion = proximosBolosConfirmados.flatMap(bolo => {
+    const incidencias = [];
+    const desconvocados = new Set((bolo.desconvocados || []).map(String));
+    const plantillaActiva = miembros.filter(m => !desconvocados.has(String(m.id)) && !m.roles?.includes('extra'));
+    const sinRespuesta = plantillaActiva.filter(m => !m.disponibilidadBolos?.[bolo.id]?.estado);
+    const enDuda = plantillaActiva.filter(m => m.disponibilidadBolos?.[bolo.id]?.estado === 'tal_vez');
+    const tareasPendientes = (bolo.tareasGestion || []).filter(t => !t.completada);
+
+    if (!bolo.horaInicio || !String(bolo.horaInicio).trim()) {
+      incidencias.push({ tipo: 'Horario sin definir', detalle: 'Falta la hora de inicio de la actuación.', nivel: 'alto' });
+    }
+    if (!bolo.vestuario || bolo.vestuario === 'Por definir') {
+      incidencias.push({ tipo: 'Vestuario pendiente', detalle: 'Todavía no se ha elegido la ropa para este bolo.', nivel: 'medio' });
+    }
+    if (sinRespuesta.length) {
+      incidencias.push({ tipo: 'Músicos sin responder', detalle: `${sinRespuesta.length} músico(s): ${sinRespuesta.slice(0, 4).map(m => m.nombre).join(', ')}${sinRespuesta.length > 4 ? '…' : ''}`, nivel: 'alto' });
+    }
+    if (enDuda.length) {
+      incidencias.push({ tipo: 'Disponibilidad en duda', detalle: `${enDuda.length} músico(s) han marcado «Tal vez».`, nivel: 'medio' });
+    }
+    if (tareasPendientes.length) {
+      incidencias.push({ tipo: 'Tareas sin completar', detalle: `${tareasPendientes.length} tarea(s): ${tareasPendientes.slice(0, 3).map(t => t.texto || t.titulo || t.nombre || 'Tarea pendiente').join(', ')}${tareasPendientes.length > 3 ? '…' : ''}`, nivel: 'medio' });
+    }
+    if (!(bolo.cochesAsignados || []).length) {
+      incidencias.push({ tipo: 'Transporte sin organizar', detalle: 'No hay ningún coche asignado a esta actuación.', nivel: 'medio' });
+    }
+    return incidencias.map(incidencia => ({ ...incidencia, bolo }));
+  });
+  const totalAlertasAltas = alertasGestion.filter(a => a.nivel === 'alto').length;
+  const alertasPorBolo = proximosBolosConfirmados
+    .map(bolo => ({
+      bolo,
+      alertas: alertasGestion.filter(alerta => String(alerta.bolo.id) === String(bolo.id))
+    }))
+    .filter(grupo => grupo.alertas.length > 0);
 
   const bolosPresupuestados = bolos
     .filter(b => b.estadoBolo === 'presupuestado')
@@ -2117,7 +2243,7 @@ export default function CharangaSaraoApp() {
               <label className="text-xs font-bold text-zinc-400 block mb-1">Contraseña:</label>
               <input
                 type="password"
-                placeholder="sarao2027 o clave admin"
+                placeholder="Introduce tu contraseña"
                 value={passwordInput}
                 onChange={e => setPasswordInput(e.target.value)}
                 className="w-full bg-black border border-zinc-800 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-green-500"
@@ -2347,8 +2473,9 @@ export default function CharangaSaraoApp() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={() => { setPestañaActiva('landing'); setBoloSeleccionadoId(null); }} className={`p-2.5 rounded-xl border transition ${pestañaActiva === 'landing' ? 'bg-green-500 text-black border-green-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800'}`}>
-              <Home className="w-4 h-4"/>
+            <button onClick={() => setNotificacionesAbiertas(v => !v)} aria-label="Abrir notificaciones" aria-expanded={notificacionesAbiertas} className="relative p-2.5 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-200 transition hover:border-emerald-400/40 hover:text-emerald-300">
+              <Bell className="w-4 h-4"/>
+              {notificacionesPersonales.filter(n => !n.leida).length > 0 && <span className="absolute -right-1.5 -top-1.5 min-w-[18px] h-[18px] rounded-full bg-red-500 px-1 text-[10px] font-black leading-[18px] text-white shadow-lg shadow-red-950/50">{notificacionesPersonales.filter(n => !n.leida).length > 99 ? '99+' : notificacionesPersonales.filter(n => !n.leida).length}</span>}
             </button>
             <button onClick={cerrarSesion} className="p-2.5 rounded-xl border border-zinc-800 text-zinc-400 hover:text-rose-400 bg-zinc-900 text-xs font-bold" title="Cerrar sesión">
               Salir
@@ -2460,10 +2587,9 @@ export default function CharangaSaraoApp() {
                   {id:'perfil',label:'Mi ficha',desc:'Estadísticas y pagos',icon:Wallet,tone:'green'},
                   {id:'ensayos',label:'Ensayos',desc:`Agenda · ${listaEnsayos.length}`,icon:Music,tone:'cyan'},
                   {id:'letras',label:'Letras de canciones',desc:`${CANCIONES.length} canciones`,icon:FileText,tone:'fuchsia'},
-                  {id:'miembros',label:'Plantilla',desc:`${miembros.length} integrantes`,icon:Users,tone:'violet'},
                   {id:'bote',label:'Bote',desc:`${saldoTotal.toFixed(2)} €`,icon:Wallet,tone:'emerald'},
                   {id:'facturas',label:'Facturas',desc:'Envío y seguimiento',icon:FileText,tone:'cyan'},
-                  ...(esAdmin ? [{id:'admin',label:'Admin',desc:'Control y gestión',icon:Shield,tone:'rose'}] : [])
+                  ...(esAdmin ? [{id:'admin',label:'Administración',desc:'Control y gestión',icon:Shield,tone:'rose'}] : [])
                 ].map(item => {
                   const Icon = item.icon;
                   const tones = {
@@ -2476,7 +2602,7 @@ export default function CharangaSaraoApp() {
                     rose:'border-rose-400/20 bg-rose-400/5 text-rose-300'
                   };
                   return (
-                    <button key={item.id + item.label} type="button" onClick={() => { setPestañaActiva(item.id); if (item.id !== 'bolos') setBoloSeleccionadoId(null); }}
+                    <button key={item.id + item.label} type="button" onClick={() => { if (item.id === 'admin') setSeccionAdminActiva('resumen'); setPestañaActiva(item.id); if (item.id !== 'bolos') setBoloSeleccionadoId(null); }}
                       className={`flex min-h-28 flex-col justify-between rounded-2xl border p-3.5 text-left transition hover:-translate-y-0.5 hover:bg-white/5 ${tones[item.tone]}`}>
                       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-black/30"><Icon className="h-5 w-5" /></span>
                       <span className="mt-3 block text-sm font-black text-white">{item.label}</span>
@@ -3191,8 +3317,156 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
+        {/* PANEL ADMIN */}
+        {pestañaActiva === 'admin' && esAdmin && (
+          <div data-sarao-section="admin" className="space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
+              <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
+                <div>
+                  <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
+                    PANEL DE ADMINISTRACIÓN
+                  </h2>
+                  <p className="text-xs text-zinc-400">Gestión y control de Charanga Sarao.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {historialEstados.length > 0 && (
+                    <button onClick={deshacerUltimoCambio} className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow">
+                      <Undo2 className="w-4 h-4"/> Deshacer ({historialEstados.length})
+                    </button>
+                  )}
+                  <button onClick={exportarEstadisticasExcel} className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow">
+                    <Download className="w-4 h-4"/> Exportar CSV
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'resumen', label: 'Resumen', icon: BarChart3, desc: 'Estadísticas y ajustes' },
+                  { id: 'clientes', label: 'Cartera de clientes', icon: Users, desc: 'CRM y contactos' },
+                  { id: 'alertas', label: 'Centro de alertas', icon: AlertCircle, desc: 'Incidencias por bolo' },
+                  { id: 'plantilla', label: 'Plantilla de músicos', icon: Users, desc: 'Músicos y permisos' }
+                ].map(item => {
+                  const Icon = item.icon;
+                  const activa = seccionAdminActiva === item.id;
+                  return (
+                    <button key={item.id} type="button" onClick={() => setSeccionAdminActiva(item.id)}
+                      className={`rounded-2xl border p-3 text-left transition ${activa ? 'border-emerald-400/60 bg-emerald-400/15 text-emerald-200' : 'border-zinc-800 bg-black/40 text-zinc-400 hover:border-emerald-400/30 hover:text-white'}`}>
+                      <Icon className="h-4 w-4 mb-2" />
+                      <span className="block text-xs font-black">{item.label}</span>
+                      <span className="mt-1 block text-[10px] opacity-70">{item.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {seccionAdminActiva === 'resumen' && (
+                <div className="space-y-6">
+              <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-cyan-400"/>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    Correo de Facturación
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Introduce el correo electrónico al que se enviarán automáticamente todas las facturas que suban los músicos a la aplicación.
+                </p>
+                <form onSubmit={guardarCorreoFacturacionAdmin} className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="email"
+                    placeholder="ejemplo@charangasarao.com"
+                    value={inputCorreoAdmin}
+                    onChange={e => setInputCorreoAdmin(e.target.value)}
+                    className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold outline-none focus:border-cyan-400"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-5 py-2.5 rounded-xl shadow transition shrink-0 cursor-pointer"
+                  >
+                    Guardar Correo
+                  </button>
+                </form>
+                {correoFacturacion && (
+                  <p className="text-[11px] text-emerald-400 font-bold">
+                    ✓ Correo activo actual: {correoFacturacion}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia a Bolos y Facturación acumulada
+                </h3>
+                
+                {miembros.length === 0 ? (
+                  <p className="text-xs text-zinc-500 py-3">No hay miembros para calcular estadísticas.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-zinc-300">
+                      <thead className="text-[10px] uppercase text-zinc-400 bg-black/60 border-b border-zinc-800">
+                        <tr>
+                          <th className="p-3">Músico</th>
+                          <th className="p-3">Cuerda</th>
+                          <th className="p-3">Roles</th>
+                          <th className="p-3">Asistencia Bolos</th>
+                          <th className="p-3">% Confirmado</th>
+                          <th className="p-3">Facturado (€)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
+                        {miembros.map(m => {
+                          const totalBolos = bolosConfirmados.length;
+                          const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
+                          const siVan = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
+                          const talVez = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'tal_vez').length;
+                          const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
+                          const totalFacturadoMiembro = facturas
+                            .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
+                            .reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
+
+                          return (
+                            <tr key={m.id} className="hover:bg-zinc-800/30">
+                              <td className="p-3 font-bold text-white">{m.nombre}</td>
+                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
+                              <td className="p-3">
+                                <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                                  {m.roles?.join(', ')}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> / {totalBolos}
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-20 bg-zinc-800 h-2 rounded-full overflow-hidden">
+                                    <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                                  </div>
+                                  <span className="font-black text-xs text-green-400">{pct}%</span>
+                                </div>
+                              </td>
+                              <td className="p-3 font-black text-cyan-400">
+                                {totalFacturadoMiembro.toFixed(2)} €
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* PLANTILLA */}
-        {pestañaActiva === 'miembros' && (
+        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'plantilla' && (
           <div data-sarao-section="miembros" className="space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4">
@@ -3200,7 +3474,7 @@ export default function CharangaSaraoApp() {
                   PLANTILLA DE MÚSICOS ({miembros.length})
                 </h2>
                 {esAdmin && (
-                  <button onClick={() => setPestañaActiva('admin')} className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                  <button onClick={() => { setSeccionAdminActiva('resumen'); setPestañaActiva('admin'); }} className="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
                     <BarChart3 className="w-4 h-4"/> Estadísticas y Roles
                   </button>
                 )}
@@ -3537,135 +3811,123 @@ export default function CharangaSaraoApp() {
           </div>
         )}
 
-        {/* PANEL ADMIN */}
-        {pestañaActiva === 'admin' && esAdmin && (
-          <div data-sarao-section="admin" className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 space-y-6">
-              
-              <div className="flex justify-between items-center flex-wrap gap-4 border-b border-zinc-800 pb-4">
-                <div>
-                  <h2 className="text-3xl tracking-wide text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
-                    PANEL DE ADMINISTRACIÓN
-                  </h2>
-                  <p className="text-xs text-zinc-400">Correo de facturación, estadísticas acumuladas y control de deshacer.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {historialEstados.length > 0 && (
-                    <button
-                      onClick={deshacerUltimoCambio}
-                      className="bg-amber-500 hover:bg-amber-400 text-black font-black text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow"
-                    >
-                      <Undo2 className="w-4 h-4"/> Deshacer ({historialEstados.length})
-                    </button>
-                  )}
-                  <button
-                    onClick={exportarEstadisticasExcel}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow"
-                  >
-                    <Download className="w-4 h-4"/> Exportar CSV
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-black/60 border border-cyan-500/30 rounded-2xl p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-cyan-400"/>
-                  <h3 className="text-base font-black text-white uppercase tracking-wider">
-                    Correo de Facturación
-                  </h3>
-                </div>
-                <p className="text-xs text-zinc-400">
-                  Introduce el correo electrónico al que se enviarán automáticamente todas las facturas que suban los músicos a la aplicación.
-                </p>
-                <form onSubmit={guardarCorreoFacturacionAdmin} className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="email"
-                    placeholder="ejemplo@charangasarao.com"
-                    value={inputCorreoAdmin}
-                    onChange={e => setInputCorreoAdmin(e.target.value)}
-                    className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-white font-bold outline-none focus:border-cyan-400"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    className="bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs px-5 py-2.5 rounded-xl shadow transition shrink-0 cursor-pointer"
-                  >
-                    Guardar Correo
-                  </button>
-                </form>
-                {correoFacturacion && (
-                  <p className="text-[11px] text-emerald-400 font-bold">
-                    ✓ Correo activo actual: {correoFacturacion}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-green-400"/> Asistencia a Bolos y Facturación acumulada
-                </h3>
-                
-                {miembros.length === 0 ? (
-                  <p className="text-xs text-zinc-500 py-3">No hay miembros para calcular estadísticas.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-zinc-300">
-                      <thead className="text-[10px] uppercase text-zinc-400 bg-black/60 border-b border-zinc-800">
-                        <tr>
-                          <th className="p-3">Músico</th>
-                          <th className="p-3">Cuerda</th>
-                          <th className="p-3">Roles</th>
-                          <th className="p-3">Asistencia Bolos</th>
-                          <th className="p-3">% Confirmado</th>
-                          <th className="p-3">Facturado (€)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/60 bg-zinc-950/40">
-                        {miembros.map(m => {
-                          const totalBolos = bolosConfirmados.length;
-                          const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
-                          const siVan = Object.entries(m.disponibilidadBolos || {})
-                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
-                          const talVez = Object.entries(m.disponibilidadBolos || {})
-                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'tal_vez').length;
-                          const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
-                          const totalFacturadoMiembro = facturas
-                            .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
-                            .reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
-
-                          return (
-                            <tr key={m.id} className="hover:bg-zinc-800/30">
-                              <td className="p-3 font-bold text-white">{m.nombre}</td>
-                              <td className="p-3 text-zinc-400">{m.cuerda}</td>
-                              <td className="p-3">
-                                <span className="text-[10px] font-bold text-zinc-400 uppercase">
-                                  {m.roles?.join(', ')}
-                                </span>
-                              </td>
-                              <td className="p-3">
-                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> / {totalBolos}
-                              </td>
-                              <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-20 bg-zinc-800 h-2 rounded-full overflow-hidden">
-                                    <div className="bg-green-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
-                                  </div>
-                                  <span className="font-black text-xs text-green-400">{pct}%</span>
-                                </div>
-                              </td>
-                              <td className="p-3 font-black text-cyan-400">
-                                {totalFacturadoMiembro.toFixed(2)} €
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+        {/* POPUP PERSONAL DE NOTIFICACIONES */}
+        {notificacionesAbiertas && (
+          <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/65 px-3 pb-6 pt-20 backdrop-blur-sm sm:justify-end sm:px-6 sm:pt-24" onMouseDown={e => { if (e.target === e.currentTarget) setNotificacionesAbiertas(false); }}>
+          <section role="dialog" aria-modal="true" aria-label="Notificaciones personales" className="max-h-[78vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-emerald-400/20 bg-[#090f0b] p-4 shadow-2xl shadow-black/60 sm:p-5">
+            <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-[#0b1711] via-zinc-950 to-[#101713] p-5 sm:p-7">
+              <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
+              <div className="relative flex flex-wrap items-start justify-between gap-4">
+                <div className="flex min-w-0 flex-1 items-start justify-between gap-3"><div><span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-300">Tu espacio personal · Sarao</span><h2 className="mt-1 text-3xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Notificaciones</h2><p className="mt-1 max-w-xl text-xs leading-relaxed text-zinc-400">Avisos generales y mensajes dirigidos a ti.</p></div><button type="button" onClick={() => setNotificacionesAbiertas(false)} aria-label="Cerrar notificaciones" className="rounded-xl border border-white/10 bg-black/30 p-2 text-zinc-400 hover:text-white"><X className="h-4 w-4"/></button></div>
+                <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-right"><p className="text-[9px] font-black uppercase tracking-wider text-zinc-500">Sin leer</p><p className="text-3xl font-black tabular-nums text-white">{notificacionesPersonales.filter(n => !n.leida).length}</p></div>
               </div>
             </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex gap-1.5 rounded-2xl border border-zinc-800 bg-zinc-900 p-1">
+                {[['todas','Todas'],['sinLeer','Sin leer'],['general','Generales'],['personal','Para mí']].map(([id,label]) => <button key={id} type="button" onClick={() => setFiltroNotificaciones(id)} className={`rounded-xl px-3 py-2 text-[10px] font-black transition ${filtroNotificaciones === id ? 'bg-emerald-300 text-emerald-950' : 'text-zinc-400 hover:text-white'}`}>{label}</button>)}
+              </div>
+              {notificacionesPersonales.some(n => !n.leida) && <button type="button" onClick={() => Promise.all(notificacionesPersonales.filter(n => !n.leida).map(n => marcarNotificacionLeida(n, true)))} className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/25 px-3 py-2 text-[10px] font-black text-emerald-200 hover:bg-emerald-400/10"><CheckCheck className="h-3.5 w-3.5"/> Marcar todas como leídas</button>}
+            </div>
+            {(() => { const visibles = notificacionesPersonales.filter(n => filtroNotificaciones === 'sinLeer' ? !n.leida : filtroNotificaciones === 'general' ? n.tipo === 'general' : filtroNotificaciones === 'personal' ? n.tipo === 'personal' : true); return visibles.length ? <div className="space-y-2">{visibles.map(n => <article key={n.id} className={`flex items-start gap-3 rounded-2xl border p-4 transition ${n.leida ? 'border-zinc-800 bg-zinc-900/55' : 'border-emerald-400/25 bg-emerald-400/[0.06]'}`}><span className={`mt-0.5 rounded-xl p-2 ${n.tipo === 'personal' ? 'bg-violet-400/10 text-violet-300' : 'bg-emerald-400/10 text-emerald-300'}`}>{n.leida ? <Bell className="h-4 w-4"/> : <Circle className="h-3.5 w-3.5 fill-current"/>}</span><button type="button" onClick={() => abrirNotificacion(n)} className="min-w-0 flex-1 text-left"><div className="flex flex-wrap items-center gap-2"><h3 className="text-xs font-black text-white">{n.titulo || 'Notificación'}</h3><span className={`rounded-full px-2 py-0.5 text-[8px] font-black uppercase ${n.tipo === 'personal' ? 'bg-violet-400/10 text-violet-300' : 'bg-emerald-400/10 text-emerald-300'}`}>{n.tipo === 'personal' ? 'Para ti' : 'General'}</span></div><p className="mt-1 text-xs leading-relaxed text-zinc-400">{n.mensaje}</p><p className="mt-2 text-[9px] text-zinc-600">{n.creadaEn ? new Date(n.creadaEn).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : ''} · Toca para abrir</p></button>{!n.leida && <button type="button" title="Marcar como leída" onClick={() => marcarNotificacionLeida(n, true)} className="rounded-lg p-2 text-zinc-500 hover:bg-white/5 hover:text-emerald-300"><Check className="h-4 w-4"/></button>}</article>)}</div> : <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-9 text-center"><Bell className="mx-auto h-9 w-9 text-zinc-600"/><h3 className="mt-3 text-sm font-black text-white">No tienes notificaciones aquí</h3><p className="mt-1 text-xs text-zinc-500">Cuando haya novedades generales o avisos para ti, aparecerán en esta bandeja.</p></div>; })()}
+          </section>
           </div>
+        )}
+
+        {/* CENTRO DE ALERTAS · DETECCIÓN AUTOMÁTICA */}
+        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'alertas' && (
+          <section data-sarao-section="alertas" className="mx-auto max-w-5xl space-y-5">
+            <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-[#0b1711] via-zinc-950 to-[#101713] p-5 sm:p-7">
+              <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
+              <div className="relative flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-300">Control preventivo · Sarao</span>
+                  <h2 className="mt-2 text-3xl text-white sm:text-4xl" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Centro de alertas</h2>
+                  <p className="mt-1 max-w-xl text-xs leading-relaxed text-zinc-400">Revisión automática de las próximas actuaciones para detectar detalles pendientes antes del día del bolo.</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-right">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-zinc-500">Incidencias abiertas</p>
+                  <p className="text-3xl font-black tabular-nums text-white">{alertasGestion.length}</p>
+                  <p className="text-[10px] text-rose-300">{totalAlertasAltas} de prioridad alta</p>
+                </div>
+              </div>
+            </div>
+
+            {alertasPorBolo.length === 0 ? (
+              <div className="rounded-3xl border border-emerald-400/25 bg-emerald-400/5 p-8 text-center">
+                <Check className="mx-auto h-9 w-9 text-emerald-300" />
+                <h3 className="mt-3 text-lg font-black text-white">Todo bajo control</h3>
+                <p className="mt-1 text-xs text-zinc-400">No se han detectado incidencias en las próximas actuaciones.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {alertasPorBolo.map(({ bolo, alertas }) => {
+                  const altasBolo = alertas.filter(alerta => alerta.nivel === 'alto').length;
+                  const tareasBolo = alertas.find(alerta => alerta.tipo === 'Tareas sin completar');
+                  return (
+                    <article key={bolo.id} className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/80">
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-black/25 p-4 sm:px-5">
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300">Actuación · {bolo.fecha}</p>
+                          <h3 className="mt-1 truncate text-lg font-black text-white">{bolo.lugar || 'Bolo sin nombre'}</h3>
+                          <p className="mt-0.5 text-[10px] text-zinc-500">{alertas.length} incidencias · {tareasBolo ? tareasBolo.detalle : 'Sin tareas pendientes detectadas'}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full border border-rose-400/20 bg-rose-400/10 px-2.5 py-1 text-[9px] font-black text-rose-300">{altasBolo} prioridad alta</span>
+                          <button type="button" onClick={() => seleccionarBolo(bolo.id)} className="shrink-0 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[10px] font-black text-emerald-200 hover:bg-emerald-400/20">Ver bolo</button>
+                        </div>
+                      </div>
+                      <div className="divide-y divide-white/5 px-4 sm:px-5">
+                        {alertas.map((alerta, index) => (
+                          <div key={`${bolo.id}-${alerta.tipo}-${index}`} className="flex items-start gap-3 py-3">
+                            <span className={`mt-0.5 rounded-xl p-2 ${alerta.nivel === 'alto' ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-500/15 text-amber-300'}`}>
+                              <AlertCircle className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="text-xs font-black text-white">{alerta.tipo}</h4>
+                                <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${alerta.nivel === 'alto' ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-500/15 text-amber-300'}`}>{alerta.nivel === 'alto' ? 'Prioridad alta' : 'Revisar'}</span>
+                              </div>
+                              <p className="mt-1 text-xs text-zinc-400">{alerta.detalle}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-[10px] leading-relaxed text-zinc-500">Las alertas se calculan automáticamente con los datos guardados. No modifican actuaciones ni envían notificaciones por sí solas.</p>
+          </section>
+        )}
+
+        {/* CRM · BASE DE DATOS DE CLIENTES */}
+        {pestañaActiva === 'admin' && esAdmin && seccionAdminActiva === 'clientes' && (
+          <section className="mx-auto max-w-5xl space-y-5" data-sarao-section="clientes">
+            <div className="relative overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-[#0b1711] via-zinc-950 to-[#101713] p-5 sm:p-7">
+              <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
+              <div className="relative flex flex-wrap items-start justify-between gap-4"><div><span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-300">Centro comercial · Sarao</span><h2 className="mt-2 text-3xl text-white sm:text-4xl" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Cartera de clientes</h2><p className="mt-1 max-w-xl text-xs leading-relaxed text-zinc-400">Contactos, entidades y oportunidades para mantener las contrataciones organizadas.</p></div><button onClick={() => { setClienteEditandoId(null); setFormCliente({ nombre: '', tipo: 'Ayuntamiento', contacto: '', telefono: '', email: '', localidad: '', notas: '' }); setMostrarFormularioCliente(true); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-400 px-4 text-xs font-black text-black hover:bg-emerald-300"><Plus className="h-4 w-4"/> Nuevo cliente</button></div>
+              <div className="relative mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3"><div className="rounded-2xl border border-white/10 bg-black/30 p-3"><p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Clientes registrados</p><p className="mt-1 text-2xl font-black text-white">{clientes.length}</p></div><div className="rounded-2xl border border-white/10 bg-black/30 p-3"><p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Ayuntamientos</p><p className="mt-1 text-2xl font-black text-white">{clientes.filter(c => c.tipo === 'Ayuntamiento').length}</p></div><div className="col-span-2 rounded-2xl border border-white/10 bg-black/30 p-3 sm:col-span-1"><p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Otros contactos</p><p className="mt-1 text-2xl font-black text-white">{clientes.filter(c => c.tipo !== 'Ayuntamiento').length}</p></div></div>
+            </div>
+            {mostrarFormularioCliente && <form onSubmit={async e => { e.preventDefault(); const limpio = { ...formCliente, nombre: formCliente.nombre.trim(), contacto: formCliente.contacto.trim(), telefono: formCliente.telefono.trim(), email: formCliente.email.trim(), localidad: formCliente.localidad.trim(), notas: formCliente.notas.trim() }; if (!limpio.nombre) return; const ahora = new Date().toISOString(); const lista = clienteEditandoId ? clientes.map(c => String(c.id) === String(clienteEditandoId) ? { ...c, ...limpio, actualizadoEn: ahora } : c) : [...clientes, { id: 'cliente-' + Date.now(), ...limpio, creadoEn: ahora, creadoPor: usuarioActual?.nombre || '' }]; if (await guardarClientesEnNube(lista)) { setMostrarFormularioCliente(false); setClienteEditandoId(null); setFormCliente({ nombre: '', tipo: 'Ayuntamiento', contacto: '', telefono: '', email: '', localidad: '', notas: '' }); } }} className="rounded-3xl border border-emerald-400/20 bg-zinc-950 p-4 sm:p-5 space-y-3">
+              <div className="flex items-center justify-between"><h3 className="text-sm font-black text-white">{clienteEditandoId ? 'Editar cliente' : 'Registrar cliente'}</h3><button type="button" onClick={() => setMostrarFormularioCliente(false)} className="rounded-lg p-2 text-zinc-400 hover:bg-white/5"><XCircle className="h-4 w-4"/></button></div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-[10px] font-bold text-zinc-400">Nombre de entidad o cliente *<input required maxLength={100} value={formCliente.nombre} onChange={e => setFormCliente(v => ({ ...v, nombre: e.target.value }))} placeholder="Ej. Ayuntamiento de Cuéllar" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400"/></label>
+                <label className="text-[10px] font-bold text-zinc-400">Tipo de cliente<select value={formCliente.tipo} onChange={e => setFormCliente(v => ({ ...v, tipo: e.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400">{['Ayuntamiento','Peña','Comisión de fiestas','Empresa','Particular','Otro'].map(t => <option key={t}>{t}</option>)}</select></label>
+                <label className="text-[10px] font-bold text-zinc-400">Persona de contacto<input maxLength={80} value={formCliente.contacto} onChange={e => setFormCliente(v => ({ ...v, contacto: e.target.value }))} placeholder="Nombre y apellidos" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400"/></label>
+                <label className="text-[10px] font-bold text-zinc-400">Teléfono<input type="tel" maxLength={30} value={formCliente.telefono} onChange={e => setFormCliente(v => ({ ...v, telefono: e.target.value }))} placeholder="Teléfono de contacto" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400"/></label>
+                <label className="text-[10px] font-bold text-zinc-400">Correo electrónico<input type="email" maxLength={120} value={formCliente.email} onChange={e => setFormCliente(v => ({ ...v, email: e.target.value }))} placeholder="contacto@ejemplo.es" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400"/></label>
+                <label className="text-[10px] font-bold text-zinc-400">Localidad<input maxLength={80} value={formCliente.localidad} onChange={e => setFormCliente(v => ({ ...v, localidad: e.target.value }))} placeholder="Municipio" className="mt-1 min-h-11 w-full rounded-xl border border-zinc-800 bg-black px-3 text-xs text-white outline-none focus:border-emerald-400"/></label>
+                <label className="text-[10px] font-bold text-zinc-400 sm:col-span-2">Notas e historial de contacto<textarea rows={3} maxLength={1000} value={formCliente.notas} onChange={e => setFormCliente(v => ({ ...v, notas: e.target.value }))} placeholder="Preferencias, fiestas habituales, presupuesto orientativo, última conversación..." className="mt-1 w-full rounded-xl border border-zinc-800 bg-black px-3 py-2.5 text-xs text-white outline-none focus:border-emerald-400"/></label>
+              </div><div className="flex gap-2"><button type="submit" className="min-h-10 flex-1 rounded-xl bg-emerald-400 px-4 text-xs font-black text-black">{clienteEditandoId ? 'Guardar cambios' : 'Guardar cliente'}</button><button type="button" onClick={() => setMostrarFormularioCliente(false)} className="rounded-xl border border-zinc-700 px-4 text-xs font-bold text-zinc-300">Cancelar</button></div>
+            </form>}
+            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"/><input value={busquedaClientes} onChange={e => setBusquedaClientes(e.target.value)} placeholder="Buscar por entidad, persona, localidad o teléfono..." className="min-h-12 w-full rounded-2xl border border-zinc-800 bg-zinc-950 pl-10 pr-4 text-xs text-white outline-none focus:border-emerald-400"/></div>
+            {clientes.length === 0 ? <div className="rounded-3xl border border-dashed border-zinc-700 bg-zinc-950/70 px-5 py-12 text-center"><Users className="mx-auto h-8 w-8 text-zinc-600"/><p className="mt-3 text-sm font-black text-white">Todavía no hay clientes</p><p className="mt-1 text-xs text-zinc-500">Añade el primer contacto para empezar a construir la cartera de Sarao.</p></div> : <div className="grid gap-3 md:grid-cols-2">{clientes.filter(c => [c.nombre,c.tipo,c.contacto,c.telefono,c.email,c.localidad].some(v => String(v || '').toLowerCase().includes(busquedaClientes.toLowerCase()))).sort((a,b) => a.nombre.localeCompare(b.nombre,'es')).map(cliente => (
+              <article key={cliente.id} className="rounded-2xl border border-white/10 bg-zinc-950 p-4 transition hover:border-emerald-400/30"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-300">{cliente.tipo || 'Cliente'}</span><h3 className="mt-2 break-words text-base font-black text-white">{cliente.nombre}</h3>{cliente.contacto && <p className="mt-0.5 text-xs text-zinc-400">{cliente.contacto}</p>}</div><div className="flex shrink-0 gap-1"><button aria-label="Editar cliente" onClick={() => { setClienteEditandoId(cliente.id); setFormCliente({ nombre: cliente.nombre || '', tipo: cliente.tipo || 'Ayuntamiento', contacto: cliente.contacto || '', telefono: cliente.telefono || '', email: cliente.email || '', localidad: cliente.localidad || '', notas: cliente.notas || '' }); setMostrarFormularioCliente(true); }} className="rounded-lg p-2 text-zinc-400 hover:bg-emerald-400/10 hover:text-emerald-300"><Edit3 className="h-4 w-4"/></button><button aria-label="Eliminar cliente" onClick={async () => { if (confirm('¿Eliminar a ' + cliente.nombre + ' de la cartera de clientes?')) await guardarClientesEnNube(clientes.filter(c => String(c.id) !== String(cliente.id))); }} className="rounded-lg p-2 text-zinc-500 hover:bg-rose-500/10 hover:text-rose-400"><Trash2 className="h-4 w-4"/></button></div></div>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-zinc-400">{cliente.telefono && <a href={'tel:' + cliente.telefono} className="inline-flex items-center gap-1.5 hover:text-emerald-300"><Phone className="h-3.5 w-3.5"/>{cliente.telefono}</a>}{cliente.email && <a href={'mailto:' + cliente.email} className="inline-flex min-w-0 items-center gap-1.5 break-all hover:text-emerald-300"><Mail className="h-3.5 w-3.5 shrink-0"/>{cliente.email}</a>}{cliente.localidad && <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5"/>{cliente.localidad}</span>}</div>{cliente.notas && <p className="mt-3 whitespace-pre-wrap border-t border-white/5 pt-3 text-[11px] leading-relaxed text-zinc-400">{cliente.notas}</p>}</article>
+            ))}</div>}
+            {clientes.length > 0 && clientes.filter(c => [c.nombre,c.tipo,c.contacto,c.telefono,c.email,c.localidad].some(v => String(v || '').toLowerCase().includes(busquedaClientes.toLowerCase()))).length === 0 && <p className="py-8 text-center text-xs text-zinc-500">No hay clientes que coincidan con la búsqueda.</p>}
+          </section>
         )}
 
         {/* CALENDARIO GENERAL (VERDE = CONFIRMADO, AMARILLO = PRESUPUESTADO, AZUL TURQUESA = ENSAYO) */}
@@ -5579,49 +5841,68 @@ export default function CharangaSaraoApp() {
               </div>
 
               {/* DASHBOARD FINANCIERO VISUAL */}
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 mb-6">
-                <div className="xl:col-span-2 bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
-                  <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Análisis financiero</p>
-                      <h3 className="text-xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Evolución de ingresos y gastos</h3>
-                    </div>
-                    <span className="text-[10px] text-zinc-500">Histórico agrupado por mes · €</span>
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Panel de control</p>
+                    <h3 className="text-xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Resumen financiero</h3>
                   </div>
-                  <div className="flex gap-4 text-[10px] text-zinc-400 mb-4">
-                    <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-emerald-400"/>Ingresos</span>
-                    <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-rose-400"/>Gastos</span>
-                  </div>
-                  <div className="space-y-3">
-                    {datosMensualesFinanzas.map((mes, index) => (
-                      <div key={mes.mes + index} className="grid grid-cols-[34px_1fr] sm:grid-cols-[42px_1fr_100px] gap-2 items-center">
-                        <span className="text-[10px] font-black text-zinc-400">{mes.mes}</span>
-                        <div className="space-y-1.5">
-                          <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${mes.ingresos / maximoMensualFinanzas * 100}%` }}/></div>
-                          <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full bg-rose-400 transition-all" style={{ width: `${mes.gastos / maximoMensualFinanzas * 100}%` }}/></div>
-                        </div>
-                        <span className="hidden sm:block text-right text-[10px] text-zinc-500 tabular-nums">{mes.ingresos.toFixed(0)} / {mes.gastos.toFixed(0)} €</span>
-                      </div>
-                    ))}
-                  </div>
-                  {movimientosContabilizados.length === 0 && <p className="text-xs text-zinc-500 mt-4">Cuando haya movimientos contabilizados, aquí aparecerá su evolución.</p>}
+                  <select value={anioFinanzasSeleccionado} onChange={e => setAnioFinanzasSeleccionado(e.target.value)} className="bg-zinc-950 border border-emerald-500/30 text-white rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-emerald-400" aria-label="Filtrar estadísticas por año">
+                    <option value="todos">Todo el histórico</option>
+                    {aniosFinanzas.map(anio => <option key={anio} value={anio}>{anio}</option>)}
+                  </select>
                 </div>
-                <div className="bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
-                  <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Control de gastos</p>
-                  <h3 className="text-xl text-white mt-1 mb-4" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>¿En qué gastamos?</h3>
-                  <div className="flex justify-center py-2">
-                    <div className="w-36 h-36 rounded-full relative" style={{ background: totalGastos > 0 ? `conic-gradient(#fbbf24 0 ${porcentajeGasolinaFinanzas}%, #22d3ee ${porcentajeGasolinaFinanzas}% 100%)` : '#27272a' }}>
-                      <div className="absolute inset-5 rounded-full bg-zinc-950 flex flex-col items-center justify-center">
-                        <span className="text-[10px] text-zinc-500 uppercase">Gastos</span>
-                        <strong className="text-lg text-white tabular-nums">{totalGastos.toFixed(0)} €</strong>
-                      </div>
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                  <div className="xl:col-span-2 bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                      <div><p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Evolución</p><h3 className="text-xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Ingresos y gastos por mes</h3></div>
+                      <span className="text-[10px] text-zinc-500">Importes en €</span>
                     </div>
+                    <div className="flex gap-4 text-[10px] text-zinc-400 mb-4">
+                      <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-emerald-400"/>Ingresos</span>
+                      <span className="flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm bg-rose-400"/>Gastos</span>
+                    </div>
+                    <div className="space-y-3">
+                      {datosMensualesFinanzas.map((mes, index) => (
+                        <div key={mes.mes + index} className="grid grid-cols-[34px_1fr] sm:grid-cols-[42px_1fr_100px] gap-2 items-center">
+                          <span className="text-[10px] font-black text-zinc-400">{mes.mes}</span>
+                          <div className="space-y-1.5">
+                            <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: (mes.ingresos / maximoMensualFinanzas * 100) + '%' }}/></div>
+                            <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full bg-rose-400 transition-all" style={{ width: (mes.gastos / maximoMensualFinanzas * 100) + '%' }}/></div>
+                          </div>
+                          <span className="hidden sm:block text-right text-[10px] text-zinc-500 tabular-nums">{mes.ingresos.toFixed(0)} / {mes.gastos.toFixed(0)} €</span>
+                        </div>
+                      ))}
+                    </div>
+                    {movimientosContabilizadosPeriodo.length === 0 && <p className="text-xs text-zinc-500 mt-4">No hay movimientos contabilizados para este periodo.</p>}
+                    {anioFinanzasSeleccionado !== 'todos' && movimientosBote.some(m => !m.fechaISO) && <p className="text-[10px] text-amber-300 mt-3">Los movimientos antiguos sin fecha completa se mantienen en el histórico global y no se asignan a un año por aproximación.</p>}
                   </div>
-                  <div className="space-y-3 mt-4">
-                    <div className="flex items-center justify-between gap-2 text-xs"><span className="flex items-center gap-2 text-zinc-300"><i className="w-2.5 h-2.5 rounded-sm bg-amber-400"/>Gasolina</span><strong className="text-white tabular-nums">{gastosGasolinaFinanzas.toFixed(2)} €</strong></div>
-                    <div className="flex items-center justify-between gap-2 text-xs"><span className="flex items-center gap-2 text-zinc-300"><i className="w-2.5 h-2.5 rounded-sm bg-cyan-400"/>Otros gastos</span><strong className="text-white tabular-nums">{gastosOtrosFinanzas.toFixed(2)} €</strong></div>
+                  <div className="bg-black/50 border border-emerald-500/20 rounded-2xl p-4 sm:p-5">
+                    <p className="text-[10px] uppercase tracking-[.18em] font-black text-emerald-400">Desglose</p>
+                    <h3 className="text-xl text-white mt-1 mb-4" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Gastos por categoría</h3>
+                    {gastosPorCategoriaFinanzas.length ? (
+                      <div className="space-y-3">
+                        {gastosPorCategoriaFinanzas.map(categoria => (
+                          <div key={categoria.nombre} className="space-y-1.5">
+                            <div className="flex justify-between gap-2 text-xs"><span className="text-zinc-300 truncate">{categoria.nombre}</span><strong className="text-white tabular-nums shrink-0">{categoria.importe.toFixed(2)} €</strong></div>
+                            <div className="h-2 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full bg-emerald-400" style={{ width: (categoria.importe / maximoCategoriaFinanzas * 100) + '%' }}/></div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-xs text-zinc-500 py-5 text-center">Todavía no hay gastos contabilizados.</p>}
+                    <p className="text-[10px] text-zinc-500 mt-4">Solo cuentan los gastos verificados.</p>
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-4">Solo incluye gastos verificados y contabilizados.</p>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div><p className="text-[10px] uppercase tracking-[.18em] font-black text-amber-300">Previsión de cobros</p><h3 className="text-xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Pendiente de cobrar</h3></div>
+                      <Wallet className="w-5 h-5 text-amber-300"/>
+                    </div>
+                    <p className="text-3xl font-black text-amber-300 tabular-nums">{totalPendienteCobroFinanzas.toFixed(2)} €</p>
+                    <p className="text-xs text-zinc-400 mt-1">{numeroBolosPendientesFinanzas} {numeroBolosPendientesFinanzas === 1 ? 'actuación pendiente' : 'actuaciones pendientes'} de cobro</p>
+                    <p className="text-[10px] text-zinc-500 mt-3">Presupuestos confirmados que todavía no tienen un ingreso vinculado.</p>
+                  </div>
                 </div>
               </div>
 
@@ -5997,7 +6278,6 @@ export default function CharangaSaraoApp() {
           { id: 'perfil', label: 'Mi ficha', icon: Wallet },
           { id: 'ensayos', label: 'Ensayos', icon: Music },
           { id: 'letras', label: 'Letras de canciones', icon: FileText },
-          { id: 'miembros', label: 'Plantilla', icon: Users },
           { id: 'bote', label: 'Bote', icon: Wallet },
           { id: 'facturas', label: 'Facturas', icon: FileText },
           ...(esAdmin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : [])
