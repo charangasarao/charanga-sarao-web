@@ -4959,7 +4959,6 @@ export default function CharangaSaraoApp() {
                                         No disponibilidad
                                       </button>
                                     )}
-                                    </div>
                                   </div>
                                   {renderDetallePago(m, 'miembro')}
                                 </div>
