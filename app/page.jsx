@@ -4921,8 +4921,9 @@ export default function CharangaSaraoApp() {
 
                               return (
                                 <div key={m.id} className={`p-3 rounded-xl border ${conf.bg} ${conf.border} min-w-0`}>
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0 flex-1">
+                                  <div className="flex flex-col gap-2">
+                                    <div className="flex items-start justify-between gap-3 min-w-0">
+                                      <div className="min-w-0 flex-1">
                                       <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
                                         {m.cuerda}
                                       </span>
