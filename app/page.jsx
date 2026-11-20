@@ -4950,14 +4950,15 @@ export default function CharangaSaraoApp() {
                                           </button>
                                         )}
                                       </div>
-                                      {String(m.id) === String(usuarioActual.id) && boloActual.estadoBolo === 'confirmado' && !esPerfilExtra && !idsBajaUrgencia.includes(String(usuarioActual.id)) && (
-                                        <button
-                                          onClick={() => registrarBajaUrgencia(boloActual.id)}
-                                          className="inline-flex items-center justify-center bg-rose-600 hover:bg-rose-500 active:bg-rose-700 border border-rose-300/70 text-white font-black text-[9px] leading-tight px-2.5 py-1.5 rounded-lg shadow transition whitespace-nowrap"
-                                        >
-                                          No disponibilidad
-                                        </button>
-                                      )}
+                                    </div>
+                                    {String(m.id) === String(usuarioActual.id) && boloActual.estadoBolo === 'confirmado' && !esPerfilExtra && !idsBajaUrgencia.includes(String(usuarioActual.id)) && (
+                                      <button
+                                        onClick={() => registrarBajaUrgencia(boloActual.id)}
+                                        className="mt-2.5 w-full min-h-0 h-8 inline-flex items-center justify-center bg-rose-600 hover:bg-rose-500 active:bg-rose-700 border border-rose-300/70 text-white font-black text-[10px] leading-none px-3 rounded-lg shadow transition whitespace-nowrap"
+                                      >
+                                        No disponibilidad
+                                      </button>
+                                    )}
                                     </div>
                                   </div>
                                   {renderDetallePago(m, 'miembro')}
