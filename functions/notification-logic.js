@@ -88,7 +88,13 @@ function getCalendarNotifications(previousData, currentData) {
   const currentEvents = Array.isArray(currentData?.bolos)
     ? currentData.bolos
     : [];
-  const memberIds = getMemberIds(currentData?.miembros);
+  const previousMembers = Array.isArray(previousData?.miembros)
+    ? previousData.miembros
+    : [];
+  const currentMembers = Array.isArray(currentData?.miembros)
+    ? currentData.miembros
+    : [];
+  const memberIds = getMemberIds(currentMembers);
   const notifications = [];
 
   for (const calendarEvent of currentEvents) {
@@ -195,6 +201,44 @@ function getCalendarNotifications(previousData, currentData) {
         url: `/?evento=${encodeURIComponent(eventId)}`,
       },
     });
+  }
+
+  // Una desconvocatoria es un cambio explícito de asistencia: solo avisa
+  // al músico que pasa de estar confirmado ("puedo") a "desconvocado".
+  for (const calendarEvent of currentEvents) {
+    const eventId = getId(calendarEvent?.id);
+    if (!eventId || calendarEvent.estadoBolo !== "confirmado") continue;
+
+    const previousEvent = previousEvents.find(
+      (candidate) => getId(candidate?.id) === eventId,
+    );
+    if (!previousEvent || previousEvent.estadoBolo !== "confirmado") continue;
+
+    for (const member of currentMembers) {
+      const memberId = getMemberId(member);
+      if (!memberId) continue;
+      const previousMember = previousMembers.find(
+        (candidate) => getMemberId(candidate) === memberId,
+      );
+      const previousState =
+        previousMember?.disponibilidadBolos?.[eventId]?.estado;
+      const currentState = member?.disponibilidadBolos?.[eventId]?.estado;
+      if (previousState !== "puedo" || currentState !== "desconvocado") {
+        continue;
+      }
+
+      notifications.push({
+        kind: `desconvocado-${memberId}`,
+        eventId,
+        recipientIds: [memberId],
+        payload: {
+          title: "Has sido desconvocado",
+          body: `Ya no formas parte de "${getEventTitle(calendarEvent)}", previsto para el ${formatDate(calendarEvent.fecha)}.`,
+          tag: `evento-${eventId}-desconvocado-${memberId}`,
+          url: `/?evento=${encodeURIComponent(eventId)}`,
+        },
+      });
+    }
   }
 
   return notifications;
