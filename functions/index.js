@@ -120,6 +120,31 @@ exports.notifyOnCalendarChanges = onDocumentUpdated(
       }
 
       if (!previousEvent || !calendarEvent.id) continue;
+
+      const previousDesconvocados = new Set(
+        (previousEvent.desconvocados || []).map(getId),
+      );
+      const newlyDesconvocados = (calendarEvent.desconvocados || [])
+        .map(getId)
+        .filter((memberId) => memberId && !previousDesconvocados.has(memberId));
+
+      for (const memberId of newlyDesconvocados) {
+        const member = (currentData.miembros || []).find(
+          (candidate) => getId(candidate.id) === memberId,
+        );
+        if (!member) continue;
+
+        notifications.push({
+          userIds: [memberId],
+          payload: {
+            title: "Has sido desconvocado",
+            body: `Ya no estás convocado para ${calendarEvent.titulo || calendarEvent.lugar || "este bolo"} · ${calendarEvent.fecha || "fecha por confirmar"}`,
+            tag: `desconvocatoria-${getId(calendarEvent.id)}-${memberId}`,
+            url: `/?evento=${encodeURIComponent(getId(calendarEvent.id))}`,
+          },
+        });
+      }
+
       const newRoutes = getNewRoutes(previousEvent, calendarEvent);
       if (newRoutes.length === 0) continue;
 
