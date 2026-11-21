@@ -376,6 +376,7 @@ export default function CharangaSaraoApp() {
   const [kmGasolina, setKmGasolina] = useState('');
   const [destinoGasolina, setDestinoGasolina] = useState('');
   const [conductorGasolinaNombre, setConductorGasolinaNombre] = useState('');
+  const [boloSeleccionadoGasolina, setBoloSeleccionadoGasolina] = useState('');
   const TARIFA_KM = 0.2;
 
   // Estados de Facturas
@@ -1551,20 +1552,32 @@ export default function CharangaSaraoApp() {
       return;
     }
 
-    const requiereNombreManual = esAdmin && !tieneRolConductor;
-    const personaGasto = requiereNombreManual 
-      ? conductorGasolinaNombre.trim() 
-      : (conductorGasolinaNombre.trim() || usuarioActual.nombre);
+    const boloGasolina = bolos.find(b => String(b.id) === String(boloSeleccionadoGasolina));
+    if (!boloGasolina) {
+      alert('Selecciona el bolo al que corresponde este gasto de gasolina.');
+      return;
+    }
+    const personasConRuta = [...new Set((boloGasolina.cochesAsignados || [])
+      .map(c => c.conductor)
+      .filter(Boolean)
+      .map(nombre => nombre.trim())
+      .filter(Boolean))];
+    const personaGasto = conductorGasolinaNombre.trim() || (
+      personasConRuta.some(nombre => nombre.toLocaleLowerCase('es') === usuarioActual.nombre?.trim().toLocaleLowerCase('es'))
+        ? usuarioActual.nombre
+        : ''
+    );
 
-    if (!personaGasto) {
-      alert('Indica el nombre de la persona a la que pertenece este gasto de gasolina.');
+    if (!personaGasto || !personasConRuta.some(nombre => nombre.toLocaleLowerCase('es') === personaGasto.toLocaleLowerCase('es'))) {
+      alert('Selecciona una persona que tenga una ruta apuntada en este bolo.');
       return;
     }
 
     const gastoCalculado = parseFloat((km * TARIFA_KM).toFixed(2));
     registrarSnapshot();
 
-    const conceptoTexto = `Gasolina de ${personaGasto} (${km} km × 0,20€/km${destinoGasolina.trim() ? ` - ${destinoGasolina.trim()}` : ''})`;
+    const destinoBolo = boloGasolina.lugar || boloGasolina.destino || destinoGasolina.trim();
+    const conceptoTexto = `Gasolina de ${personaGasto} — ${destinoBolo} (${km} km × 0,20€/km)`;
     const nuevoGasto = {
       id: Date.now(),
       concepto: conceptoTexto,
@@ -1573,6 +1586,8 @@ export default function CharangaSaraoApp() {
       fechaISO: (() => { const hoy = new Date(); return [hoy.getFullYear(), String(hoy.getMonth() + 1).padStart(2, '0'), String(hoy.getDate()).padStart(2, '0')].join('-'); })(),
       tipo: 'gasto',
       esGasolina: true,
+      boloId: boloGasolina.id,
+      boloGasolina: destinoBolo,
       conductorGasto: personaGasto,
       autor: usuarioActual.nombre,
       verificado: false
@@ -1583,6 +1598,8 @@ export default function CharangaSaraoApp() {
     setKmGasolina('');
     setDestinoGasolina('');
     setConductorGasolinaNombre('');
+    setBoloSeleccionadoGasolina('');
+    setDestinoGasolina('');
     setShowModalGasolina(false);
     await guardarEnNube(null, null, nuevoBote);
     alert(`Gasto de gasolina de ${personaGasto} (${gastoCalculado.toFixed(2)} €) apuntado. Se restará del bote cuando se verifique el pago con el tick ✓.`);
@@ -6010,39 +6027,56 @@ export default function CharangaSaraoApp() {
               </p>
 
               <form onSubmit={agregarGasolinaConductor} className="space-y-3">
-                {esAdmin && (
-                  <div className="p-3 bg-black/60 border border-blue-500/30 rounded-2xl space-y-2">
-                    <label className="text-xs text-blue-300 block font-bold">
-                      ¿A qué conductor pertenece este gasto?
-                    </label>
-                    {listaConductoresPlantilla.length > 0 && (
-                      <div className="flex gap-1.5 flex-wrap mb-1">
-                        {listaConductoresPlantilla.map(c => (
-                          <button
-                            type="button"
-                            key={c.id}
-                            onClick={() => setConductorGasolinaNombre(c.nombre)}
-                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
-                              conductorGasolinaNombre === c.nombre
-                                ? 'bg-blue-500 text-black border-blue-400'
-                                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
-                            }`}
-                          >
-                            {c.nombre}
-                          </button>
+                <div>
+                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Bolo:</label>
+                  <select
+                    value={boloSeleccionadoGasolina}
+                    onChange={e => {
+                      const id = e.target.value;
+                      const bolo = bolos.find(b => String(b.id) === id);
+                      setBoloSeleccionadoGasolina(id);
+                      setDestinoGasolina(bolo?.lugar || bolo?.destino || '');
+                      setConductorGasolinaNombre('');
+                    }}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
+                    required
+                  >
+                    <option value="">Selecciona un bolo...</option>
+                    {bolos.filter(b => (b.cochesAsignados || []).length > 0).map(b => (
+                      <option key={b.id} value={String(b.id)}>
+                        {(b.fecha || b.fechaBolo || 'Sin fecha')} · {b.lugar || b.destino || 'Bolo'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {boloSeleccionadoGasolina && (() => {
+                  const bolo = bolos.find(b => String(b.id) === String(boloSeleccionadoGasolina));
+                  const personas = [...new Set((bolo?.cochesAsignados || [])
+                    .map(c => c.conductor)
+                    .filter(Boolean)
+                    .map(nombre => nombre.trim())
+                    .filter(Boolean))];
+                  return (
+                    <div>
+                      <label className="text-xs text-zinc-400 block mb-1 font-bold">Conductor con coche en este bolo:</label>
+                      <select
+                        value={conductorGasolinaNombre}
+                        onChange={e => setConductorGasolinaNombre(e.target.value)}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white"
+                        required
+                      >
+                        <option value="">Selecciona una persona...</option>
+                        {personas.map(nombre => (
+                          <option key={nombre} value={nombre}>{nombre}</option>
                         ))}
-                      </div>
-                    )}
-                    <input
-                      type="text"
-                      placeholder="Escribe o selecciona el nombre del conductor..."
-                      value={conductorGasolinaNombre}
-                      onChange={e => setConductorGasolinaNombre(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white font-bold outline-none focus:border-blue-500"
-                      required
-                    />
-                  </div>
-                )}
+                      </select>
+                      {personas.length === 0 && (
+                        <p className="text-[11px] text-amber-300 mt-1">Este bolo ya no tiene personas asignadas a rutas.</p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div>
                   <label className="text-xs text-zinc-400 block mb-1 font-bold">Kilómetros realizados:</label>
@@ -6057,21 +6091,12 @@ export default function CharangaSaraoApp() {
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs text-zinc-400 block mb-1 font-bold">Bolo / Destino (Opcional):</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Cuéllar"
-                    value={destinoGasolina}
-                    onChange={e => setDestinoGasolina(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-blue-500"
-                  />
-                </div>
+
 
                 {kmGasolina && !isNaN(parseFloat(kmGasolina)) && parseFloat(kmGasolina) > 0 && (
                   <div className="p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-xl text-center">
                     <span className="text-xs text-zinc-300 block">
-                      Importe para <strong>{esAdmin ? (conductorGasolinaNombre || '...') : usuarioActual.nombre}</strong> ({parseFloat(kmGasolina)} km × 0,20 €):
+                      Importe para <strong>{conductorGasolinaNombre || '...'}</strong> ({parseFloat(kmGasolina)} km × 0,20 €):
                     </span>
                     <span className="text-lg text-blue-400 font-black">
                       {(parseFloat(kmGasolina) * TARIFA_KM).toFixed(2)} €
