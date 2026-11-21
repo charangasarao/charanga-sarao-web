@@ -750,7 +750,7 @@ export default function CharangaSaraoApp() {
 
     const instPrincipal = instrumentosSeleccionados[0];
     const matchCuerda = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === instPrincipal)?.cuerda || 'Saxos';
-    const esAdminAcceso = pass === PASSWORD_ADMIN || nombreRegistro.trim().toLowerCase() === 'edgar';
+    const esAdminAcceso = pass === PASSWORD_ADMIN;
 
     const existente = miembros.find(m => m.nombre.trim().toLowerCase() === nombreRegistro.trim().toLowerCase());
     if (existente) {
