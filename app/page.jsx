@@ -1557,10 +1557,11 @@ export default function CharangaSaraoApp() {
       alert('Selecciona el bolo al que corresponde este gasto de gasolina.');
       return;
     }
-    const personasConRuta = [...new Set((boloGasolina.cochesAsignados || []).flatMap(c => [
-      c.conductor,
-      ...(c.pasajeros || [])
-    ]).filter(Boolean).map(nombre => nombre.trim()).filter(Boolean))];
+    const personasConRuta = [...new Set((boloGasolina.cochesAsignados || [])
+      .map(c => c.conductor)
+      .filter(Boolean)
+      .map(nombre => nombre.trim())
+      .filter(Boolean))];
     const personaGasto = conductorGasolinaNombre.trim() || (
       personasConRuta.some(nombre => nombre.toLocaleLowerCase('es') === usuarioActual.nombre?.trim().toLocaleLowerCase('es'))
         ? usuarioActual.nombre
@@ -6051,13 +6052,14 @@ export default function CharangaSaraoApp() {
 
                 {boloSeleccionadoGasolina && (() => {
                   const bolo = bolos.find(b => String(b.id) === String(boloSeleccionadoGasolina));
-                  const personas = [...new Set((bolo?.cochesAsignados || []).flatMap(c => [
-                    c.conductor,
-                    ...(c.pasajeros || [])
-                  ]).filter(Boolean).map(nombre => nombre.trim()).filter(Boolean))];
+                  const personas = [...new Set((bolo?.cochesAsignados || [])
+                    .map(c => c.conductor)
+                    .filter(Boolean)
+                    .map(nombre => nombre.trim())
+                    .filter(Boolean))];
                   return (
                     <div>
-                      <label className="text-xs text-zinc-400 block mb-1 font-bold">Persona con ruta en este bolo:</label>
+                      <label className="text-xs text-zinc-400 block mb-1 font-bold">Conductor con coche en este bolo:</label>
                       <select
                         value={conductorGasolinaNombre}
                         onChange={e => setConductorGasolinaNombre(e.target.value)}
