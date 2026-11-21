@@ -73,11 +73,22 @@ test("notifica cambios de fecha, horas y vestuario solo para bolos confirmados",
 test("al desconvocar a un músico, el aviso push llega solo a esa persona", () => {
   const event = confirmedEvent({ id: "bolo-55" });
   const previousMembers = [
-    { id: "musico-1", nombre: "Ana", disponibilidadBolos: { "bolo-55": { estado: "puedo" } } },
-    { id: "musico-2", nombre: "Luis", disponibilidadBolos: { "bolo-55": { estado: "puedo" } } },
+    {
+      id: "musico-1",
+      nombre: "Ana",
+      disponibilidadBolos: { "bolo-55": { estado: "puedo" } },
+    },
+    {
+      id: "musico-2",
+      nombre: "Luis",
+      disponibilidadBolos: { "bolo-55": { estado: "puedo" } },
+    },
   ];
   const currentMembers = [
-    { ...previousMembers[0], disponibilidadBolos: { "bolo-55": { estado: "desconvocado" } } },
+    {
+      ...previousMembers[0],
+      disponibilidadBolos: { "bolo-55": { estado: "desconvocado" } },
+    },
     previousMembers[1],
   ];
 
@@ -91,15 +102,21 @@ test("al desconvocar a un músico, el aviso push llega solo a esa persona", () =
   assert.deepEqual(notifications[0].recipientIds, ["musico-1"]);
   assert.equal(notifications[0].payload.title, "Has sido desconvocado");
   assert.match(notifications[0].payload.body, /Pasacalles/);
-  assert.match(notifications[0].payload.body, /15\\/08\\/2027/);
-  assert.equal(notifications[0].payload.tag, "evento-bolo-55-desconvocado-musico-1");
+  assert.match(notifications[0].payload.body, /15\/08\/2027/);
+  assert.equal(
+    notifications[0].payload.tag,
+    "evento-bolo-55-desconvocado-musico-1",
+  );
 
   const notAUnconvocation = getCalendarNotifications(
     { bolos: [event], miembros: previousMembers },
     {
       bolos: [event],
       miembros: [
-        { ...previousMembers[0], disponibilidadBolos: { "bolo-55": { estado: "no" } } },
+        {
+          ...previousMembers[0],
+          disponibilidadBolos: { "bolo-55": { estado: "no" } },
+        },
         previousMembers[1],
       ],
     },
