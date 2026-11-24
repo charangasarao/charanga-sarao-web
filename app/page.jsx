@@ -2079,6 +2079,7 @@ export default function CharangaSaraoApp() {
       await setDoc(doc(db, 'charanga', 'datos_generales'), { vacaciones: nuevasVacaciones }, { merge: true });
       setVacaciones(nuevasVacaciones);
       setShowModalVacaciones(false);
+      setShowModalBolo(false);
     } catch (error) {
       console.error('Error guardando vacaciones:', error);
       alert('No se pudieron guardar las vacaciones. Inténtalo de nuevo.');
@@ -5433,6 +5434,18 @@ export default function CharangaSaraoApp() {
                   ))
                 )}
               </div>
+
+              {esAdmin && vacaciones.length > 0 && (
+                <div className="border-t border-zinc-800 pt-3 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">Vacaciones registradas</p>
+                  {vacaciones.map(v => (
+                    <div key={v.id} className="flex items-center justify-between gap-2 rounded-xl bg-zinc-950 border border-zinc-800 px-3 py-2 text-xs">
+                      <div><p className="font-bold text-white">{v.nombre}</p><p className="text-zinc-500">{v.fechaInicio} – {v.fechaFin}</p></div>
+                      <button type="button" onClick={() => eliminarVacaciones(v.id)} title="Eliminar vacaciones" aria-label="Eliminar vacaciones" className="p-1.5 rounded-lg text-zinc-500 hover:text-red-300 hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="flex justify-end pt-2">
                 <button
