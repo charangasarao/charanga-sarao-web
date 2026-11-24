@@ -562,6 +562,56 @@ export default function CharangaSaraoApp() {
     else seleccionarPestanaInferior(notificacion.destino || 'bolos');
   };
 
+  const enviarNotificacionACuerda = async ({ titulo, mensaje, rolesCuerda }) => {
+    const rolesObjetivo = [...new Set((rolesCuerda || []).filter(Boolean))];
+    if (rolesObjetivo.length === 0) return;
+
+    const destinatarios = miembros
+      .filter(miembro => (miembro.roles || []).some(rol => rolesObjetivo.includes(rol)))
+      .map(miembro => String(miembro.id))
+      .filter(Boolean);
+
+    if (destinatarios.length === 0) return;
+
+    await guardarNotificacionesBandeja({
+      titulo,
+      mensaje,
+      tipo: 'personal',
+      destinatarios,
+      destino: 'bolos'
+    });
+
+    try {
+      const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
+      const destinatariosSet = new Set(destinatarios);
+      const tokens = [...new Set(
+        snapshot.docs
+          .filter(docSnap => destinatariosSet.has(String(docSnap.data()?.userId)))
+          .map(docSnap => docSnap.data()?.token)
+          .filter(token => typeof token === 'string' && token.trim())
+          .map(token => token.trim())
+      )];
+
+      for (let index = 0; index < tokens.length; index += 500) {
+        const response = await fetch('/api/enviar-notificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo,
+            mensaje,
+            tokens: tokens.slice(index, index + 500)
+          })
+        });
+        const result = await response.json();
+        if (!response.ok || result.success !== true) {
+          throw new Error(result.error || 'No se pudo enviar la notificación.');
+        }
+      }
+    } catch (error) {
+      console.error('Error enviando la notificación de vacaciones a la cuerda:', error);
+    }
+  };
+
   const enviarNotificacionAUsuarios = async ({ titulo, mensaje }) => {
     try {
       await guardarNotificacionesBandeja({ titulo, mensaje, tipo: 'general' });
@@ -2080,6 +2130,11 @@ export default function CharangaSaraoApp() {
       setVacaciones(nuevasVacaciones);
       setShowModalVacaciones(false);
       setShowModalBolo(false);
+      await enviarNotificacionACuerda({
+        titulo: 'Nuevas vacaciones en tu cuerda',
+        mensaje: `${usuarioActual.nombre} ha añadido vacaciones del ${fechaInicioVacaciones} al ${fechaFinVacaciones}.`,
+        rolesCuerda: rolesCuerdaUsuario
+      });
     } catch (error) {
       console.error('Error guardando vacaciones:', error);
       alert('No se pudieron guardar las vacaciones. Inténtalo de nuevo.');
