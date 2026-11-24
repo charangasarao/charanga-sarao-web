@@ -3072,8 +3072,6 @@ export default function CharangaSaraoApp() {
                   />
                 </div>
 
-                </>
-                )}
                 <div className="flex gap-2 pt-3">
                   <button
                     type="submit"
@@ -5864,6 +5862,8 @@ export default function CharangaSaraoApp() {
                   </div>
                 )}
 
+                </>
+                )}
                 <div className="flex gap-2 pt-3">
                   <button
                     type="submit"
