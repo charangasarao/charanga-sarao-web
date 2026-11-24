@@ -4155,6 +4155,8 @@ export default function CharangaSaraoApp() {
                                 seleccionarBolo(bolosDelDia[0].id);
                               } else if (esGestorBolos) {
                                 abrirModalParaFecha(fechaStr);
+                              } else {
+                                abrirModalVacaciones(fechaStr);
                               }
                             }}
                             className={`min-h-[115px] p-2.5 rounded-2xl border flex flex-col justify-between transition group relative cursor-pointer ${
