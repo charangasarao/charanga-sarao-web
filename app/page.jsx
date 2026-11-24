@@ -523,7 +523,7 @@ export default function CharangaSaraoApp() {
     }
   };
 
-  const guardarNotificacionesBandeja = async ({ titulo, mensaje, tipo = 'general', destinatarios = null, destino = 'bolos', boloId = null }) => {
+  const guardarNotificacionesBandeja = async ({ titulo, mensaje, tipo = 'general', destinatarios = null, destino = 'bolos', boloId = null, fechaInicio = null, fechaFin = null }) => {
     const receptores = destinatarios || miembros.map(m => m.id).filter(Boolean);
     if (!receptores.length) return;
     const creadaEn = new Date().toISOString();
@@ -531,7 +531,7 @@ export default function CharangaSaraoApp() {
       await Promise.all(receptores.map(async receptorId => {
         const notificacionId = `notif-${receptorId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         await setDoc(doc(db, 'notificaciones', notificacionId), {
-          receptorId: String(receptorId), titulo, mensaje, tipo, destino, boloId: boloId ?? null,
+          receptorId: String(receptorId), titulo, mensaje, tipo, destino, boloId: boloId ?? null, fechaInicio, fechaFin,
           creadaEn, leida: false
         });
       }));
@@ -559,6 +559,7 @@ export default function CharangaSaraoApp() {
     if (!notificacion.leida) await marcarNotificacionLeida(notificacion, true);
     setNotificacionesAbiertas(false);
     if (notificacion.boloId) seleccionarBolo(notificacion.boloId);
+    else if (notificacion.destino === 'calendario') seleccionarPestanaInferior('bolos');
     else seleccionarPestanaInferior(notificacion.destino || 'bolos');
   };
 
@@ -578,7 +579,9 @@ export default function CharangaSaraoApp() {
       mensaje,
       tipo: 'personal',
       destinatarios,
-      destino: 'bolos'
+      destino: 'calendario',
+      fechaInicio: mensaje.match(/del (\d{4}-\d{2}-\d{2}) al /)?.[1] || null,
+      fechaFin: mensaje.match(/ al (\d{4}-\d{2}-\d{2})\./)?.[1] || null
     });
 
     try {
