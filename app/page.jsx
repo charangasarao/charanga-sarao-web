@@ -2038,16 +2038,19 @@ export default function CharangaSaraoApp() {
   };
 
   const abrirModalParaFecha = (fechaStr) => {
-    if (!esGestorBolos) return;
-    setTipoCreacionEvento('confirmado');
+    setTipoCreacionEvento(esGestorBolos ? 'confirmado' : 'vacaciones');
     setNuevaFechaBolo(fechaStr);
+    setFechaInicioVacaciones(fechaStr);
+    setFechaFinVacaciones(fechaStr);
     setShowModalBolo(true);
   };
 
   const abrirModalVacaciones = (fechaStr) => {
+    setTipoCreacionEvento('vacaciones');
+    setNuevaFechaBolo(fechaStr);
     setFechaInicioVacaciones(fechaStr);
     setFechaFinVacaciones(fechaStr);
-    setShowModalVacaciones(true);
+    setShowModalBolo(true);
   };
 
   const guardarVacaciones = async (e) => {
@@ -3068,6 +3071,8 @@ export default function CharangaSaraoApp() {
                   />
                 </div>
 
+                </>
+                )}
                 <div className="flex gap-2 pt-3">
                   <button
                     type="submit"
@@ -4150,15 +4155,7 @@ export default function CharangaSaraoApp() {
                         return (
                           <div
                             key={diaNum}
-                            onClick={() => {
-                              if (bolosDelDia.length > 0) {
-                                seleccionarBolo(bolosDelDia[0].id);
-                              } else if (esGestorBolos) {
-                                abrirModalParaFecha(fechaStr);
-                              } else {
-                                abrirModalVacaciones(fechaStr);
-                              }
-                            }}
+                            onClick={() => abrirModalParaFecha(fechaStr)}
                             className={`min-h-[115px] p-2.5 rounded-2xl border flex flex-col justify-between transition group relative cursor-pointer ${
                               tieneConfirmado 
                                 ? 'bg-green-500/15 border-green-500/80 hover:bg-green-500/25' 
@@ -4176,31 +4173,14 @@ export default function CharangaSaraoApp() {
                                 {diaNum}
                               </span>
                               <div className="flex items-center gap-1">
-                                <button type="button" onClick={(e) => { e.stopPropagation(); abrirModalVacaciones(fechaStr); }} className="text-[10px] text-red-300 bg-red-500/15 hover:bg-red-500 hover:text-white rounded-lg px-1.5 py-0.5 transition font-black" title="Añadir vacaciones">Vac.</button>
-                              {esGestorBolos && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    abrirModalParaFecha(fechaStr);
-                                  }}
-                                  className="text-[11px] text-green-400 bg-green-500/20 hover:bg-green-500 hover:text-black rounded-lg px-1.5 py-0.5 transition font-black"
-                                  title="Añadir en este día"
-                                >
-                                  +
-                                </button>
-                              )}
+                                {esGestorBolos && <span className="text-[9px] text-zinc-600 font-bold">+</span>}
                               </div>
                             </div>
 
                             <div className="space-y-1 mt-1">
                               {vacacionesDelDia.map(v => (
-                                <div key={v.id} className="px-1.5 py-1 rounded-md bg-red-600 text-white shadow text-left min-w-0">
-                                  <p className="text-[10px] font-black leading-tight break-words">Vacaciones</p>
-                                  <p className="text-[9px] font-bold leading-tight mt-0.5 break-words">{v.nombre}</p>
-                                  {(String(v.usuarioId) === String(usuarioActual?.id) || esAdmin) && (
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); eliminarVacaciones(v.id); }} className="text-[9px] underline font-bold mt-0.5">Eliminar</button>
-                                  )}
+                                <div key={v.id} className="px-1 py-0.5 rounded bg-red-500/15 border border-red-500/20 text-red-200 text-left min-w-0">
+                                  <p className="text-[9px] font-semibold leading-tight break-words">{v.nombre} · Vacaciones</p>
                                 </div>
                               ))}
                               {bolosDelDia.map(b => {
@@ -5666,32 +5646,42 @@ export default function CharangaSaraoApp() {
         )}
 
         {/* MODAL AÑADIR DESDE EL CALENDARIO */}
-        {showModalBolo && esGestorBolos && (
+        {showModalBolo && (esGestorBolos || tipoCreacionEvento === 'vacaciones') && (
           <div className="sarao-bolo-modal-overlay fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className={`sarao-bolo-modal bg-zinc-900 border rounded-3xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto ${
-              tipoCreacionEvento === 'ensayo' 
-                ? 'border-cyan-400/50' 
-                : tipoCreacionEvento === 'presupuestado' 
-                  ? 'border-amber-500/50' 
-                  : 'border-green-500/40'
+              tipoCreacionEvento === 'vacaciones'
+                ? 'border-red-500/50'
+                : tipoCreacionEvento === 'ensayo'
+                  ? 'border-cyan-400/50'
+                  : tipoCreacionEvento === 'presupuestado'
+                    ? 'border-amber-500/50'
+                    : 'border-green-500/40'
             }`}>
               <h3 className="sarao-bolo-modal-title text-lg font-black text-white mb-1">
-                {tipoCreacionEvento === 'ensayo'
-                  ? 'Añadir Nuevo Ensayo'
-                  : tipoCreacionEvento === 'presupuestado'
-                    ? 'Añadir Nuevo Presupuesto de Bolo'
-                    : 'Añadir Nuevo Bolo'}
+                {tipoCreacionEvento === 'vacaciones'
+                  ? 'Añadir vacaciones'
+                  : tipoCreacionEvento === 'ensayo'
+                    ? 'Añadir Nuevo Ensayo'
+                    : tipoCreacionEvento === 'presupuestado'
+                      ? 'Añadir Nuevo Presupuesto de Bolo'
+                      : 'Añadir Nuevo Bolo'}
               </h3>
               <p className="sarao-bolo-modal-description text-xs text-zinc-400 mb-3">
-                {tipoCreacionEvento === 'ensayo'
-                  ? 'El título será siempre "Ensayo" y se mostrará en azul turquesa.'
-                  : tipoCreacionEvento === 'presupuestado' 
-                    ? 'Aparecerá en color amarillo hasta que sea confirmado o rechazado.' 
-                    : 'Se añadirá en color verde como bolo confirmado.'}
+                {tipoCreacionEvento === 'vacaciones'
+                  ? 'Indica el primer y el último día de tus vacaciones.'
+                  : tipoCreacionEvento === 'ensayo'
+                    ? 'El título será siempre "Ensayo" y se mostrará en azul turquesa.'
+                    : tipoCreacionEvento === 'presupuestado'
+                      ? 'Aparecerá en color amarillo hasta que sea confirmado o rechazado.'
+                      : 'Se añadirá en color verde como bolo confirmado.'}
               </p>
 
               <form onSubmit={async (e) => {
                 e.preventDefault();
+                if (tipoCreacionEvento === 'vacaciones') {
+                  await guardarVacaciones(e);
+                  return;
+                }
                 if (!nuevoLugarBolo.trim() || !nuevaFechaBolo) return;
                 registrarSnapshot();
                 const esEns = tipoCreacionEvento === 'ensayo';
@@ -5736,7 +5726,8 @@ export default function CharangaSaraoApp() {
                 }
               }} className="space-y-3 sarao-bolo-form">
 
-                <div className="grid grid-cols-3 gap-1.5 p-1 bg-black rounded-xl border border-zinc-800">
+                {esGestorBolos && (
+                <div className="grid grid-cols-4 gap-1.5 p-1 bg-black rounded-xl border border-zinc-800">
                   <button
                     type="button"
                     onClick={() => setTipoCreacionEvento('confirmado')}
@@ -5764,8 +5755,34 @@ export default function CharangaSaraoApp() {
                   >
                     🔵 Ensayo
                   </button>
+                  <button type="button" onClick={() => setTipoCreacionEvento('vacaciones')} className={tipoCreacionEvento === 'vacaciones' ? 'py-1.5 rounded-lg text-[11px] font-black bg-red-500 text-white' : 'py-1.5 rounded-lg text-[11px] font-black text-zinc-400'}>
+                    🔴 Vacaciones
+                  </button>
                 </div>
-                
+                )}
+
+                {tipoCreacionEvento === 'vacaciones' ? (
+                  <div className="space-y-3">
+                    <label className="block text-[11px] font-bold text-red-300">Desde
+                      <input type="date" value={fechaInicioVacaciones} onChange={e => setFechaInicioVacaciones(e.target.value)} required className="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white" />
+                    </label>
+                    <label className="block text-[11px] font-bold text-red-300">Hasta
+                      <input type="date" min={fechaInicioVacaciones} value={fechaFinVacaciones} onChange={e => setFechaFinVacaciones(e.target.value)} required className="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white" />
+                    </label>
+                    <div className="border-t border-zinc-800 pt-2 space-y-1.5">
+                      <p className="text-[10px] font-black uppercase text-zinc-400">Mis periodos</p>
+                      {vacaciones.filter(v => String(v.usuarioId) === String(usuarioActual?.id)).map(v => (
+                        <div key={v.id} className="flex items-center justify-between gap-2 rounded-lg bg-black/60 px-2 py-1.5 text-[10px]">
+                          <span className="text-zinc-300">{v.fechaInicio} – {v.fechaFin}</span>
+                          <button type="button" onClick={() => eliminarVacaciones(v.id)} title="Eliminar vacaciones" aria-label="Eliminar vacaciones" className="p-1 rounded-md text-zinc-500 hover:text-red-300 hover:bg-red-500/10">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                <>
                 <div>
                   <label className="text-[11px] font-bold text-green-400 block mb-1">
                     {tipoCreacionEvento === 'ensayo' ? 'Lugar del Ensayo:' : 'Lugar del Bolo (Titular principal):'}
@@ -5845,7 +5862,7 @@ export default function CharangaSaraoApp() {
                           : 'bg-green-500 hover:bg-green-400'
                     }`}
                   >
-                    {tipoCreacionEvento === 'ensayo'
+                    {tipoCreacionEvento === 'vacaciones' ? 'Guardar vacaciones' : tipoCreacionEvento === 'ensayo'
                       ? 'Guardar Ensayo (Azul)'
                       : tipoCreacionEvento === 'presupuestado'
                         ? 'Guardar Presupuesto (Amarillo)'
