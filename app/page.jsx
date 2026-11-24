@@ -2057,7 +2057,13 @@ export default function CharangaSaraoApp() {
       alert('La fecha de fin no puede ser anterior a la fecha de inicio.');
       return;
     }
-    const nuevasVacaciones = [...vacaciones.filter(v => String(v.usuarioId) !== String(usuarioActual.id)), {
+    const haySolapamiento = vacaciones.some(v => String(v.usuarioId) === String(usuarioActual.id)
+      && fechaInicioVacaciones <= v.fechaFin && fechaFinVacaciones >= v.fechaInicio);
+    if (haySolapamiento) {
+      alert('Ya tienes unas vacaciones registradas que coinciden con alguna de esas fechas.');
+      return;
+    }
+    const nuevasVacaciones = [...vacaciones, {
       id: `vac-${usuarioActual.id}-${Date.now()}`,
       usuarioId: usuarioActual.id,
       nombre: usuarioActual.nombre,
@@ -4168,7 +4174,7 @@ export default function CharangaSaraoApp() {
                                 {diaNum}
                               </span>
                               <div className="flex items-center gap-1">
-                                <button type="button" onClick={(e) => { e.stopPropagation(); abrirModalVacaciones(fechaStr); }} className="text-[10px] text-red-300 bg-red-500/15 hover:bg-red-500 hover:text-white rounded-lg px-1.5 py-0.5 transition font-black" title="Añadir vacaciones">V</button>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); abrirModalVacaciones(fechaStr); }} className="text-[10px] text-red-300 bg-red-500/15 hover:bg-red-500 hover:text-white rounded-lg px-1.5 py-0.5 transition font-black" title="Añadir vacaciones">Vac.</button>
                               {esGestorBolos && (
                                 <button
                                   type="button"
