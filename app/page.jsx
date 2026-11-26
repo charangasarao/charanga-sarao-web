@@ -735,6 +735,14 @@ export default function CharangaSaraoApp() {
   const esConductor = tieneRolConductor || esAdmin;
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
   const esFacturador = usuarioActual?.roles?.includes('facturador') || esAdmin;
+  const nombreUsuarioNormalizado = String(usuarioActual?.nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('es');
+  const instrumentosUsuarioNormalizados = [
+    ...(usuarioActual?.instrumentos || []),
+    usuarioActual?.instrumento,
+    usuarioActual?.cuerda
+  ].filter(Boolean).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
+  const esDavidTrombon = nombreUsuarioNormalizado === 'david trombon'
+    || (nombreUsuarioNormalizado === 'david' && instrumentosUsuarioNormalizados.includes('trombon'));
   const esJefeCuerda = usuarioActual?.roles?.includes('jefe_cuerda');
   const puedeGestionarExtras = esAdmin || esJefeCuerda;
 
@@ -974,6 +982,17 @@ export default function CharangaSaraoApp() {
         }
       };
     });
+    setBolos(nuevosBolos);
+    await guardarEnNube(null, nuevosBolos, null);
+  };
+
+  const actualizarEstadoFacturaBolo = async (boloId, campo, valor) => {
+    if (!esDavidTrombon || !['facturaEmitida', 'facturaCobrada'].includes(campo)) return;
+    registrarSnapshot();
+    const nuevosBolos = bolos.map(b => String(b.id) === String(boloId)
+      ? { ...b, [campo]: valor === 'si' }
+      : b
+    );
     setBolos(nuevosBolos);
     await guardarEnNube(null, nuevosBolos, null);
   };
@@ -2803,7 +2822,7 @@ export default function CharangaSaraoApp() {
                         <span className={`block text-[10px] font-bold ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.fecha}</span>
                         <span className={`block mt-1 font-black truncate ${perdido ? 'line-through decoration-rose-400/70' : ''}`}>{bolo.lugar}</span>
                         <span className={`block mt-2 text-[10px] font-bold ${perdido ? 'text-rose-300' : pagado ? 'text-emerald-300' : 'text-zinc-400'}`}>
-                          {disponibilidad?.estado === 'no' ? 'No disponible'  : perdido ? 'No asistió' : pagado ? 'Pagado' : asistenciaManual && pago.asistio === true ? 'Realizado · pendiente' : disponibilidad?.estado === 'tal_vez' ? 'En duda' : 'Sin confirmar'}
+                          {disponibilidad?.estado === 'no' ? 'No disponible'  : perdido ? 'No asistió' : pagado ? 'Pagado' : asistenciaManual && pago.asistio === true ? 'Realizado · pendiente de cobrar' : disponibilidad?.estado === 'tal_vez' ? 'En duda' : 'Sin confirmar'}
                         </span>
                         {pago.asistio === true && (
                           <span className="block mt-1.5 space-y-0.5 text-[10px] text-zinc-300">
@@ -2829,6 +2848,47 @@ export default function CharangaSaraoApp() {
                 <div><p className="text-[10px] uppercase text-zinc-500 font-bold">Pendiente</p><p className="text-xl font-black text-amber-300">{resumenPerfil.pendiente.toFixed(2)} €</p></div>
               </div>
             </div>
+
+            {esDavidTrombon && (
+              <section className="bg-zinc-900 border border-cyan-500/30 rounded-3xl p-5 sm:p-6 space-y-4">
+                <div>
+                  <p className="text-[10px] uppercase font-black tracking-wider text-cyan-300">Seguimiento de facturación</p>
+                  <h3 className="text-2xl text-white mt-1" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>Bolos Factura</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Marca cuándo se ha emitido la factura y cuándo se ha recibido su pago. Este seguimiento es independiente del ingreso de la charanga en el bote y de los pagos individuales a músicos.</p>
+                </div>
+                {bolos.filter(b => b.conFactura === true && b.estadoBolo !== 'ensayo')
+                  .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || ''))).length === 0 ? (
+                  <p className="text-xs text-zinc-500 py-4 text-center">Todavía no hay bolos con factura.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {bolos.filter(b => b.conFactura === true && b.estadoBolo !== 'ensayo')
+                      .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')))
+                      .map(b => (
+                        <div key={b.id} className="rounded-2xl border border-zinc-800 bg-black/40 p-3.5 space-y-3">
+                          <div>
+                            <p className="text-sm font-black text-white">{b.titulo || b.lugar || 'Bolo'}</p>
+                            <p className="text-[11px] text-zinc-500">{b.fecha || 'Fecha sin definir'} · {b.lugar || 'Lugar sin definir'}</p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label className="text-[11px] font-bold text-zinc-300">
+                              Factura emitida
+                              <select value={b.facturaEmitida === true ? 'si' : 'no'} onChange={e => actualizarEstadoFacturaBolo(b.id, 'facturaEmitida', e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm font-black text-white outline-none focus:border-cyan-400">
+                                <option value="no">No</option><option value="si">Sí</option>
+                              </select>
+                            </label>
+                            <label className="text-[11px] font-bold text-zinc-300">
+                              Factura cobrada
+                              <select value={b.facturaCobrada === true ? 'si' : 'no'} onChange={e => actualizarEstadoFacturaBolo(b.id, 'facturaCobrada', e.target.value)} className="mt-1.5 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm font-black text-white outline-none focus:border-cyan-400">
+                                <option value="no">No</option><option value="si">Sí</option>
+                              </select>
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </section>
+            )}
 
             {esAdmin && (
               <div className="bg-zinc-900 border border-rose-500/30 rounded-3xl p-5 sm:p-6 space-y-3">
@@ -4260,7 +4320,7 @@ export default function CharangaSaraoApp() {
                     <h3 className="text-2xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>
                       ESTADO DE COBRO DE LOS BOLOS
                     </h3>
-                    <p className="text-xs text-zinc-400 mt-0.5">Consulta qué actuaciones están cobradas y cuáles siguen pendientes.</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">Distingue el ingreso recibido por la charanga en el bote del estado de las facturas y de los pagos individuales a músicos.</p>
                   </div>
                   <span className="text-xs text-zinc-500">{bolosConfirmados.length} bolos</span>
                 </div>
@@ -4275,10 +4335,18 @@ export default function CharangaSaraoApp() {
                             <div className="min-w-0">
                               <p className="text-sm font-bold text-white truncate">{b.titulo || b.lugar}</p>
                               <p className="text-xs text-zinc-500 mt-0.5">{b.fecha || 'Fecha sin definir'}{Number(b.presupuesto) > 0 ? ` · ${Number(b.presupuesto).toFixed(2)} €` : ''}</p>
+                              {b.conFactura === true && (
+                                <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold">
+                                  <span className={`rounded-md px-2 py-1 border ${b.facturaEmitida === true ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30'}`}>Factura emitida: {b.facturaEmitida === true ? 'Sí' : 'No'}</span>
+                                  <span className={`rounded-md px-2 py-1 border ${b.facturaCobrada === true ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30'}`}>Factura cobrada: {b.facturaCobrada === true ? 'Sí' : 'No'}</span>
+                                </div>
+                              )}
                             </div>
-                            <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] font-black uppercase ${cobrado ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}`}>
-                              {cobrado ? 'Cobrado' : 'Pendiente de cobrar'}
-                            </span>
+                            <div className="shrink-0 text-right">
+                              <span className={`inline-flex px-2.5 py-1 rounded-md text-[10px] font-black uppercase ${cobrado ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}`}>
+                                {cobrado ? 'Ingreso al bote recibido' : 'Ingreso al bote pendiente'}
+                              </span>
+                            </div>
                           </div>
                         );
                       })}
@@ -5709,6 +5777,8 @@ export default function CharangaSaraoApp() {
                   repertorio: esEns ? nuevoRepertorioEnsayo.trim() : '',
                   presupuesto: esEns ? 0 : (parseFloat(nuevoPresupuestoBolo) || 0),
                   conFactura: esEns ? false : nuevoConFacturaBolo,
+                  facturaEmitida: false,
+                  facturaCobrada: false,
                   vestuario: 'Por definir',
                   estadoBolo: tipoCreacionEvento,
                   cochesAsignados: [],
