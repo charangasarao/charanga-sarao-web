@@ -3687,7 +3687,7 @@ export default function CharangaSaraoApp() {
                               Roles generales: <strong className="text-zinc-300 uppercase">{(m.roles || []).filter(r => !ROLES_CUERDA.some(rc => rc.id === r)).join(', ') || '—'}</strong>
                             </p>
                             <p className="text-[11px] text-zinc-500 mt-0.5">
-                              Roles: <strong className="text-zinc-300 uppercase">{m.roles?.join(', ')}</strong>
+                              Cuerdas asignadas: <strong className="text-emerald-300">{ROLES_CUERDA.filter(r => m.roles?.includes(r.id)).map(r => r.label).join(', ') || 'Ninguna'}</strong>
                             </p>
                           </div>
 
