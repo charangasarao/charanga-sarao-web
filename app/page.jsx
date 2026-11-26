@@ -21,6 +21,14 @@ const CONFIG_CUERDAS = {
   'Percusión': { label: 'Percusión', color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/30', dot: '#e879f9' }
 };
 
+const ROLES_CUERDA = [
+  { id: 'cuerda_percusion', label: 'Percusión', cuerda: 'Percusión' },
+  { id: 'cuerda_trompetas', label: 'Trompetas', cuerda: 'Trompetas' },
+  { id: 'cuerda_saxos', label: 'Saxos', cuerda: 'Saxos' },
+  { id: 'cuerda_trombones', label: 'Trombones', cuerda: 'Trombones' },
+  { id: 'cuerda_tuba', label: 'Tuba', cuerda: 'Tuba' }
+];
+
 const CANCIONES = [
   {
     titulo: 'Terriblemente cruel',
@@ -1014,6 +1022,28 @@ export default function CharangaSaraoApp() {
       return m;
     });
     setMiembros(nuevaLista);
+    await guardarEnNube(nuevaLista, null, null);
+  };
+
+  const actualizarInstrumentosMiembro = async (miembroId, instrumentoAEliminar) => {
+    if (!esAdmin) return;
+    const miembro = miembros.find(m => String(m.id) === String(miembroId));
+    if (!miembro) return;
+    const instrumentosActualizados = (miembro.instrumentos || []).filter(inst => inst !== instrumentoAEliminar);
+    if (instrumentosActualizados.length === (miembro.instrumentos || []).length) return;
+    registrarSnapshot();
+    const instrumentoPrincipal = instrumentosActualizados[0];
+    const cuerdaPrincipal = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === instrumentoPrincipal)?.cuerda || (instrumentosActualizados.length ? miembro.cuerda : null);
+    const nuevaLista = miembros.map(m => String(m.id) === String(miembroId)
+      ? { ...m, instrumentos: instrumentosActualizados, cuerda: cuerdaPrincipal }
+      : m
+    );
+    setMiembros(nuevaLista);
+    if (String(usuarioActual?.id) === String(miembroId)) {
+      const actualizado = nuevaLista.find(m => String(m.id) === String(miembroId));
+      setUsuarioActual(actualizado);
+      localStorage.setItem('sarao_usuario_actual', JSON.stringify(actualizado));
+    }
     await guardarEnNube(nuevaLista, null, null);
   };
 
@@ -3640,7 +3670,22 @@ export default function CharangaSaraoApp() {
                               {m.cuerda}
                             </span>
                             <p className="font-bold text-base text-zinc-100 mt-1">{m.nombre}</p>
-                            <p className="text-xs text-zinc-400">Instrumentos: {m.instrumentos?.join(', ')}</p>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              <span className="text-xs text-zinc-400">Instrumentos:</span>
+                              {(m.instrumentos || []).length > 0 ? m.instrumentos.map(inst => (
+                                <span key={inst} className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 bg-black/40 px-2 py-1 text-[11px] text-zinc-200">
+                                  {inst}
+                                  {esAdmin && (
+                                    <button type="button" onClick={() => actualizarInstrumentosMiembro(m.id, inst)} title={`Quitar ${inst}`} aria-label={`Quitar ${inst} a ${m.nombre}`} className="text-rose-400 hover:text-rose-300">
+                                      <X className="w-3 h-3"/>
+                                    </button>
+                                  )}
+                                </span>
+                              )) : <span className="text-[11px] text-amber-300">Sin instrumentos asignados</span>}
+                            </div>
+                            <p className="text-[11px] text-zinc-500 mt-0.5">
+                              Roles generales: <strong className="text-zinc-300 uppercase">{(m.roles || []).filter(r => !ROLES_CUERDA.some(rc => rc.id === r)).join(', ') || '—'}</strong>
+                            </p>
                             <p className="text-[11px] text-zinc-500 mt-0.5">
                               Roles: <strong className="text-zinc-300 uppercase">{m.roles?.join(', ')}</strong>
                             </p>
@@ -3658,6 +3703,17 @@ export default function CharangaSaraoApp() {
                             <span className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
                               <Key className="w-3 h-3 text-rose-400"/> Asignar rol (solo admin):
                             </span>
+                            <span className="w-full text-[10px] font-black uppercase tracking-wide text-emerald-300 pt-1">Roles de cuerda (puedes asignar varios):</span>
+                            {ROLES_CUERDA.map(r => {
+                              const tiene = m.roles?.includes(r.id);
+                              return (
+                                <button key={r.id} type="button" onClick={() => toggleRolMiembro(m.id, r.id)}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border transition ${tiene ? 'bg-emerald-300 text-emerald-950 border-emerald-200' : 'bg-black/40 text-zinc-500 border-zinc-800 hover:text-zinc-300'}`}>
+                                  {r.label} {tiene ? '✓' : '+'}
+                                </button>
+                              );
+                            })}
+                            <span className="w-full text-[10px] font-black uppercase tracking-wide text-rose-300 pt-1">Permisos y gestión:</span>
                             {[
                               { id: 'bolos', label: 'Bolos' },
                               { id: 'conductor', label: 'Conductor' },
