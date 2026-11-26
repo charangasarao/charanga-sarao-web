@@ -320,6 +320,12 @@ export default function CharangaSaraoApp() {
   };
 
 
+  // Vacaciones personales
+  const [vacaciones, setVacaciones] = useState([]);
+  const [showModalVacaciones, setShowModalVacaciones] = useState(false);
+  const [fechaInicioVacaciones, setFechaInicioVacaciones] = useState('');
+  const [fechaFinVacaciones, setFechaFinVacaciones] = useState('');
+
   // Modales Bolos (Añadir, Editar, Eliminar)
   const [showModalBolo, setShowModalBolo] = useState(false);
   const [tipoCreacionEvento, setTipoCreacionEvento] = useState('confirmado'); // 'confirmado' | 'presupuestado' | 'ensayo'
@@ -427,6 +433,7 @@ export default function CharangaSaraoApp() {
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        setVacaciones(Array.isArray(data.vacaciones) ? data.vacaciones : []);
         setMiembros(data.miembros || []);
         if (data.bolos) setBolos(data.bolos);
         if (data.movimientosBote) setMovimientosBote(data.movimientosBote);
@@ -738,6 +745,14 @@ export default function CharangaSaraoApp() {
 
   // ROLES Y PERMISOS
   const esAdmin = usuarioActual?.roles?.includes('admin');
+
+  const ROLES_CUERDAS_VAC = ['percusion', 'trompetas', 'saxos', 'trombones', 'tuba'];
+  const rolesCuerdaUsuario = (usuarioActual?.roles || []).filter(r => ROLES_CUERDAS_VAC.includes(r));
+  const vacacionesVisibles = vacaciones.filter(v =>
+    esAdmin || usuarioActual?.roles?.includes('bolos') ||
+    String(v.usuarioId) === String(usuarioActual?.id) ||
+    (v.rolesCuerda || []).some(r => rolesCuerdaUsuario.includes(r))
+  );
   const esGestorBolos = usuarioActual?.roles?.includes('bolos') || esAdmin;
   const tieneRolConductor = usuarioActual?.roles?.includes('conductor');
   const esConductor = tieneRolConductor || esAdmin;
@@ -2088,11 +2103,120 @@ export default function CharangaSaraoApp() {
     alert(`Correo de facturación actualizado a: ${inputCorreoAdmin.trim() || '(Vacío)'}`);
   };
 
+  const abrirModalVacaciones = (fechaStr) => {
+    setFechaInicioVacaciones(fechaStr || '');
+    setFechaFinVacaciones(fechaStr || '');
+    setShowModalVacaciones(true);
+  };
+
   const abrirModalParaFecha = (fechaStr) => {
     if (!esGestorBolos) return;
     setTipoCreacionEvento('confirmado');
     setNuevaFechaBolo(fechaStr);
     setShowModalBolo(true);
+  };
+
+const enviarNotificacionACuerda = async ({ titulo, mensaje, rolesCuerda }) => {
+    const rolesObjetivo = [...new Set((rolesCuerda || []).filter(Boolean))];
+    if (rolesObjetivo.length === 0) return;
+
+    const destinatarios = miembros
+      .filter(miembro => (miembro.roles || []).some(rol => rolesObjetivo.includes(rol)))
+      .map(miembro => String(miembro.id))
+      .filter(Boolean);
+
+    if (destinatarios.length === 0) return;
+
+    await guardarNotificacionesBandeja({
+      titulo,
+      mensaje,
+      tipo: 'personal',
+      destinatarios,
+      destino: 'calendario',
+      fechaInicio: mensaje.match(/del (\d{4}-\d{2}-\d{2}) al /)?.[1] || null,
+      fechaFin: mensaje.match(/ al (\d{4}-\d{2}-\d{2})\./)?.[1] || null
+    });
+
+    try {
+      const snapshot = await getDocs(collection(db, 'tokens_notificaciones'));
+      const destinatariosSet = new Set(destinatarios);
+      const tokens = [...new Set(
+        snapshot.docs
+          .filter(docSnap => destinatariosSet.has(String(docSnap.data()?.userId)))
+          .map(docSnap => docSnap.data()?.token)
+          .filter(token => typeof token === 'string' && token.trim())
+          .map(token => token.trim())
+      )];
+
+      for (let index = 0; index < tokens.length; index += 500) {
+        const response = await fetch('/api/enviar-notificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            titulo,
+            mensaje,
+            tokens: tokens.slice(index, index + 500)
+          })
+        });
+        const result = await response.json();
+        if (!response.ok || result.success !== true) {
+          throw new Error(result.error || 'No se pudo enviar la notificación.');
+        }
+      }
+    } catch (error) {
+      console.error('Error enviando la notificación de vacaciones a la cuerda:', error);
+    }
+  };
+
+const guardarVacaciones = async (e) => {
+    e.preventDefault();
+    if (!usuarioActual?.id || !fechaInicioVacaciones || !fechaFinVacaciones) return;
+    if (fechaFinVacaciones < fechaInicioVacaciones) {
+      alert('La fecha de fin no puede ser anterior a la fecha de inicio.');
+      return;
+    }
+    const haySolapamiento = vacaciones.some(v => String(v.usuarioId) === String(usuarioActual.id)
+      && fechaInicioVacaciones <= v.fechaFin && fechaFinVacaciones >= v.fechaInicio);
+    if (haySolapamiento) {
+      alert('Ya tienes unas vacaciones registradas que coinciden con alguna de esas fechas.');
+      return;
+    }
+    const nuevasVacaciones = [...vacaciones, {
+      id: `vac-${usuarioActual.id}-${Date.now()}`,
+      usuarioId: usuarioActual.id,
+      nombre: usuarioActual.nombre,
+      rolesCuerda: rolesCuerdaUsuario,
+      fechaInicio: fechaInicioVacaciones,
+      fechaFin: fechaFinVacaciones,
+      creadaEn: new Date().toISOString()
+    }];
+    try {
+      await setDoc(doc(db, 'charanga', 'datos_generales'), { vacaciones: nuevasVacaciones }, { merge: true });
+      setVacaciones(nuevasVacaciones);
+      setShowModalVacaciones(false);
+      setShowModalBolo(false);
+      await enviarNotificacionACuerda({
+        titulo: 'Nuevas vacaciones en tu cuerda',
+        mensaje: `${usuarioActual.nombre} ha añadido vacaciones del ${fechaInicioVacaciones} al ${fechaFinVacaciones}.`,
+        rolesCuerda: rolesCuerdaUsuario
+      });
+    } catch (error) {
+      console.error('Error guardando vacaciones:', error);
+      alert('No se pudieron guardar las vacaciones. Inténtalo de nuevo.');
+    }
+  };
+
+const eliminarVacaciones = async (vacacionId) => {
+    const vacacion = vacaciones.find(v => v.id === vacacionId);
+    if (!vacacion || (String(vacacion.usuarioId) !== String(usuarioActual?.id) && !esAdmin)) return;
+    const nuevasVacaciones = vacaciones.filter(v => v.id !== vacacionId);
+    try {
+      await setDoc(doc(db, 'charanga', 'datos_generales'), { vacaciones: nuevasVacaciones }, { merge: true });
+      setVacaciones(nuevasVacaciones);
+    } catch (error) {
+      console.error('Error eliminando vacaciones:', error);
+      alert('No se pudieron eliminar las vacaciones.');
+    }
   };
 
   // CÁLCULO DE TOTALES BOTE
@@ -4275,6 +4399,7 @@ export default function CharangaSaraoApp() {
                         const mesFormateado = String(mesSeleccionado.mes + 1).padStart(2, '0');
                         const diaFormateado = String(diaNum).padStart(2, '0');
                         const fechaStr = `${mesSeleccionado.anio}-${mesFormateado}-${diaFormateado}`;
+                        const vacacionesDelDia = vacacionesVisibles.filter(v => v.fechaInicio <= fechaStr && v.fechaFin >= fechaStr);
                         const bolosDelDia = bolos
                   .filter(b => b.fecha === fechaStr)
                   .sort((a, b) => (a.horaInicio || '99:99').localeCompare(b.horaInicio || '99:99'));
@@ -4289,8 +4414,9 @@ export default function CharangaSaraoApp() {
                             onClick={() => {
                               if (bolosDelDia.length > 0) {
                                 seleccionarBolo(bolosDelDia[0].id);
-                              } else if (esGestorBolos) {
-                                abrirModalParaFecha(fechaStr);
+                              } else {
+                                if (esGestorBolos) abrirModalParaFecha(fechaStr);
+                                else abrirModalVacaciones(fechaStr);
                               }
                             }}
                             className={`min-h-[115px] p-2.5 rounded-2xl border flex flex-col justify-between transition group relative cursor-pointer ${
@@ -4309,6 +4435,10 @@ export default function CharangaSaraoApp() {
                               }`}>
                                 {diaNum}
                               </span>
+                              {!esGestorBolos && (
+                                <button type="button" onClick={e => { e.stopPropagation(); abrirModalVacaciones(fechaStr); }}
+                                  className="text-[10px] text-red-300 bg-red-500/15 rounded-lg px-1.5 py-0.5 font-black" title="Añadir vacaciones">VAC</button>
+                              )}
                               {esGestorBolos && (
                                 <button
                                   type="button"
@@ -4325,6 +4455,14 @@ export default function CharangaSaraoApp() {
                             </div>
 
                             <div className="space-y-1 mt-1">
+                              {vacacionesDelDia.map(v => (
+                                <div key={v.id} className="px-1.5 py-1 rounded-md bg-red-500/15 border border-red-500/40 text-red-200 text-left min-w-0">
+                                  <p className="text-[10px] font-bold leading-tight break-words">{v.nombre} · Vacaciones</p>
+                                  {(String(v.usuarioId) === String(usuarioActual?.id) || esAdmin) && (
+                                    <button type="button" onClick={e => { e.stopPropagation(); eliminarVacaciones(v.id); }} className="text-[9px] text-red-300 underline">Eliminar</button>
+                                  )}
+                                </div>
+                              ))}
                               {bolosDelDia.map(b => {
                                 const esPres = b.estadoBolo === 'presupuestado';
                                 const esEns = b.estadoBolo === 'ensayo';
@@ -5836,6 +5974,37 @@ export default function CharangaSaraoApp() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE VACACIONES */}
+        {showModalVacaciones && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+            <div className="bg-zinc-900 border border-red-500/40 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl">
+              <h3 className="text-lg font-black text-white mb-1">Añadir vacaciones</h3>
+              <p className="text-xs text-zinc-400 mb-4">Se mostrarán en rojo en el calendario para ti, tu cuerda y los responsables.</p>
+              <form onSubmit={guardarVacaciones} className="space-y-3">
+                <label className="block text-xs text-zinc-300 font-bold">Desde
+                  <input type="date" required value={fechaInicioVacaciones} onChange={e => setFechaInicioVacaciones(e.target.value)} className="mt-1 w-full rounded-xl bg-zinc-800 border border-zinc-700 p-3 text-white"/>
+                </label>
+                <label className="block text-xs text-zinc-300 font-bold">Hasta
+                  <input type="date" required value={fechaFinVacaciones} onChange={e => setFechaFinVacaciones(e.target.value)} className="mt-1 w-full rounded-xl bg-zinc-800 border border-zinc-700 p-3 text-white"/>
+                </label>
+                <div className="flex gap-2 pt-2">
+                  <button type="button" onClick={() => setShowModalVacaciones(false)} className="flex-1 rounded-xl bg-zinc-800 p-3 text-white font-bold">Cancelar</button>
+                  <button type="submit" className="flex-1 rounded-xl bg-red-500 p-3 text-white font-black">Guardar vacaciones</button>
+                </div>
+              </form>
+              <div className="mt-4 border-t border-zinc-800 pt-3 space-y-2">
+                <p className="text-xs font-bold text-zinc-300">Mis periodos</p>
+                {vacaciones.filter(v => String(v.usuarioId) === String(usuarioActual?.id)).map(v => (
+                  <div key={v.id} className="flex items-center justify-between gap-2 text-xs text-zinc-300">
+                    <span>{v.fechaInicio} — {v.fechaFin}</span>
+                    <button type="button" onClick={() => eliminarVacaciones(v.id)} className="rounded-lg bg-red-500/15 px-2 py-1 text-red-300">Eliminar</button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
