@@ -2223,7 +2223,9 @@ const guardarVacaciones = async (e) => {
       alert('La fecha de fin no puede ser anterior a la fecha de inicio.');
       return;
     }
-    const haySolapamiento = vacaciones.some(v => v.id !== vacacionEditandoId && String(v.usuarioId) === String(usuarioActual.id)
+    const vacacionOriginal = vacaciones.find(v => v.id === vacacionEditandoId);
+    const propietarioId = vacacionOriginal?.usuarioId || usuarioActual.id;
+    const haySolapamiento = vacaciones.some(v => v.id !== vacacionEditandoId && String(v.usuarioId) === String(propietarioId)
       && fechaInicioVacaciones <= v.fechaFin && fechaFinVacaciones >= v.fechaInicio);
     if (haySolapamiento) {
       alert('Ya tienes unas vacaciones registradas que coinciden con alguna de esas fechas.');
@@ -2231,12 +2233,12 @@ const guardarVacaciones = async (e) => {
     }
     const registroVacaciones = {
       id: vacacionEditandoId || `vac-${usuarioActual.id}-${Date.now()}`,
-      usuarioId: usuarioActual.id,
-      nombre: usuarioActual.nombre,
-      rolesCuerda: rolesCuerdaUsuario,
+      usuarioId: vacacionOriginal?.usuarioId || usuarioActual.id,
+      nombre: vacacionOriginal?.nombre || usuarioActual.nombre,
+      rolesCuerda: vacacionOriginal?.rolesCuerda || rolesCuerdaUsuario,
       fechaInicio: fechaInicioVacaciones,
       fechaFin: fechaFinVacaciones,
-      creadaEn: new Date().toISOString()
+      creadaEn: vacacionOriginal?.creadaEn || new Date().toISOString()
     };
     const nuevasVacaciones = vacacionEditandoId
       ? vacaciones.map(v => v.id === vacacionEditandoId ? { ...v, ...registroVacaciones } : v)
