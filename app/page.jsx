@@ -2254,17 +2254,21 @@ export default function CharangaSaraoApp() {
   }, [autenticado, cargado, usuarioActual, pestañaActiva, encuestaEvaluadaUsuarioId, bolosSinDisponibilidad]);
 
   const exportarEstadisticasExcel = () => {
-    let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Bolos Confirmados;Total Bolos;Porcentaje (%);Total Facturado (€)\n";
+    let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Puede;En duda;No puede;Total Bolos;Porcentaje (%);Total Facturado (€)\n";
     miembros.forEach(m => {
       const totalBolos = bolosConfirmados.length;
       const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
-      const dispoCount = Object.entries(m.disponibilidadBolos || {})
-        .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
+      const estadosDisponibilidad = Object.entries(m.disponibilidadBolos || {})
+        .filter(([bId]) => idsConfirmados.has(String(bId)))
+        .map(([, v]) => v?.estado);
+      const dispoCount = estadosDisponibilidad.filter(estado => estado === 'puedo').length;
+      const dudaCount = estadosDisponibilidad.filter(estado => estado === 'tal_vez').length;
+      const noPuedeCount = estadosDisponibilidad.filter(estado => estado === 'no').length;
       const porcentaje = totalBolos > 0 ? Math.round((dispoCount / totalBolos) * 100) : 0;
       const facturadoM = facturas
         .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
         .reduce((acc, f) => acc + obtenerImporteFactura(f), 0);
-      csvContent += `${m.nombre};${m.instrumentos.join(', ')};${m.cuerda};${dispoCount};${totalBolos};${porcentaje}%;${facturadoM.toFixed(2)}\n`;
+      csvContent += `${m.nombre};${m.instrumentos.join(', ')};${m.cuerda};${dispoCount};${dudaCount};${noPuedeCount};${totalBolos};${porcentaje}%;${facturadoM.toFixed(2)}\n`;
     });
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -3593,10 +3597,12 @@ export default function CharangaSaraoApp() {
                         {miembros.map(m => {
                           const totalBolos = bolosConfirmados.length;
                           const idsConfirmados = new Set(bolosConfirmados.map(b => String(b.id)));
-                          const siVan = Object.entries(m.disponibilidadBolos || {})
-                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'puedo').length;
-                          const talVez = Object.entries(m.disponibilidadBolos || {})
-                            .filter(([bId, v]) => idsConfirmados.has(String(bId)) && v?.estado === 'tal_vez').length;
+                          const estadosDisponibilidad = Object.entries(m.disponibilidadBolos || {})
+                            .filter(([bId]) => idsConfirmados.has(String(bId)))
+                            .map(([, v]) => v?.estado);
+                          const siVan = estadosDisponibilidad.filter(estado => estado === 'puedo').length;
+                          const talVez = estadosDisponibilidad.filter(estado => estado === 'tal_vez').length;
+                          const noPuede = estadosDisponibilidad.filter(estado => estado === 'no').length;
                           const pct = totalBolos > 0 ? Math.round((siVan / totalBolos) * 100) : 0;
                           const totalFacturadoMiembro = facturas
                             .filter(f => f.usuarioId === m.id || f.usuarioNombre?.trim().toLowerCase() === m.nombre?.trim().toLowerCase())
@@ -3612,7 +3618,7 @@ export default function CharangaSaraoApp() {
                                 </span>
                               </td>
                               <td className="p-3">
-                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> / {totalBolos}
+                                <span className="text-emerald-400 font-bold">{siVan} sí</span> • <span className="text-amber-400">{talVez} duda</span> • <span className="text-rose-400">{noPuede} no</span> / {totalBolos}
                               </td>
                               <td className="p-3">
                                 <div className="flex items-center gap-2">
