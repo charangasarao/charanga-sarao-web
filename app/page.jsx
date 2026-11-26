@@ -4435,10 +4435,8 @@ const eliminarVacaciones = async (vacacionId) => {
                               }`}>
                                 {diaNum}
                               </span>
-                              {!esGestorBolos && (
-                                <button type="button" onClick={e => { e.stopPropagation(); abrirModalVacaciones(fechaStr); }}
-                                  className="text-[10px] text-red-300 bg-red-500/15 rounded-lg px-1.5 py-0.5 font-black" title="Añadir vacaciones">VAC</button>
-                              )}
+                              <button type="button" onClick={e => { e.stopPropagation(); abrirModalVacaciones(fechaStr); }}
+                                className="text-[10px] text-red-300 bg-red-500/15 hover:bg-red-500/25 rounded-lg px-1.5 py-0.5 font-black" title="Añadir vacaciones">VAC</button>
                               {esGestorBolos && (
                                 <button
                                   type="button"
