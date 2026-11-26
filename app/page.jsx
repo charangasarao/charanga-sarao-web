@@ -2132,7 +2132,7 @@ export default function CharangaSaraoApp() {
     setNuevaHoraFinBolo('');
     setNuevoPresupuestoBolo('');
     setNuevoConFacturaBolo(false);
-    setNuevoRepertorioBolo('');
+    setNuevoRepertorioEnsayo('');
     setShowModalBolo(true);
   };
 
