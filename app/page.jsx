@@ -748,12 +748,12 @@ export default function CharangaSaraoApp() {
 
   const ROLES_CUERDAS_VAC = ['percusion', 'trompetas', 'saxos', 'trombones', 'tuba'];
   const rolesCuerdaUsuario = (usuarioActual?.roles || []).filter(r => ROLES_CUERDAS_VAC.includes(r));
+  const esGestorBolos = usuarioActual?.roles?.includes('bolos') || esAdmin;
   const vacacionesVisibles = vacaciones.filter(v =>
-    esAdmin || usuarioActual?.roles?.includes('bolos') ||
+    esAdmin || esGestorBolos ||
     String(v.usuarioId) === String(usuarioActual?.id) ||
     (v.rolesCuerda || []).some(r => rolesCuerdaUsuario.includes(r))
   );
-  const esGestorBolos = usuarioActual?.roles?.includes('bolos') || esAdmin;
   const tieneRolConductor = usuarioActual?.roles?.includes('conductor');
   const esConductor = tieneRolConductor || esAdmin;
   const esTesorero = usuarioActual?.roles?.includes('tesorero') || esAdmin;
