@@ -286,6 +286,8 @@ export default function CharangaSaraoApp() {
   const [nuevaTareaBolo, setNuevaTareaBolo] = useState('');
   const [responsableTareaBolo, setResponsableTareaBolo] = useState('');
   const [boloDisponibilidadAbiertoId, setBoloDisponibilidadAbiertoId] = useState(null);
+  const [mostrarEncuestaDisponibilidad, setMostrarEncuestaDisponibilidad] = useState(false);
+  const [encuestaEvaluadaUsuarioId, setEncuestaEvaluadaUsuarioId] = useState(null);
   const [mesIndexActivo, setMesIndexActivo] = useState(0);
   const [calendarZoom, setCalendarZoom] = useState(1);
   const calendarPinchRef = React.useRef(null);
@@ -808,6 +810,8 @@ export default function CharangaSaraoApp() {
     setAutenticado(false);
     setPasswordInput('');
     setPestañaActiva('landing');
+    setMostrarEncuestaDisponibilidad(false);
+    setEncuestaEvaluadaUsuarioId(null);
   };
 
   const toggleInstrumentoRegistro = (nombreInst) => {
@@ -2177,6 +2181,23 @@ export default function CharangaSaraoApp() {
     .filter(b => b.estadoBolo === 'ensayo')
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
+  // Encuesta de disponibilidad al entrar: solo actuaciones próximas sin respuesta.
+  const bolosSinDisponibilidad = usuarioActual?.roles?.includes('extra')
+    ? []
+    : proximosBolosConfirmados.filter(b =>
+        !usuarioActual?.disponibilidadBolos?.[b.id]?.estado &&
+        !(b.desconvocados || []).map(String).includes(String(usuarioActual?.id))
+      );
+
+  useEffect(() => {
+    if (!autenticado || !cargado || !usuarioActual?.id || pestañaActiva !== 'landing') return;
+    const idUsuario = String(usuarioActual.id);
+    if (encuestaEvaluadaUsuarioId === idUsuario) return;
+
+    setEncuestaEvaluadaUsuarioId(idUsuario);
+    if (bolosSinDisponibilidad.length > 0) setMostrarEncuestaDisponibilidad(true);
+  }, [autenticado, cargado, usuarioActual, pestañaActiva, encuestaEvaluadaUsuarioId, bolosSinDisponibilidad]);
+
   const exportarEstadisticasExcel = () => {
     let csvContent = "data:text/csv;charset=utf-8,Músico;Instrumentos;Cuerda;Bolos Confirmados;Total Bolos;Porcentaje (%);Total Facturado (€)\n";
     miembros.forEach(m => {
@@ -2439,6 +2460,46 @@ export default function CharangaSaraoApp() {
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans pb-32 selection:bg-green-500 selection:text-black">
       <PushNotifications user={usuarioActual} />
+
+      {mostrarEncuestaDisponibilidad && pestañaActiva === 'landing' && bolosSinDisponibilidad.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="encuesta-disponibilidad-titulo">
+          <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-emerald-400/30 bg-zinc-950 shadow-2xl shadow-emerald-950/40">
+            <div className="border-b border-white/10 bg-gradient-to-r from-emerald-500/15 to-transparent p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">Charanga Sarao · Disponibilidad</p>
+                  <h2 id="encuesta-disponibilidad-titulo" className="mt-1 text-3xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>¡Confirma tus próximos bolos!</h2>
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-300">Todavía no has indicado si puedes asistir a estas actuaciones. Selecciona tu disponibilidad en cada una.</p>
+                </div>
+                <button type="button" onClick={() => setMostrarEncuestaDisponibilidad(false)} className="rounded-xl border border-white/10 bg-white/5 p-2 text-zinc-400 transition hover:bg-white/10 hover:text-white" aria-label="Cerrar encuesta">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="mt-3 text-[11px] font-bold text-emerald-200">{bolosSinDisponibilidad.length} {bolosSinDisponibilidad.length === 1 ? 'bolo pendiente' : 'bolos pendientes'}</p>
+            </div>
+            <div className="max-h-[60vh] space-y-3 overflow-y-auto p-4 sm:p-5">
+              {bolosSinDisponibilidad.map(b => (
+                <section key={b.id} className="rounded-2xl border border-white/10 bg-zinc-900/80 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-lg bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-300">{b.fecha}</span>
+                    <span className="text-[10px] text-zinc-500">{b.horaInicio || 'Hora por confirmar'}</span>
+                  </div>
+                  <h3 className="mt-2 text-xl text-white" style={{ fontFamily: "'Bangers', cursive, sans-serif" }}>{b.lugar || b.titulo || 'Actuación'}</h3>
+                  {b.titulo && <p className="mt-0.5 text-xs text-zinc-400">{b.titulo}</p>}
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <button type="button" onClick={() => { void setDisponibilidadBolo(b.id, 'puedo'); if (bolosSinDisponibilidad.length === 1) setMostrarEncuestaDisponibilidad(false); }} className="rounded-xl bg-emerald-400 px-2 py-2.5 text-[11px] font-black text-black transition hover:bg-emerald-300">🟢 Puedo</button>
+                    <button type="button" onClick={() => { void setDisponibilidadBolo(b.id, 'tal_vez'); if (bolosSinDisponibilidad.length === 1) setMostrarEncuestaDisponibilidad(false); }} className="rounded-xl bg-amber-400 px-2 py-2.5 text-[11px] font-black text-black transition hover:bg-amber-300">🟡 Tal vez</button>
+                    <button type="button" onClick={() => { void setDisponibilidadBolo(b.id, 'no'); if (bolosSinDisponibilidad.length === 1) setMostrarEncuestaDisponibilidad(false); }} className="rounded-xl bg-rose-500 px-2 py-2.5 text-[11px] font-black text-white transition hover:bg-rose-400">🔴 No puedo</button>
+                  </div>
+                </section>
+              ))}
+            </div>
+            <div className="border-t border-white/10 p-4 text-center">
+              <button type="button" onClick={() => setMostrarEncuestaDisponibilidad(false)} className="text-xs font-bold text-zinc-400 transition hover:text-white">Recordármelo más tarde</button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* BOTÓN DESHACER (SOLO ADMIN) */}
       {esAdmin && historialEstados.length > 0 && (
