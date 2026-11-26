@@ -327,6 +327,10 @@ export default function CharangaSaraoApp() {
   const [fechaFinVacaciones, setFechaFinVacaciones] = useState('');
   const [showModalAccionesFecha, setShowModalAccionesFecha] = useState(false);
   const [fechaAccionesSeleccionada, setFechaAccionesSeleccionada] = useState('');
+  const [showModalSelectorGestion, setShowModalSelectorGestion] = useState(false);
+  const [accionGestionCalendario, setAccionGestionCalendario] = useState('editar');
+  const [showModalGestionVacaciones, setShowModalGestionVacaciones] = useState(false);
+  const [vacacionEditandoId, setVacacionEditandoId] = useState(null);
 
   // Modales Bolos (Añadir, Editar, Eliminar)
   const [showModalBolo, setShowModalBolo] = useState(false);
@@ -2188,6 +2192,30 @@ const enviarNotificacionACuerda = async ({ titulo, mensaje, rolesCuerda }) => {
     }
   };
 
+const abrirGestionCalendario = (accion) => {
+    setAccionGestionCalendario(accion);
+    const vacacionesGestionables = vacaciones.filter(v => esAdmin || String(v.usuarioId) === String(usuarioActual?.id));
+    const hayBolos = bolos.length > 0;
+    const hayVacaciones = vacacionesGestionables.length > 0;
+    if (hayBolos && hayVacaciones) { setShowModalSelectorGestion(true); return; }
+    if (hayVacaciones) { setShowModalGestionVacaciones(true); return; }
+    if (hayBolos) {
+      if (accion === 'editar') setShowModalEditarBolos(true);
+      else setShowModalEliminarBolos(true);
+      return;
+    }
+    if (accion === 'editar') setShowModalEditarBolos(true);
+    else setShowModalEliminarBolos(true);
+  };
+
+  const abrirEdicionVacaciones = (vacacion) => {
+    setVacacionEditandoId(vacacion.id);
+    setFechaInicioVacaciones(vacacion.fechaInicio);
+    setFechaFinVacaciones(vacacion.fechaFin);
+    setShowModalGestionVacaciones(false);
+    setShowModalVacaciones(true);
+  };
+
 const guardarVacaciones = async (e) => {
     e.preventDefault();
     if (!usuarioActual?.id || !fechaInicioVacaciones || !fechaFinVacaciones) return;
@@ -2195,31 +2223,37 @@ const guardarVacaciones = async (e) => {
       alert('La fecha de fin no puede ser anterior a la fecha de inicio.');
       return;
     }
-    const haySolapamiento = vacaciones.some(v => String(v.usuarioId) === String(usuarioActual.id)
+    const haySolapamiento = vacaciones.some(v => v.id !== vacacionEditandoId && String(v.usuarioId) === String(usuarioActual.id)
       && fechaInicioVacaciones <= v.fechaFin && fechaFinVacaciones >= v.fechaInicio);
     if (haySolapamiento) {
       alert('Ya tienes unas vacaciones registradas que coinciden con alguna de esas fechas.');
       return;
     }
-    const nuevasVacaciones = [...vacaciones, {
-      id: `vac-${usuarioActual.id}-${Date.now()}`,
+    const registroVacaciones = {
+      id: vacacionEditandoId || `vac-${usuarioActual.id}-${Date.now()}`,
       usuarioId: usuarioActual.id,
       nombre: usuarioActual.nombre,
       rolesCuerda: rolesCuerdaUsuario,
       fechaInicio: fechaInicioVacaciones,
       fechaFin: fechaFinVacaciones,
       creadaEn: new Date().toISOString()
-    }];
+    };
+    const nuevasVacaciones = vacacionEditandoId
+      ? vacaciones.map(v => v.id === vacacionEditandoId ? { ...v, ...registroVacaciones } : v)
+      : [...vacaciones, registroVacaciones];
     try {
       await setDoc(doc(db, 'charanga', 'datos_generales'), { vacaciones: nuevasVacaciones }, { merge: true });
       setVacaciones(nuevasVacaciones);
       setShowModalVacaciones(false);
       setShowModalBolo(false);
-      await enviarNotificacionACuerda({
-        titulo: 'Nuevas vacaciones en tu cuerda',
-        mensaje: `${usuarioActual.nombre} ha añadido vacaciones del ${fechaInicioVacaciones} al ${fechaFinVacaciones}.`,
-        rolesCuerda: rolesCuerdaUsuario
-      });
+      if (!vacacionEditandoId) {
+        await enviarNotificacionACuerda({
+          titulo: 'Nuevas vacaciones en tu cuerda',
+          mensaje: `${usuarioActual.nombre} ha añadido vacaciones del ${fechaInicioVacaciones} al ${fechaFinVacaciones}.`,
+          rolesCuerda: rolesCuerdaUsuario
+        });
+      }
+      setVacacionEditandoId(null);
     } catch (error) {
       console.error('Error guardando vacaciones:', error);
       alert('No se pudieron guardar las vacaciones. Inténtalo de nuevo.');
@@ -4319,14 +4353,14 @@ const eliminarVacaciones = async (vacacionId) => {
                     <button 
                       onClick={() => {
                         setBoloEditandoId(null);
-                        setShowModalEditarBolos(true);
+                        abrirGestionCalendario('editar');
                       }} 
                       className="flex-1 sm:flex-none justify-center bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow transition"
                     >
                       <Edit3 className="w-3.5 h-3.5"/> ✎ Editar
                     </button>
                     <button 
-                      onClick={() => setShowModalEliminarBolos(true)} 
+                      onClick={() => abrirGestionCalendario('borrar')} 
                       className="flex-1 sm:flex-none justify-center bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-black text-xs px-3 py-2.5 rounded-xl flex items-center gap-1 shadow transition"
                     >
                       <Trash2 className="w-3.5 h-3.5"/> - Borrar
@@ -4455,9 +4489,7 @@ const eliminarVacaciones = async (vacacionId) => {
                               {vacacionesDelDia.map(v => (
                                 <div key={v.id} className="px-1.5 py-1 rounded-md bg-red-500/15 border border-red-500/40 text-red-200 text-left min-w-0">
                                   <p className="text-[10px] font-bold leading-tight break-words">{v.nombre} · Vacaciones</p>
-                                  {(String(v.usuarioId) === String(usuarioActual?.id) || esAdmin) && (
-                                    <button type="button" onClick={e => { e.stopPropagation(); eliminarVacaciones(v.id); }} className="text-[9px] text-red-300 underline">Eliminar</button>
-                                  )}
+
                                 </div>
                               ))}
                               {bolosDelDia.map(b => {
