@@ -2181,12 +2181,18 @@ export default function CharangaSaraoApp() {
     .filter(b => b.estadoBolo === 'ensayo')
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
+  // Usar el perfil sincronizado de Firestore para no mostrar respuestas antiguas del almacenamiento local.
+  const miembroParaEncuesta = miembros.find(m =>
+    String(m.id) === String(usuarioActual?.id) ||
+    m.nombre?.trim().toLowerCase() === usuarioActual?.nombre?.trim().toLowerCase()
+  ) || usuarioActual;
+
   // Encuesta de disponibilidad al entrar: solo actuaciones próximas sin respuesta.
-  const bolosSinDisponibilidad = usuarioActual?.roles?.includes('extra')
+  const bolosSinDisponibilidad = miembroParaEncuesta?.roles?.includes('extra')
     ? []
     : proximosBolosConfirmados.filter(b =>
-        !usuarioActual?.disponibilidadBolos?.[b.id]?.estado &&
-        !(b.desconvocados || []).map(String).includes(String(usuarioActual?.id))
+        !miembroParaEncuesta?.disponibilidadBolos?.[b.id]?.estado &&
+        !(b.desconvocados || []).map(String).includes(String(miembroParaEncuesta?.id))
       );
 
   useEffect(() => {
