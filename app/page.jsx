@@ -4974,7 +4974,7 @@ const eliminarVacaciones = async (vacacionId) => {
                               </button>
                             </>
                           )}
-                          {miDispo?.estado === 'puedo' && !esEnsayoActual && !esAdmin && !esPerfilExtra && (usuarioActual.instrumentos || []).length > 1 && (
+                          {miDispo?.estado === 'puedo' && !esEnsayoActual && !esPerfilExtra && (usuarioActual.instrumentos || []).length > 1 && (
                             <button
                               type="button"
                               onClick={() => {
@@ -4990,7 +4990,7 @@ const eliminarVacaciones = async (vacacionId) => {
                         </div>
                       </div>
 
-                      {miDispo?.estado === 'puedo' && !esEnsayoActual && !esAdmin && !esPerfilExtra && (usuarioActual.instrumentos || []).length > 1 && boloDisponibilidadAbiertoId === boloActual.id && (
+                      {miDispo?.estado === 'puedo' && !esEnsayoActual && !esPerfilExtra && (usuarioActual.instrumentos || []).length > 1 && boloDisponibilidadAbiertoId === boloActual.id && (
                         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 md:p-5 space-y-4 md:space-y-0 md:flex md:items-center md:justify-between md:gap-8">
                           <div className="min-w-0 flex-1">
                             <h4 className="text-sm md:text-base font-black text-emerald-300">Cambiar instrumento para este bolo</h4>
