@@ -4822,24 +4822,24 @@ export default function CharangaSaraoApp() {
                       </div>
 
                       {miDispo?.estado === 'puedo' && !esEnsayoActual && !esAdmin && !esPerfilExtra && (usuarioActual.instrumentos || []).length > 1 && boloDisponibilidadAbiertoId === boloActual.id && (
-                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3">
-                          <div>
-                            <h4 className="text-sm font-black text-emerald-300">Cambiar instrumento para este bolo</h4>
-                            <p className="text-xs text-zinc-400 mt-1">Este cambio solo afecta a esta actuación. Tus instrumentos habituales no se modificarán.</p>
+                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 md:p-5 space-y-4 md:space-y-0 md:flex md:items-center md:justify-between md:gap-8">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-sm md:text-base font-black text-emerald-300">Cambiar instrumento para este bolo</h4>
+                            <p className="text-xs md:text-sm text-zinc-400 mt-1">Este cambio solo afecta a esta actuación. Tus instrumentos habituales no se modificarán.</p>
                           </div>
-                          <div className="max-w-sm">
+                          <div className="w-full md:w-auto md:min-w-[18rem] md:max-w-sm">
                             <label className="text-xs text-zinc-300 block mb-1.5 font-bold">Instrumento con el que tocarás</label>
                             <select
                               value={instrumentoElegidoBolo || miDispo.instrumento || usuarioActual.instrumentos[0]}
                               onChange={e => setInstrumentoElegidoBolo(e.target.value)}
-                              className="w-full bg-black border border-emerald-500/50 text-emerald-200 rounded-xl p-2.5 text-sm font-bold"
+                              className="w-full bg-black border border-emerald-500/50 text-emerald-200 rounded-xl p-3 md:p-2.5 text-sm font-bold"
                             >
                               {usuarioActual.instrumentos.map(inst => (
                                 <option key={inst} value={inst}>{inst}</option>
                               ))}
                             </select>
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row gap-2 md:shrink-0">
                             <button
                               type="button"
                               onClick={() => {
