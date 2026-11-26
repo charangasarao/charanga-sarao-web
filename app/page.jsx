@@ -4831,6 +4831,8 @@ const eliminarVacaciones = async (vacacionId) => {
                   }
 
                   const miDispo = usuarioActual.disponibilidadBolos?.[boloActual.id];
+                  const cuerdaInstrumentoMiDispo = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === miDispo?.instrumento)?.cuerda || usuarioActual.cuerda;
+                  const confMiDispo = CONFIG_CUERDAS[cuerdaInstrumentoMiDispo] || CONFIG_CUERDAS['Saxos'];
 
                   if (!miDispo && !esAdmin && boloDisponibilidadAbiertoId !== boloActual.id) {
                     return (
@@ -4925,8 +4927,8 @@ const eliminarVacaciones = async (vacacionId) => {
                               </span>
                             )}
                             {miDispo ? (
-                              <span className="text-xs font-bold text-green-400 bg-green-500/10 px-3 py-1 rounded-full uppercase">
-                                Tu estado: <strong className="uppercase">{miDispo.estado.replace('_', ' ')}</strong> {miDispo.instrumento && `(${miDispo.instrumento})`}
+                              <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase ${confMiDispo.color} ${confMiDispo.bg}`}>
+                                Tu estado: <strong className="uppercase">{miDispo.estado.replace('_', ' ')}</strong> {miDispo.instrumento && `· ${miDispo.instrumento}`}
                               </span>
                             ) : <span className="text-xs font-bold text-rose-300 bg-rose-500/10 px-3 py-1 rounded-full uppercase">Vista de administración</span>}
                           </div>
@@ -5339,8 +5341,9 @@ const eliminarVacaciones = async (vacacionId) => {
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
                             {dispoPuedo.map(m => {
-                              const conf = CONFIG_CUERDAS[m.cuerda] || CONFIG_CUERDAS['Saxos'];
                               const dispM = m.disponibilidadBolos?.[boloActual.id];
+                              const cuerdaInstrumento = INSTRUMENTOS_DISPONIBLES.find(i => i.nombre === dispM?.instrumento)?.cuerda || m.cuerda;
+                              const conf = CONFIG_CUERDAS[cuerdaInstrumento] || CONFIG_CUERDAS['Saxos'];
                               const puedeGestionarEste = puedeEliminarAsistencia(m.cuerda);
 
                               return (
@@ -5349,10 +5352,10 @@ const eliminarVacaciones = async (vacacionId) => {
                                     <div className="flex items-start justify-between gap-3 min-w-0">
                                       <div className="min-w-0 flex-1">
                                       <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded" style={{ backgroundColor: conf.dot + '22', color: conf.dot }}>
-                                        {m.cuerda}
+                                        {cuerdaInstrumento}
                                       </span>
                                       <p className="font-bold text-sm text-zinc-100 mt-1 break-words">{m.nombre}</p>
-                                      <p className="text-xs text-emerald-300 font-bold leading-snug break-words">Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
+                                      <p className="text-xs font-bold leading-snug break-words" style={{ color: conf.dot }}>Toca: {dispM?.instrumento || m.instrumentos[0]}</p>
                                     </div>
                                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                                       <div className="flex items-center justify-end gap-1">
