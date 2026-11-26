@@ -4805,20 +4805,61 @@ export default function CharangaSaraoApp() {
                               </button>
                             </>
                           )}
-                          {miDispo && !esAdmin && !esPerfilExtra && (
+                          {miDispo?.estado === 'puedo' && !esEnsayoActual && !esAdmin && !esPerfilExtra && (usuarioActual.instrumentos || []).length > 1 && (
                             <button
+                              type="button"
                               onClick={() => {
                                 setInstrumentoElegidoBolo(miDispo.instrumento || usuarioActual.instrumentos?.[0] || '');
                                 setBoloDisponibilidadAbiertoId(boloActual.id);
                               }}
                               className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-xl transition"
                             >
-                              🔄 Cambiar asistencia
+                              🎷 Cambiar instrumento
                             </button>
                           )}
 
                         </div>
                       </div>
+
+                      {miDispo?.estado === 'puedo' && !esEnsayoActual && !esAdmin && !esPerfilExtra && (usuarioActual.instrumentos || []).length > 1 && boloDisponibilidadAbiertoId === boloActual.id && (
+                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3">
+                          <div>
+                            <h4 className="text-sm font-black text-emerald-300">Cambiar instrumento para este bolo</h4>
+                            <p className="text-xs text-zinc-400 mt-1">Este cambio solo afecta a esta actuación. Tus instrumentos habituales no se modificarán.</p>
+                          </div>
+                          <div className="max-w-sm">
+                            <label className="text-xs text-zinc-300 block mb-1.5 font-bold">Instrumento con el que tocarás</label>
+                            <select
+                              value={instrumentoElegidoBolo || miDispo.instrumento || usuarioActual.instrumentos[0]}
+                              onChange={e => setInstrumentoElegidoBolo(e.target.value)}
+                              className="w-full bg-black border border-emerald-500/50 text-emerald-200 rounded-xl p-2.5 text-sm font-bold"
+                            >
+                              {usuarioActual.instrumentos.map(inst => (
+                                <option key={inst} value={inst}>{inst}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void setDisponibilidadBolo(boloActual.id, 'puedo', instrumentoElegidoBolo || miDispo.instrumento || usuarioActual.instrumentos[0]);
+                              }}
+                              disabled={!instrumentoElegidoBolo || instrumentoElegidoBolo === miDispo.instrumento}
+                              className="rounded-xl bg-emerald-400 px-4 py-2 text-xs font-black text-black transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              Guardar instrumento
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setBoloDisponibilidadAbiertoId(null)}
+                              className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-zinc-800"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {!esEnsayoActual && puedeGestionarExtras && (
                         <div className="bg-gradient-to-r from-amber-500/10 to-zinc-900 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3">
