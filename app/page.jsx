@@ -325,6 +325,8 @@ export default function CharangaSaraoApp() {
   const [showModalVacaciones, setShowModalVacaciones] = useState(false);
   const [fechaInicioVacaciones, setFechaInicioVacaciones] = useState('');
   const [fechaFinVacaciones, setFechaFinVacaciones] = useState('');
+  const [showModalAccionesFecha, setShowModalAccionesFecha] = useState(false);
+  const [fechaAccionesSeleccionada, setFechaAccionesSeleccionada] = useState('');
 
   // Modales Bolos (Añadir, Editar, Eliminar)
   const [showModalBolo, setShowModalBolo] = useState(false);
@@ -2109,10 +2111,28 @@ export default function CharangaSaraoApp() {
     setShowModalVacaciones(true);
   };
 
-  const abrirModalParaFecha = (fechaStr) => {
+  const abrirSelectorFecha = (fechaStr) => {
+    setFechaAccionesSeleccionada(fechaStr);
+    setShowModalAccionesFecha(true);
+  };
+
+  const elegirAccionFecha = (accion) => {
+    const fecha = fechaAccionesSeleccionada;
+    setShowModalAccionesFecha(false);
+    if (accion === 'vacaciones') {
+      abrirModalVacaciones(fecha);
+      return;
+    }
     if (!esGestorBolos) return;
-    setTipoCreacionEvento('confirmado');
-    setNuevaFechaBolo(fechaStr);
+    setTipoCreacionEvento(accion);
+    setNuevaFechaBolo(fecha);
+    setNuevoLugarBolo('');
+    setNuevoTituloBolo('');
+    setNuevaHoraInicioBolo('');
+    setNuevaHoraFinBolo('');
+    setNuevoPresupuestoBolo('');
+    setNuevoConFacturaBolo(false);
+    setNuevoRepertorioBolo('');
     setShowModalBolo(true);
   };
 
@@ -4411,14 +4431,7 @@ const eliminarVacaciones = async (vacacionId) => {
                         return (
                           <div
                             key={diaNum}
-                            onClick={() => {
-                              if (bolosDelDia.length > 0) {
-                                seleccionarBolo(bolosDelDia[0].id);
-                              } else {
-                                if (esGestorBolos) abrirModalParaFecha(fechaStr);
-                                else abrirModalVacaciones(fechaStr);
-                              }
-                            }}
+                            onClick={() => abrirSelectorFecha(fechaStr)}
                             className={`min-h-[115px] p-2.5 rounded-2xl border flex flex-col justify-between transition group relative cursor-pointer ${
                               tieneConfirmado 
                                 ? 'bg-green-500/15 border-green-500/80 hover:bg-green-500/25' 
@@ -4435,21 +4448,7 @@ const eliminarVacaciones = async (vacacionId) => {
                               }`}>
                                 {diaNum}
                               </span>
-                              <button type="button" onClick={e => { e.stopPropagation(); abrirModalVacaciones(fechaStr); }}
-                                className="text-[10px] text-red-300 bg-red-500/15 hover:bg-red-500/25 rounded-lg px-1.5 py-0.5 font-black" title="Añadir vacaciones">VAC</button>
-                              {esGestorBolos && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    abrirModalParaFecha(fechaStr);
-                                  }}
-                                  className="text-[11px] text-green-400 bg-green-500/20 hover:bg-green-500 hover:text-black rounded-lg px-1.5 py-0.5 transition font-black"
-                                  title="Añadir en este día"
-                                >
-                                  +
-                                </button>
-                              )}
+
                             </div>
 
                             <div className="space-y-1 mt-1">
@@ -5972,6 +5971,27 @@ const eliminarVacaciones = async (vacacionId) => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* SELECTOR DE ACCIONES DEL CALENDARIO */}
+        {showModalAccionesFecha && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[65]">
+            <div className="bg-zinc-900 border border-emerald-500/30 rounded-3xl p-5 sm:p-6 max-w-sm w-full shadow-2xl">
+              <h3 className="text-lg font-black text-white">¿Qué quieres añadir?</h3>
+              <p className="text-xs text-zinc-400 mt-1 mb-4">Fecha seleccionada: {fechaAccionesSeleccionada}</p>
+              <div className="grid grid-cols-1 gap-2">
+                {esGestorBolos && (
+                  <>
+                    <button type="button" onClick={() => elegirAccionFecha('confirmado')} className="w-full rounded-xl bg-green-500/15 border border-green-500/30 p-3 text-left text-sm font-bold text-green-300">Añadir bolo</button>
+                    <button type="button" onClick={() => elegirAccionFecha('ensayo')} className="w-full rounded-xl bg-cyan-500/15 border border-cyan-500/30 p-3 text-left text-sm font-bold text-cyan-300">Añadir ensayo</button>
+                    <button type="button" onClick={() => elegirAccionFecha('presupuestado')} className="w-full rounded-xl bg-amber-500/15 border border-amber-500/30 p-3 text-left text-sm font-bold text-amber-300">Añadir presupuesto</button>
+                  </>
+                )}
+                <button type="button" onClick={() => elegirAccionFecha('vacaciones')} className="w-full rounded-xl bg-red-500/15 border border-red-500/30 p-3 text-left text-sm font-bold text-red-300">Añadir vacaciones</button>
+              </div>
+              <button type="button" onClick={() => setShowModalAccionesFecha(false)} className="mt-3 w-full rounded-xl bg-zinc-800 p-3 text-sm font-bold text-zinc-300">Cancelar</button>
             </div>
           </div>
         )}
