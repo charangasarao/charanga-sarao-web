@@ -5538,6 +5538,50 @@ const eliminarVacaciones = async (vacacionId) => {
           </div>
         )}
 
+
+        {/* SELECTOR ENTRE BOLOS Y VACACIONES PARA EDITAR / BORRAR */}
+        {showModalSelectorGestion && esGestorBolos && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[65]">
+            <div className="bg-zinc-900 border border-emerald-500/30 rounded-3xl p-5 sm:p-6 max-w-sm w-full shadow-2xl">
+              <h3 className="text-lg font-black text-white mb-1">{accionGestionCalendario === "editar" ? "¿Qué quieres editar?" : "¿Qué quieres borrar?"}</h3>
+              <p className="text-xs text-zinc-400 mb-4">Hay bolos y vacaciones registrados en el calendario.</p>
+              <div className="space-y-2">
+                <button type="button" onClick={() => { setShowModalSelectorGestion(false); if (accionGestionCalendario === "editar") { setBoloEditandoId(null); setShowModalEditarBolos(true); } else setShowModalEliminarBolos(true); }} className="w-full rounded-xl bg-amber-500/15 border border-amber-500/30 p-3 text-left text-sm font-bold text-amber-300">{accionGestionCalendario === "editar" ? "Editar bolos y ensayos" : "Borrar bolos y ensayos"}</button>
+                <button type="button" onClick={() => { setShowModalSelectorGestion(false); setShowModalGestionVacaciones(true); }} className="w-full rounded-xl bg-red-500/15 border border-red-500/30 p-3 text-left text-sm font-bold text-red-300">{accionGestionCalendario === "editar" ? "Editar vacaciones" : "Borrar vacaciones"}</button>
+              </div>
+              <button type="button" onClick={() => setShowModalSelectorGestion(false)} className="mt-3 w-full rounded-xl bg-zinc-800 p-3 text-sm font-bold text-zinc-300">Cancelar</button>
+            </div>
+          </div>
+        )}
+
+        {/* GESTIÓN DE VACACIONES */}
+        {showModalGestionVacaciones && esGestorBolos && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[65]">
+            <div className="bg-zinc-900 border border-red-500/40 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl max-h-[85vh] overflow-y-auto">
+              <h3 className="text-lg font-black text-white mb-1">{accionGestionCalendario === "editar" ? "Editar vacaciones" : "Borrar vacaciones"}</h3>
+              <p className="text-xs text-zinc-400 mb-4">Selecciona el periodo que quieres {accionGestionCalendario === "editar" ? "modificar" : "eliminar"}.</p>
+              <div className="space-y-2">
+                {vacaciones.filter(v => esAdmin || String(v.usuarioId) === String(usuarioActual?.id)).length === 0 ? (
+                  <p className="text-xs text-zinc-500 text-center py-4">No hay vacaciones que puedas gestionar.</p>
+                ) : vacaciones.filter(v => esAdmin || String(v.usuarioId) === String(usuarioActual?.id)).map(v => (
+                  <div key={v.id} className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 flex items-center justify-between gap-3 text-xs">
+                    <div className="min-w-0">
+                      <p className="font-bold text-white">{v.nombre || "Músico"}</p>
+                      <p className="text-zinc-400">{v.fechaInicio} — {v.fechaFin}</p>
+                    </div>
+                    {accionGestionCalendario === "editar" ? (
+                      <button type="button" onClick={() => abrirEdicionVacaciones(v)} className="shrink-0 rounded-xl bg-amber-500/20 px-3 py-2 font-bold text-amber-300">Editar</button>
+                    ) : (
+                      <button type="button" onClick={() => eliminarVacaciones(v.id)} className="shrink-0 rounded-xl bg-red-500/20 px-3 py-2 font-bold text-red-300">Borrar</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={() => setShowModalGestionVacaciones(false)} className="mt-4 w-full rounded-xl bg-zinc-800 p-3 text-sm font-bold text-zinc-300">Cerrar</button>
+            </div>
+          </div>
+        )}
+
         {/* MODAL PARA EDITAR BOLOS O ENSAYOS */}
         {showModalEditarBolos && esGestorBolos && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -6032,7 +6076,7 @@ const eliminarVacaciones = async (vacacionId) => {
         {showModalVacaciones && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
             <div className="bg-zinc-900 border border-red-500/40 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl">
-              <h3 className="text-lg font-black text-white mb-1">Añadir vacaciones</h3>
+              <h3 className="text-lg font-black text-white mb-1">{vacacionEditandoId ? "Editar vacaciones" : "Añadir vacaciones"}</h3>
               <p className="text-xs text-zinc-400 mb-4">Se mostrarán en rojo en el calendario para ti, tu cuerda y los responsables.</p>
               <form onSubmit={guardarVacaciones} className="space-y-3">
                 <label className="block text-xs text-zinc-300 font-bold">Desde
@@ -6042,19 +6086,11 @@ const eliminarVacaciones = async (vacacionId) => {
                   <input type="date" required value={fechaFinVacaciones} onChange={e => setFechaFinVacaciones(e.target.value)} className="mt-1 w-full rounded-xl bg-zinc-800 border border-zinc-700 p-3 text-white"/>
                 </label>
                 <div className="flex gap-2 pt-2">
-                  <button type="button" onClick={() => setShowModalVacaciones(false)} className="flex-1 rounded-xl bg-zinc-800 p-3 text-white font-bold">Cancelar</button>
-                  <button type="submit" className="flex-1 rounded-xl bg-red-500 p-3 text-white font-black">Guardar vacaciones</button>
+                  <button type="button" onClick={() => { setShowModalVacaciones(false); setVacacionEditandoId(null); }} className="flex-1 rounded-xl bg-zinc-800 p-3 text-white font-bold">Cancelar</button>
+                  <button type="submit" className="flex-1 rounded-xl bg-red-500 p-3 text-white font-black">{vacacionEditandoId ? "Guardar cambios" : "Guardar vacaciones"}</button>
                 </div>
               </form>
-              <div className="mt-4 border-t border-zinc-800 pt-3 space-y-2">
-                <p className="text-xs font-bold text-zinc-300">Mis periodos</p>
-                {vacaciones.filter(v => String(v.usuarioId) === String(usuarioActual?.id)).map(v => (
-                  <div key={v.id} className="flex items-center justify-between gap-2 text-xs text-zinc-300">
-                    <span>{v.fechaInicio} — {v.fechaFin}</span>
-                    <button type="button" onClick={() => eliminarVacaciones(v.id)} className="rounded-lg bg-red-500/15 px-2 py-1 text-red-300">Eliminar</button>
-                  </div>
-                ))}
-              </div>
+
             </div>
           </div>
         )}
